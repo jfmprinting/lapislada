@@ -17,9 +17,10 @@ import {
   LogOut,
   ChevronRight,
   User,
-  Shield,
-  Menu,
-  X,
+  Users,
+  GraduationCap,
+  Layers,
+  BookMarked,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import BottomNav from './BottomNav';
@@ -112,6 +113,31 @@ export default function AppShell({
           label: 'Karakter KAIH',
           href: '/kaih',
           icon: HeartHandshake,
+        },
+      ],
+    },
+    {
+      title: 'Master Data',
+      items: [
+        {
+          label: 'Data Siswa',
+          href: '/admin/siswa',
+          icon: GraduationCap,
+        },
+        {
+          label: 'Guru & PTK',
+          href: '/admin/guru',
+          icon: Users,
+        },
+        {
+          label: 'Kelas & Rombel',
+          href: '/admin/kelas',
+          icon: Layers,
+        },
+        {
+          label: 'Mata Pelajaran',
+          href: '/admin/mapel',
+          icon: BookMarked,
         },
       ],
     },

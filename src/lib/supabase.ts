@@ -85,6 +85,31 @@ export type Siswa = {
   nama_wali?: string | null;
   no_hp_wali?: string | null;
   alamat?: string | null;
+  created_at?: string;
+  kelas?: {
+    nama_kelas: string;
+  };
+};
+
+export type Kelas = {
+  id: string;
+  nama_kelas: string;
+  wali_kelas_id?: string | null;
+  tahun_ajaran: string;
+  created_at?: string;
+  wali_kelas?: {
+    id: string;
+    nama: string;
+    email?: string | null;
+    telepon?: string | null;
+  };
+};
+
+export type Mapel = {
+  id: string;
+  nama_mapel: string;
+  kkm: number;
+  created_at?: string;
 };
 
 export type Kehadiran = {
@@ -95,3 +120,4 @@ export type Kehadiran = {
   status: 'H' | 'S' | 'I' | 'A';
   keterangan?: string | null;
 };
+
