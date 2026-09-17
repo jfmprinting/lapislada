@@ -32,8 +32,9 @@ function LoginForm() {
         throw error;
       }
 
-      // Check role or redirect based on chosen role
-      if (role === 'orangtua') {
+      // Check role or redirect based on chosen role / metadata
+      const userRole = data.user?.user_metadata?.role || role;
+      if (userRole === 'orangtua') {
         router.push('/dashboard/orangtua');
       } else {
         router.push('/dashboard');
@@ -49,16 +50,16 @@ function LoginForm() {
   const fillDemo = (type: 'guru' | 'orangtua' | 'admin') => {
     if (type === 'guru') {
       setRole('guru');
-      setEmail('guru@sdnlatsari2.sch.id');
-      setPassword('guru123456');
+      setEmail('guru@demo.com');
+      setPassword('demo123');
     } else if (type === 'orangtua') {
       setRole('orangtua');
-      setEmail('ortu.ahmad@gmail.com');
-      setPassword('ortu123456');
+      setEmail('ortu@guru.com');
+      setPassword('demo123');
     } else {
       setRole('guru');
-      setEmail('admin@sdnlatsari2.sch.id');
-      setPassword('admin123456');
+      setEmail('admin@demo.com');
+      setPassword('demo123');
     }
   };
 
