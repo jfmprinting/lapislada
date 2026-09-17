@@ -1,7 +1,7 @@
 {
-  "name": "LAPIS LADA — Layanan Pintar untuk Sekolah Dasar",
+  "name": "LAPIS LADA — Layanan Pusat Informasi Sekolah Latsari Dua",
   "short_name": "LAPIS LADA",
-  "description": "Platform komunikasi sekolah dasar terpadu: Buku Penghubung Dua Arah, Kehadiran, dan Dokumen BOS",
+  "description": "Layanan Pusat Informasi Sekolah Latsari Dua: Buku Penghubung Dua Arah, Kehadiran, dan Dokumen BOS",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#922B21",

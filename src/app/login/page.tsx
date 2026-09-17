@@ -77,8 +77,8 @@ function LoginForm() {
           <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1A1A1A]">
             LAPIS LADA
           </h1>
-          <p className="text-xs text-[#6B6B6B] mt-0.5">
-            Layanan Pintar untuk Sekolah Dasar
+          <p className="text-xs text-[#6B6B6B] mt-0.5 font-medium">
+            Layanan Pusat Informasi Sekolah Latsari Dua
           </p>
         </div>
 

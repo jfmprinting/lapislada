@@ -24,7 +24,7 @@ export default function BottomNav({ role = 'guru' }: BottomNavProps) {
         { label: 'Beranda', href: '/dashboard', icon: Home },
         { label: 'Buku', href: '/buku-penghubung', icon: BookOpen },
         { label: 'Pengumuman', href: '/pengumuman', icon: Bell },
-        { label: 'Profil', href: role === 'admin' ? '/admin/profil-sekolah' : '/dashboard', icon: User },
+        { label: 'Profil', href: role === 'admin' ? '/admin/profil-sekolah' : '/', icon: User },
       ];
 
   return (
@@ -35,7 +35,7 @@ export default function BottomNav({ role = 'guru' }: BottomNavProps) {
           const isActive = pathname === item.href;
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
                 isActive

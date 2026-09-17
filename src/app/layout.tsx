@@ -3,8 +3,8 @@ import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 
 export const metadata: Metadata = {
-  title: "LAPIS LADA — Layanan Pintar untuk Sekolah Dasar",
-  description: "Platform manajemen komunikasi terpadu untuk Sekolah Dasar: Buku Penghubung Dua Arah, Kehadiran Siswa, Dokumen BOS, dan Informasi Sekolah.",
+  title: "LAPIS LADA — Layanan Pusat Informasi Sekolah Latsari Dua",
+  description: "Platform komunikasi terpadu: Layanan Pusat Informasi Sekolah Latsari Dua. Buku Penghubung Dua Arah, Kehadiran Siswa, dan Dokumen BOS.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

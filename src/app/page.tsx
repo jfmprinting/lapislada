@@ -308,6 +308,9 @@ export default function HomePage() {
             Didukung oleh{' '}
             <span className="font-bold text-[#922B21]">LAPIS LADA v2</span>
           </p>
+          <p className="text-[11px] text-[#6B6B6B]">
+            (Layanan Pusat Informasi Sekolah Latsari Dua)
+          </p>
         </footer>
       </main>
     </div>
