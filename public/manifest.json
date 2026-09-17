@@ -1,0 +1,24 @@
+{
+  "name": "LAPIS LADA — Layanan Pintar untuk Sekolah Dasar",
+  "short_name": "LAPIS LADA",
+  "description": "Platform komunikasi sekolah dasar terpadu: Buku Penghubung Dua Arah, Kehadiran, dan Dokumen BOS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#922B21",
+  "theme_color": "#922B21",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

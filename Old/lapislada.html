@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAPIS LADA — Penawaran Aplikasi | aidukasi.net</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red:        #C0392B;
+    --red-deep:   #922B21;
+    --red-light:  #F1948A;
+    --red-pale:   #FDEDEC;
+    --sand:       #F5F0E8;
+    --sand-mid:   #E8E0D0;
+    --ink:        #1A1A1A;
+    --ink-mid:    #3D3D3D;
+    --muted:      #6B6B6B;
+    --white:      #FFFFFF;
+    --border:     #DDD8CE;
+
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+    --r-sm: 6px;
+    --r-md: 12px;
+    --r-lg: 20px;
+
+    --max-w: 1060px;
+    --px: clamp(1.25rem, 5vw, 3rem);
+  }
+
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font-body); background: var(--sand); color: var(--ink); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--red-deep);
+    padding: 0.85rem var(--px);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .nav-brand { display: flex; align-items: center; gap: 0.6rem; }
+  .nav-logo {
+    width: 36px; height: 36px; border-radius: var(--r-sm);
+    background: var(--white); display: grid; place-items: center;
+    font-family: var(--font-display); font-size: 0.75rem; font-weight: 400;
+    color: var(--red-deep); letter-spacing: -0.5px; line-height: 1.1;
+    text-align: center; padding: 2px;
+  }
+  .nav-name { color: var(--white); font-weight: 600; font-size: 1rem; letter-spacing: -0.2px; }
+  .nav-name span { color: var(--red-light); font-weight: 300; }
+  .nav-links { display: flex; gap: 1.5rem; }
+  .nav-links a { color: rgba(255,255,255,0.65); font-size: 0.83rem; text-decoration: none; transition: color .2s; }
+  .nav-links a:hover { color: var(--white); }
+  .nav-cta {
+    background: var(--white); color: var(--red-deep); border: none;
+    padding: 0.5rem 1.2rem; border-radius: var(--r-sm);
+    font-family: var(--font-body); font-weight: 700; font-size: 0.83rem;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    transition: opacity .2s;
+  }
+  .nav-cta:hover { opacity: 0.88; }
+  @media (max-width: 640px) { .nav-links { display: none; } }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--red-deep);
+    padding: clamp(3.5rem,9vw,7rem) var(--px) clamp(2.5rem,6vw,5rem);
+    position: relative; overflow: hidden;
+  }
+  .hero-inner { max-width: var(--max-w); margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+  @media (max-width: 720px) { .hero-inner { grid-template-columns: 1fr; } .hero-visual { display: none; } }
+
+  .hero-left {}
+  .hero-eyebrow {
+    display: inline-block;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: .12em;
+    color: var(--red-light); margin-bottom: 1.25rem; text-transform: uppercase;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    color: var(--white); line-height: 1.05;
+    margin-bottom: 0.5rem;
+  }
+  .hero h1 em { color: var(--red-light); font-style: italic; }
+  .hero-full { font-family: var(--font-display); font-size: clamp(0.85rem,1.5vw,1rem); color: rgba(255,255,255,0.45); font-style: italic; margin-bottom: 1.75rem; }
+  .hero-desc { color: rgba(255,255,255,0.65); font-size: 0.95rem; line-height: 1.8; max-width: 440px; margin-bottom: 2rem; }
+  .hero-price {
+    display: inline-flex; flex-direction: column;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--r-md); padding: 1.25rem 1.75rem; margin-bottom: 1.75rem; gap: 0.15rem;
+  }
+  .price-label { font-size: 0.72rem; font-weight: 600; color: var(--red-light); letter-spacing: .06em; text-transform: uppercase; }
+  .price-amount { font-size: clamp(2rem,4vw,2.8rem); font-weight: 700; color: var(--white); letter-spacing: -1.5px; }
+  .price-note { font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .tag {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.6); font-size: 0.75rem; padding: 0.28rem 0.7rem;
+    border-radius: 100px;
+  }
+
+  /* Hero visual — modul grid */
+  .hero-visual { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+  .hv-card {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--r-md); padding: 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: 0.3rem;
+  }
+  .hv-card.accent { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.22); }
+  .hv-icon { font-size: 1.3rem; }
+  .hv-name { font-size: 0.8rem; font-weight: 600; color: var(--white); }
+  .hv-sub { font-size: 0.7rem; color: rgba(255,255,255,0.45); }
+
+  /* ── SHARED ── */
+  .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--px); }
+  .section { padding: clamp(3rem,7vw,5rem) 0; }
+  .bg-white { background: var(--white); }
+  .bg-sand { background: var(--sand); }
+  .divider { border: none; border-top: 1px solid var(--border); }
+
+  .section-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--red); margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.65rem,3.5vw,2.4rem);
+    color: var(--ink); line-height: 1.2; margin-bottom: 0.75rem;
+  }
+  .section-lead { color: var(--muted); max-width: 560px; font-size: 0.95rem; line-height: 1.8; margin-bottom: 2.5rem; }
+
+  /* ── MASALAH ── */
+  .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 0.75rem; }
+  .pain-card {
+    background: #FFF5F5; border: 1px solid #FDBEBE;
+    border-radius: var(--r-md); padding: 1.1rem 1.2rem;
+    display: flex; align-items: flex-start; gap: 0.7rem;
+  }
+  .pain-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
+  .pain-text { font-size: 0.855rem; color: var(--ink-mid); line-height: 1.55; }
+
+  .solution-banner {
+    margin-top: 2rem; background: var(--red-deep); border-radius: var(--r-lg);
+    padding: 1.75rem 2rem; color: var(--white);
+  }
+  .solution-banner strong { display: block; font-size: 1.05rem; margin-bottom: 0.4rem; font-family: var(--font-display); }
+  .solution-banner p { font-size: 0.9rem; color: rgba(255,255,255,0.7); line-height: 1.75; }
+
+  /* ── MODUL GRID ── */
+  .modul-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1rem; }
+  .modul-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 1.5rem;
+    transition: border-color .2s, box-shadow .2s;
+    position: relative; overflow: hidden;
+  }
+  .modul-card:hover { border-color: var(--red); box-shadow: 0 4px 20px rgba(192,57,43,0.1); }
+  .modul-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--red);
+  }
+  .modul-num {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: .08em;
+    color: var(--red); text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+  .modul-icon { font-size: 1.8rem; margin-bottom: 0.6rem; }
+  .modul-title { font-family: var(--font-display); font-size: 1.15rem; color: var(--ink); margin-bottom: 0.5rem; }
+  .modul-desc { font-size: 0.84rem; color: var(--muted); line-height: 1.65; margin-bottom: 1rem; }
+  .modul-features { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+  .modul-features li { font-size: 0.8rem; color: var(--ink-mid); display: flex; align-items: flex-start; gap: 0.5rem; }
+  .modul-features li::before { content: '✓'; color: var(--red); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .modul-card.kaih-card::before { background: var(--sand-mid); }
+  .modul-card.kaih-card .modul-num { color: var(--muted); }
+  .modul-card.kaih-card .modul-features li::before { color: var(--muted); }
+
+  /* ── ROLE & AKSES ── */
+  .role-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .role-tab {
+    padding: 0.45rem 1rem; border-radius: 100px;
+    border: 1.5px solid var(--border); background: transparent;
+    font-family: var(--font-body); font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; transition: all .2s; color: var(--muted);
+  }
+  .role-tab.active { border-color: var(--red); background: var(--red); color: var(--white); }
+  .role-tab:hover:not(.active) { border-color: var(--red); color: var(--red); }
+  .role-panel { display: none; }
+  .role-panel.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 0.75rem; }
+  .access-item {
+    background: var(--sand); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 1rem 1.1rem;
+    display: flex; align-items: flex-start; gap: 0.6rem;
+  }
+  .access-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .access-title { font-weight: 600; font-size: 0.84rem; color: var(--ink); margin-bottom: 0.2rem; }
+  .access-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── DATABASE ── */
+  .db-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1rem; }
+  .db-table {
+    background: var(--ink); border-radius: var(--r-md); overflow: hidden;
+  }
+  .db-thead {
+    background: var(--red-deep); padding: 0.75rem 1rem;
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  .db-table-icon { font-size: 1rem; }
+  .db-table-name { font-family: 'Courier New', monospace; font-size: 0.82rem; font-weight: 700; color: var(--white); }
+  .db-table-desc { font-size: 0.7rem; color: rgba(255,255,255,0.55); }
+  .db-tbody { padding: 0.5rem 0; }
+  .db-field {
+    padding: 0.4rem 1rem;
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: center; gap: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .db-field:last-child { border-bottom: none; }
+  .db-fname { font-family: 'Courier New', monospace; font-size: 0.75rem; color: #7EC8E3; }
+  .db-ftype { font-family: 'Courier New', monospace; font-size: 0.68rem; color: rgba(255,255,255,0.35); }
+  .db-pk { color: #F0C040; font-size: 0.65rem; font-weight: 700; }
+  .db-fk { color: #90EE90; font-size: 0.65rem; font-weight: 700; }
+
+  /* ── WIREFRAME ── */
+  .wf-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .wf-tab {
+    padding: 0.4rem 0.9rem; border-radius: 100px;
+    border: 1.5px solid var(--border); background: transparent;
+    font-family: var(--font-body); font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all .2s; color: var(--muted);
+  }
+  .wf-tab.active { border-color: var(--red-deep); background: var(--red-deep); color: var(--white); }
+  .wf-tab:hover:not(.active) { border-color: var(--red-deep); color: var(--red-deep); }
+  .wf-panel { display: none; }
+  .wf-panel.active { display: block; }
+
+  /* Wireframe actual UI mockups */
+  .mockup-frame {
+    background: var(--white); border: 1.5px solid var(--border);
+    border-radius: var(--r-lg); overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  }
+  .mockup-bar {
+    background: var(--red-deep); padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .mockup-title { color: var(--white); font-weight: 600; font-size: 0.88rem; }
+  .mockup-role { color: rgba(255,255,255,0.55); font-size: 0.75rem; }
+  .mockup-body { padding: 1.25rem; }
+  .mockup-body.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .mockup-body.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+  @media (max-width: 560px) { .mockup-body.grid2, .mockup-body.grid3 { grid-template-columns: 1fr; } }
+  .wf-stat {
+    background: var(--sand); border-radius: var(--r-md); padding: 1rem 1.1rem;
+  }
+  .wf-stat-num { font-size: 1.75rem; font-weight: 700; color: var(--red); letter-spacing: -1px; }
+  .wf-stat-label { font-size: 0.75rem; color: var(--muted); }
+  .wf-list { background: var(--sand); border-radius: var(--r-md); padding: 0.85rem 1rem; }
+  .wf-list-title { font-weight: 600; font-size: 0.82rem; color: var(--ink); margin-bottom: 0.6rem; }
+  .wf-list-item {
+    display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--ink-mid);
+  }
+  .wf-list-item:last-child { border-bottom: none; }
+  .wf-badge {
+    font-size: 0.65rem; padding: 0.15rem 0.5rem; border-radius: 100px; font-weight: 600;
+  }
+  .badge-hadir { background: #D5F5E3; color: #1E8449; }
+  .badge-sakit { background: #FEF9E7; color: #B7950B; }
+  .badge-izin { background: #EBF5FB; color: #1A5276; }
+  .badge-alpa { background: #FDEDEC; color: #922B21; }
+  .badge-baru { background: var(--red-pale); color: var(--red-deep); }
+  .badge-dibaca { background: var(--sand); color: var(--muted); border: 1px solid var(--border); }
+  .wf-section-label { font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 0.5rem; margin-top: 1rem; }
+  .wf-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .wf-table th { background: var(--sand); padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .wf-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--ink-mid); }
+  .wf-table tr:last-child td { border-bottom: none; }
+  .wf-btn { display: inline-flex; align-items: center; gap: 0.4rem; background: var(--red); color: var(--white); border: none; border-radius: var(--r-sm); padding: 0.45rem 0.9rem; font-size: 0.75rem; font-weight: 600; cursor: default; margin-top: 0.75rem; }
+  .wf-btn-sec { background: var(--sand); color: var(--ink-mid); border: 1px solid var(--border); }
+  .wf-materi-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--border); gap: 0.5rem;
+  }
+  .wf-materi-item:last-child { border-bottom: none; }
+  .wf-materi-info { font-size: 0.8rem; color: var(--ink-mid); }
+  .wf-materi-meta { font-size: 0.68rem; color: var(--muted); margin-top: 0.1rem; }
+  .wf-materi-btn { font-size: 0.7rem; padding: 0.25rem 0.6rem; background: var(--red-pale); color: var(--red-deep); border: none; border-radius: var(--r-sm); cursor: default; font-weight: 600; white-space: nowrap; }
+  .wf-announcement {
+    background: var(--sand); border-left: 3px solid var(--red);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+  }
+  .wf-ann-title { font-weight: 600; font-size: 0.82rem; color: var(--ink); }
+  .wf-ann-meta { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+  .wf-penghubung {
+    background: var(--sand); border-radius: var(--r-md); padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem; border: 1px solid var(--border);
+  }
+  .wf-peng-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem; }
+  .wf-peng-siswa { font-weight: 600; font-size: 0.82rem; color: var(--ink); }
+  .wf-peng-date { font-size: 0.68rem; color: var(--muted); }
+  .wf-peng-body { font-size: 0.78rem; color: var(--ink-mid); line-height: 1.55; }
+
+  /* ── PROSES ── */
+  .proses-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 1rem; counter-reset: step; }
+  .proses-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 1.25rem 1.1rem;
+    position: relative;
+  }
+  .proses-num {
+    width: 2rem; height: 2rem; border-radius: 50%;
+    background: var(--red); color: var(--white);
+    font-weight: 700; font-size: 0.8rem;
+    display: grid; place-items: center; margin-bottom: 0.75rem;
+  }
+  .proses-icon { font-size: 1.25rem; margin-bottom: 0.4rem; }
+  .proses-title { font-weight: 700; font-size: 0.88rem; color: var(--ink); margin-bottom: 0.3rem; }
+  .proses-desc { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── TECH ── */
+  .tech-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 0.75rem; }
+  .tech-item {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 1.1rem 1.2rem;
+  }
+  .tech-component { font-size: 0.68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--red); margin-bottom: 0.3rem; }
+  .tech-name { font-weight: 700; font-size: 0.9rem; color: var(--ink); margin-bottom: 0.25rem; }
+  .tech-why { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+  .security-note {
+    margin-top: 1.5rem; background: var(--red-pale);
+    border: 1px solid var(--red-light); border-radius: var(--r-md);
+    padding: 1rem 1.25rem; font-size: 0.85rem; color: var(--red-deep);
+  }
+
+  /* ── FAQ ── */
+  .faq-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+  .faq-item {}
+  .faq-q {
+    padding: 1.1rem 1.25rem; font-weight: 600; font-size: 0.9rem;
+    cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    gap: 1rem; background: var(--white); border-bottom: 1px solid var(--border);
+    transition: background .15s; color: var(--ink);
+  }
+  .faq-item:last-child .faq-q { border-bottom: none; }
+  .faq-q:hover { background: var(--sand); }
+  .faq-item.open .faq-q { background: var(--sand); border-bottom: 1px solid var(--border); }
+  .faq-arrow { transition: transform .2s; color: var(--muted); font-size: 0.75rem; flex-shrink: 0; }
+  .faq-item.open .faq-arrow { transform: rotate(180deg); }
+  .faq-a { display: none; padding: 1rem 1.25rem; font-size: 0.875rem; color: var(--ink-mid); line-height: 1.75; background: var(--white); border-bottom: 1px solid var(--border); }
+  .faq-item:last-child .faq-a { border-bottom: none; }
+  .faq-item.open .faq-a { display: block; }
+
+  /* ── CTA ── */
+  .cta-section {
+    background: var(--red-deep); padding: clamp(3rem,7vw,5rem) var(--px);
+    text-align: center;
+  }
+  .cta-inner { max-width: 580px; margin: 0 auto; }
+  .cta-section h2 { font-family: var(--font-display); font-size: clamp(1.75rem,4vw,2.8rem); color: var(--white); margin-bottom: 1rem; line-height: 1.2; }
+  .cta-section h2 em { font-style: italic; color: var(--red-light); }
+  .cta-section p { color: rgba(255,255,255,0.65); font-size: 0.95rem; line-height: 1.8; margin-bottom: 2rem; }
+  .cta-buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-bottom: 1rem; }
+  .btn-white { background: var(--white); color: var(--red-deep); padding: 0.75rem 1.75rem; border-radius: var(--r-sm); font-weight: 700; font-size: 0.9rem; text-decoration: none; transition: opacity .2s; }
+  .btn-white:hover { opacity: 0.88; }
+  .btn-outline { border: 1.5px solid rgba(255,255,255,0.3); color: rgba(255,255,255,0.8); padding: 0.75rem 1.75rem; border-radius: var(--r-sm); font-size: 0.9rem; text-decoration: none; transition: border-color .2s, color .2s; }
+  .btn-outline:hover { border-color: var(--white); color: var(--white); }
+  .cta-free { color: rgba(255,255,255,0.45); font-size: 0.8rem; }
+
+  /* ── FOOTER ── */
+  footer { background: var(--ink); padding: 1.5rem var(--px); text-align: center; }
+  footer p { color: rgba(255,255,255,0.35); font-size: 0.78rem; line-height: 1.8; }
+  footer a { color: rgba(255,255,255,0.55); text-decoration: none; }
+  footer a:hover { color: var(--white); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">🌶️</div>
+    <span class="nav-name">LAPIS LADA <span>· aidukasi.net</span></span>
+  </div>
+  <div class="nav-links">
+    <a href="#modul">Modul</a>
+    <a href="#role">Akses</a>
+    <a href="#database">Database</a>
+    <a href="#wireframe">Tampilan</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a href="https://wa.me/6288228511309" class="nav-cta">💬 Hubungi Kami</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="hero-eyebrow">Dokumen Penawaran · Versi 2.0</div>
+      <h1>LAPIS<br><em>LADA</em></h1>
+      <p class="hero-full">Layanan Pusat Informasi Sekolah Latsari Dua</p>
+      <p class="hero-desc">Platform informasi sekolah lengkap untuk SD Latsari Dua — dari absen, nilai, buku penghubung, pengumuman, hingga materi belajar. Semua dalam satu aplikasi, bisa diakses dari HP kapan saja.</p>
+      <div class="hero-price">
+        <div class="price-label">Harga Paket Lengkap</div>
+        <div class="price-amount">Rp 3.500.000</div>
+        <div class="price-note">Sudah termasuk domain · hosting tahun pertama · onboarding</div>
+      </div>
+      <div class="hero-tags">
+        <span class="tag">📱 PWA — Tanpa Install</span>
+        <span class="tag">🔒 Data Aman (RLS)</span>
+        <span class="tag">🏫 Khusus SD Latsari Dua</span>
+        <span class="tag">⚡ Next.js + Supabase</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hv-card accent"><div class="hv-icon">✅</div><div class="hv-name">Kehadiran Siswa</div><div class="hv-sub">Absen harian, notif wali murid</div></div>
+      <div class="hv-card accent"><div class="hv-icon">📊</div><div class="hv-name">Nilai Siswa</div><div class="hv-sub">Per mapel, rekap semesteran</div></div>
+      <div class="hv-card"><div class="hv-icon">📓</div><div class="hv-name">Buku Penghubung</div><div class="hv-sub">Catatan guru ke wali murid</div></div>
+      <div class="hv-card"><div class="hv-icon">📢</div><div class="hv-name">Pengumuman</div><div class="hv-sub">Dari sekolah/kelas</div></div>
+      <div class="hv-card"><div class="hv-icon">📁</div><div class="hv-name">Materi Download</div><div class="hv-sub">Link Google Drive</div></div>
+      <div class="hv-card"><div class="hv-icon">🎯</div><div class="hv-name">7 KAIH</div><div class="hv-sub">Kebiasaan anak hebat</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- MASALAH -->
+<div class="bg-white">
+  <div class="wrap section">
+    <div class="section-label">01 · Latar Belakang</div>
+    <h2 class="section-title">Masalah yang Dialami Sekolah Sekarang</h2>
+    <p class="section-lead">Komunikasi sekolah–orang tua masih bergantung pada WA pribadi guru, buku penghubung fisik, dan pengumuman lisan. Akibatnya informasi tidak sampai, tercecer, atau terlambat.</p>
+    <div class="pain-grid">
+      <div class="pain-card"><div class="pain-icon">📋</div><div class="pain-text">Absen siswa dicatat manual di buku, wali murid tidak tahu kalau anak tidak masuk sampai sore</div></div>
+      <div class="pain-card"><div class="pain-icon">📝</div><div class="pain-text">Nilai siswa baru diketahui saat rapor — tidak ada pantauan berkala untuk wali murid</div></div>
+      <div class="pain-card"><div class="pain-icon">📓</div><div class="pain-text">Buku penghubung fisik sering lupa dibawa, hilang, atau tidak sampai ke orang tua</div></div>
+      <div class="pain-card"><div class="pain-icon">📢</div><div class="pain-text">Pengumuman lewat WA grup kelas mudah tenggelam di antara chat lain, banyak yang terlewat</div></div>
+      <div class="pain-card"><div class="pain-icon">📁</div><div class="pain-text">Materi dan PR dikirim screenshot atau file ke WA pribadi — tidak terorganisir sama sekali</div></div>
+      <div class="pain-card"><div class="pain-icon">👨‍🏫</div><div class="pain-text">Wali kelas tidak punya rekap data kelas yang mudah diakses dalam satu tempat</div></div>
+    </div>
+    <div class="solution-banner">
+      <strong>LAPIS LADA hadir sebagai solusi</strong>
+      <p>Satu platform yang menyatukan semua saluran informasi sekolah — absen, nilai, pesan guru, pengumuman, dan materi belajar — yang bisa diakses wali murid dari HP kapan saja dan di mana saja.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- MODUL -->
+<div class="bg-sand" id="modul">
+  <div class="wrap section">
+    <div class="section-label">02 · Fitur Aplikasi</div>
+    <h2 class="section-title">7 Modul dalam Satu Aplikasi</h2>
+    <p class="section-lead">Setiap modul dirancang spesifik untuk kebutuhan SD — sederhana untuk dipakai guru, informatif untuk wali murid.</p>
+    <div class="modul-grid">
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 01</div>
+        <div class="modul-icon">✅</div>
+        <div class="modul-title">Kehadiran Siswa</div>
+        <div class="modul-desc">Guru input absen per kelas setiap hari. Wali murid langsung bisa cek status kehadiran anak.</div>
+        <ul class="modul-features">
+          <li>Status: Hadir / Sakit / Izin / Alpa</li>
+          <li>Rekap kehadiran bulanan per siswa</li>
+          <li>Wali murid notif jika anak tidak hadir</li>
+          <li>Riwayat kehadiran semester</li>
+        </ul>
+      </div>
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 02</div>
+        <div class="modul-icon">📊</div>
+        <div class="modul-title">Nilai Siswa</div>
+        <div class="modul-desc">Input nilai per mata pelajaran. Wali murid bisa pantau perkembangan nilai anak tanpa harus nunggu rapor.</div>
+        <ul class="modul-features">
+          <li>Nilai per mapel (Skala 0–100)</li>
+          <li>Nilai UH, UTS, UAS terpisah</li>
+          <li>Rata-rata otomatis per siswa</li>
+          <li>Tampilan rapor sementara</li>
+        </ul>
+      </div>
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 03</div>
+        <div class="modul-icon">📓</div>
+        <div class="modul-title">Buku Penghubung</div>
+        <div class="modul-desc">Pengganti buku penghubung fisik. Guru/wali kelas tulis catatan untuk siswa tertentu, wali murid baca di app.</div>
+        <ul class="modul-features">
+          <li>Catatan spesifik per siswa</li>
+          <li>Wali murid bisa lihat riwayat catatan</li>
+          <li>Status: sudah dibaca / belum dibaca</li>
+          <li>Tersimpan permanen, tidak bisa hilang</li>
+        </ul>
+      </div>
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 04</div>
+        <div class="modul-icon">🏠</div>
+        <div class="modul-title">Dashboard Wali Kelas</div>
+        <div class="modul-desc">Satu halaman ringkas untuk wali kelas — lihat semua data kelas, buat catatan, kirim pengumuman kelas.</div>
+        <ul class="modul-features">
+          <li>Ringkasan absen hari ini</li>
+          <li>Siswa yang perlu perhatian (nilai/absen)</li>
+          <li>Quick input buku penghubung</li>
+          <li>Rekap 7 KAIH per kelas</li>
+        </ul>
+      </div>
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 05</div>
+        <div class="modul-icon">📢</div>
+        <div class="modul-title">Pengumuman</div>
+        <div class="modul-desc">Admin atau wali kelas buat pengumuman resmi sekolah/kelas — rapi, tidak tenggelam di WA grup.</div>
+        <ul class="modul-features">
+          <li>Target: semua wali murid atau per kelas</li>
+          <li>Kategori: Penting / Info / Kegiatan</li>
+          <li>Status: dibaca / belum dibaca</li>
+          <li>Riwayat pengumuman tersimpan</li>
+        </ul>
+      </div>
+
+      <div class="modul-card">
+        <div class="modul-num">Modul 06</div>
+        <div class="modul-icon">📁</div>
+        <div class="modul-title">Materi Download</div>
+        <div class="modul-desc">Guru upload link Google Drive untuk materi, PR, atau jadwal. Wali murid klik → langsung buka di GDrive.</div>
+        <ul class="modul-features">
+          <li>Terorganisir per mapel & per kelas</li>
+          <li>Tanpa upload file langsung (pakai GDrive)</li>
+          <li>Wali murid bisa filter per mata pelajaran</li>
+          <li>Riwayat materi tidak hilang</li>
+        </ul>
+      </div>
+
+      <div class="modul-card kaih-card">
+        <div class="modul-num">Modul 07 · Warisan ABAT</div>
+        <div class="modul-icon">🎯</div>
+        <div class="modul-title">7 KAIH</div>
+        <div class="modul-desc">Rekap 7 Kebiasaan Anak Indonesia Hebat — fitur inti dari versi sebelumnya, tetap dipertahankan.</div>
+        <ul class="modul-features">
+          <li>Input kebiasaan harian per siswa</li>
+          <li>Rekap mingguan per kelas</li>
+          <li>Wali murid lihat progress anak</li>
+          <li>Laporan KAIH semesteran</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ROLE & AKSES -->
+<div class="bg-white" id="role">
+  <div class="wrap section">
+    <div class="section-label">03 · Hak Akses</div>
+    <h2 class="section-title">Setiap Role, Aksesnya Berbeda</h2>
+    <p class="section-lead">Setiap pengguna hanya melihat data yang relevan. Wali murid hanya bisa lihat data anaknya sendiri.</p>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="switchRole('admin', this)">🔑 Admin Sekolah</button>
+      <button class="role-tab" onclick="switchRole('walikelas', this)">👨‍🏫 Wali Kelas</button>
+      <button class="role-tab" onclick="switchRole('guru', this)">📚 Guru Mapel</button>
+      <button class="role-tab" onclick="switchRole('walimurid', this)">👨‍👩‍👧 Wali Murid</button>
+      <button class="role-tab" onclick="switchRole('kepsek', this)">🏫 Kepala Sekolah</button>
+    </div>
+
+    <div id="role-admin" class="role-panel active">
+      <div class="access-item"><div class="access-icon">👥</div><div><div class="access-title">Kelola Pengguna</div><div class="access-desc">Tambah, edit, nonaktifkan akun guru, wali kelas, dan wali murid</div></div></div>
+      <div class="access-item"><div class="access-icon">🏫</div><div><div class="access-title">Kelola Data Kelas & Siswa</div><div class="access-desc">Input data siswa baru, atur kelas, assign wali kelas</div></div></div>
+      <div class="access-item"><div class="access-icon">📢</div><div><div class="access-title">Pengumuman Global</div><div class="access-desc">Buat pengumuman untuk semua wali murid se-sekolah</div></div></div>
+      <div class="access-item"><div class="access-icon">📊</div><div><div class="access-title">Laporan Rekap Sekolah</div><div class="access-desc">Lihat rekap absen, nilai, dan KAIH seluruh kelas</div></div></div>
+      <div class="access-item"><div class="access-icon">⚙️</div><div><div class="access-title">Konfigurasi Aplikasi</div><div class="access-desc">Atur nama sekolah, logo, tahun ajaran, mata pelajaran</div></div></div>
+      <div class="access-item"><div class="access-icon">🔒</div><div><div class="access-title">Full Access</div><div class="access-desc">Bisa akses semua modul dan data seluruh kelas</div></div></div>
+    </div>
+
+    <div id="role-walikelas" class="role-panel">
+      <div class="access-item"><div class="access-icon">✅</div><div><div class="access-title">Input Absen Kelas</div><div class="access-desc">Input kehadiran siswa kelasnya setiap hari</div></div></div>
+      <div class="access-item"><div class="access-icon">📊</div><div><div class="access-title">Lihat Nilai Kelas</div><div class="access-desc">Lihat semua nilai siswa di kelasnya, dari semua guru mapel</div></div></div>
+      <div class="access-item"><div class="access-icon">📓</div><div><div class="access-title">Buku Penghubung</div><div class="access-desc">Tulis catatan untuk siswa tertentu di kelasnya</div></div></div>
+      <div class="access-item"><div class="access-icon">📢</div><div><div class="access-title">Pengumuman Per Kelas</div><div class="access-desc">Buat pengumuman khusus untuk wali murid di kelasnya</div></div></div>
+      <div class="access-item"><div class="access-icon">📁</div><div><div class="access-title">Upload Materi</div><div class="access-desc">Tambahkan link GDrive materi/PR untuk kelasnya</div></div></div>
+      <div class="access-item"><div class="access-icon">🏠</div><div><div class="access-title">Dashboard Kelas</div><div class="access-desc">Ringkasan data kelas: absen, nilai, KAIH dalam satu halaman</div></div></div>
+    </div>
+
+    <div id="role-guru" class="role-panel">
+      <div class="access-item"><div class="access-icon">📊</div><div><div class="access-title">Input Nilai Mapelnya</div><div class="access-desc">Input nilai UH/UTS/UAS untuk mata pelajaran yang diajar</div></div></div>
+      <div class="access-item"><div class="access-icon">📁</div><div><div class="access-title">Upload Materi</div><div class="access-desc">Tambahkan link GDrive materi untuk kelas yang diajar</div></div></div>
+      <div class="access-item"><div class="access-icon">🎯</div><div><div class="access-title">Input 7 KAIH</div><div class="access-desc">Rekap kebiasaan KAIH untuk kelas yang diajar</div></div></div>
+      <div class="access-item"><div class="access-icon">👁️</div><div><div class="access-title">Read-only Data Kelas</div><div class="access-desc">Lihat data absen siswa di kelas yang diajar (tidak bisa edit)</div></div></div>
+    </div>
+
+    <div id="role-walimurid" class="role-panel">
+      <div class="access-item"><div class="access-icon">✅</div><div><div class="access-title">Kehadiran Anak</div><div class="access-desc">Lihat rekap absen harian dan bulanan anak sendiri</div></div></div>
+      <div class="access-item"><div class="access-icon">📊</div><div><div class="access-title">Nilai Anak</div><div class="access-desc">Lihat nilai semua mapel dan rekap semesteran anak</div></div></div>
+      <div class="access-item"><div class="access-icon">📓</div><div><div class="access-title">Buku Penghubung</div><div class="access-desc">Baca catatan dari wali kelas untuk anaknya (read-only)</div></div></div>
+      <div class="access-item"><div class="access-icon">📢</div><div><div class="access-title">Pengumuman</div><div class="access-desc">Baca pengumuman dari sekolah dan kelas anaknya</div></div></div>
+      <div class="access-item"><div class="access-icon">📁</div><div><div class="access-title">Download Materi</div><div class="access-desc">Akses link GDrive materi/PR anak dari kelas yang bersangkutan</div></div></div>
+      <div class="access-item"><div class="access-icon">🔒</div><div><div class="access-title">Hanya Data Anak Sendiri</div><div class="access-desc">Tidak bisa lihat data siswa lain sama sekali (Row Level Security)</div></div></div>
+    </div>
+
+    <div id="role-kepsek" class="role-panel">
+      <div class="access-item"><div class="access-icon">📊</div><div><div class="access-title">Dashboard Global</div><div class="access-desc">Rekap absen, nilai, dan KAIH seluruh sekolah dalam satu view</div></div></div>
+      <div class="access-item"><div class="access-icon">👁️</div><div><div class="access-title">Read-only Semua Data</div><div class="access-desc">Bisa lihat data semua kelas, tapi tidak bisa edit apapun</div></div></div>
+      <div class="access-item"><div class="access-icon">📈</div><div><div class="access-title">Laporan Rekap</div><div class="access-desc">Ekspor laporan PDF untuk kebutuhan administrasi sekolah</div></div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DATABASE -->
+<div class="bg-sand" id="database">
+  <div class="wrap section">
+    <div class="section-label">04 · Struktur Database</div>
+    <h2 class="section-title">Skema Database Supabase</h2>
+    <p class="section-lead">Dirancang dengan Row Level Security (RLS) ketat — setiap tabel hanya bisa diakses oleh role yang berwenang.</p>
+    <div class="db-section">
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">👥</div><div><div class="db-table-name">users</div><div class="db-table-desc">Semua pengguna aplikasi</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">email</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">full_name</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">role</span><span class="db-ftype">enum</span></div>
+          <div class="db-field"><span class="db-fname">is_active</span><span class="db-ftype">bool</span></div>
+          <div class="db-field"><span class="db-fname">created_at</span><span class="db-ftype">timestamp</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">🏫</div><div><div class="db-table-name">kelas</div><div class="db-table-desc">Data kelas per tahun ajaran</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">nama_kelas</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">tahun_ajaran</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">wali_kelas_id</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">🧒</div><div><div class="db-table-name">siswa</div><div class="db-table-desc">Data siswa terdaftar</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">nama_lengkap</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">nis</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">kelas_id</span><span class="db-fk">FK → kelas</span></div>
+          <div class="db-field"><span class="db-fname">wali_murid_id</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">✅</div><div><div class="db-table-name">kehadiran</div><div class="db-table-desc">Absen harian per siswa</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">siswa_id</span><span class="db-fk">FK → siswa</span></div>
+          <div class="db-field"><span class="db-fname">tanggal</span><span class="db-ftype">date</span></div>
+          <div class="db-field"><span class="db-fname">status</span><span class="db-ftype">enum</span></div>
+          <div class="db-field"><span class="db-fname">keterangan</span><span class="db-ftype">text?</span></div>
+          <div class="db-field"><span class="db-fname">dicatat_oleh</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">📊</div><div><div class="db-table-name">nilai</div><div class="db-table-desc">Nilai per mapel per siswa</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">siswa_id</span><span class="db-fk">FK → siswa</span></div>
+          <div class="db-field"><span class="db-fname">mapel_id</span><span class="db-fk">FK → mapel</span></div>
+          <div class="db-field"><span class="db-fname">jenis_nilai</span><span class="db-ftype">enum</span></div>
+          <div class="db-field"><span class="db-fname">nilai</span><span class="db-ftype">numeric</span></div>
+          <div class="db-field"><span class="db-fname">semester</span><span class="db-ftype">int</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">📚</div><div><div class="db-table-name">mapel</div><div class="db-table-desc">Mata pelajaran</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">nama_mapel</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">guru_id</span><span class="db-fk">FK → users</span></div>
+          <div class="db-field"><span class="db-fname">kelas_id</span><span class="db-fk">FK → kelas</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">📓</div><div><div class="db-table-name">buku_penghubung</div><div class="db-table-desc">Catatan guru untuk siswa</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">siswa_id</span><span class="db-fk">FK → siswa</span></div>
+          <div class="db-field"><span class="db-fname">ditulis_oleh</span><span class="db-fk">FK → users</span></div>
+          <div class="db-field"><span class="db-fname">isi_catatan</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">dibaca</span><span class="db-ftype">bool</span></div>
+          <div class="db-field"><span class="db-fname">created_at</span><span class="db-ftype">timestamp</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">📢</div><div><div class="db-table-name">pengumuman</div><div class="db-table-desc">Pengumuman sekolah/kelas</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">judul</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">isi</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">kategori</span><span class="db-ftype">enum</span></div>
+          <div class="db-field"><span class="db-fname">target_kelas_id</span><span class="db-fk">FK → kelas?</span></div>
+          <div class="db-field"><span class="db-fname">dibuat_oleh</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">📁</div><div><div class="db-table-name">materi</div><div class="db-table-desc">Link materi Google Drive</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">judul</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">link_gdrive</span><span class="db-ftype">text</span></div>
+          <div class="db-field"><span class="db-fname">mapel_id</span><span class="db-fk">FK → mapel</span></div>
+          <div class="db-field"><span class="db-fname">kelas_id</span><span class="db-fk">FK → kelas</span></div>
+          <div class="db-field"><span class="db-fname">uploaded_by</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-thead"><div class="db-table-icon">🎯</div><div><div class="db-table-name">kaih</div><div class="db-table-desc">Rekap 7 KAIH harian</div></div></div>
+        <div class="db-tbody">
+          <div class="db-field"><span class="db-fname">id</span><span class="db-pk">PK</span></div>
+          <div class="db-field"><span class="db-fname">siswa_id</span><span class="db-fk">FK → siswa</span></div>
+          <div class="db-field"><span class="db-fname">tanggal</span><span class="db-ftype">date</span></div>
+          <div class="db-field"><span class="db-fname">k1…k7</span><span class="db-ftype">bool[7]</span></div>
+          <div class="db-field"><span class="db-fname">dicatat_oleh</span><span class="db-fk">FK → users</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- WIREFRAME -->
+<div class="bg-white" id="wireframe">
+  <div class="wrap section">
+    <div class="section-label">05 · Tampilan Aplikasi</div>
+    <h2 class="section-title">Wireframe per Role</h2>
+    <p class="section-lead">Gambaran tampilan nyata yang akan dilihat setiap pengguna di HP atau laptop mereka.</p>
+
+    <div class="wf-tabs">
+      <button class="wf-tab active" onclick="switchWf('walikelas', this)">👨‍🏫 Wali Kelas</button>
+      <button class="wf-tab" onclick="switchWf('walimurid', this)">👨‍👩‍👧 Wali Murid</button>
+      <button class="wf-tab" onclick="switchWf('absen', this)">✅ Input Absen</button>
+      <button class="wf-tab" onclick="switchWf('nilai', this)">📊 Input Nilai</button>
+      <button class="wf-tab" onclick="switchWf('materi', this)">📁 Materi</button>
+      <button class="wf-tab" onclick="switchWf('penghubung', this)">📓 Buku Penghubung</button>
+    </div>
+
+    <!-- WALI KELAS DASHBOARD -->
+    <div id="wf-walikelas" class="wf-panel active">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">🏠 Dashboard Wali Kelas</div>
+            <div class="mockup-role">Kelas 5A · Ibu Sari Rahayu</div>
+          </div>
+        </div>
+        <div class="mockup-body grid3">
+          <div class="wf-stat"><div class="wf-stat-num">28</div><div class="wf-stat-label">Total Siswa</div></div>
+          <div class="wf-stat"><div class="wf-stat-num" style="color:#1E8449">25</div><div class="wf-stat-label">Hadir Hari Ini</div></div>
+          <div class="wf-stat"><div class="wf-stat-num" style="color:#922B21">3</div><div class="wf-stat-label">Tidak Hadir</div></div>
+        </div>
+        <div class="mockup-body">
+          <div class="wf-section-label">Absen Belum Dicatat Hari Ini</div>
+          <div class="wf-list">
+            <div class="wf-list-item"><span>Ahmad Faizal</span><span class="wf-badge badge-sakit">Sakit</span></div>
+            <div class="wf-list-item"><span>Bunga Maharani</span><span class="wf-badge badge-izin">Izin</span></div>
+            <div class="wf-list-item"><span>Rizki Pratama</span><span class="wf-badge badge-alpa">Alpa</span></div>
+          </div>
+          <div class="wf-section-label" style="margin-top:1.25rem">Catatan Terbaru — Buku Penghubung</div>
+          <div class="wf-penghubung">
+            <div class="wf-peng-header"><span class="wf-peng-siswa">Siti Aisyah</span><span class="wf-peng-date">Hari ini</span></div>
+            <div class="wf-peng-body">Mohon perhatikan PR Matematika bab 3. Nilai UH terakhir perlu ditingkatkan.</div>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <div class="wf-btn">✏️ Tulis Catatan Baru</div>
+            <div class="wf-btn wf-btn-sec">📢 Buat Pengumuman Kelas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WALI MURID DASHBOARD -->
+    <div id="wf-walimurid" class="wf-panel">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">👨‍👩‍👧 Beranda Wali Murid</div>
+            <div class="mockup-role">Ananda: Ahmad Faizal · Kelas 5A</div>
+          </div>
+        </div>
+        <div class="mockup-body grid2">
+          <div class="wf-stat"><div class="wf-stat-num">87%</div><div class="wf-stat-label">Kehadiran Bulan Ini</div></div>
+          <div class="wf-stat"><div class="wf-stat-num">78</div><div class="wf-stat-label">Rata-rata Nilai</div></div>
+        </div>
+        <div class="mockup-body">
+          <div class="wf-section-label">Pengumuman Terbaru</div>
+          <div class="wf-announcement">
+            <div class="wf-ann-title">🔴 Libur HUT RI — 17 Agustus 2025</div>
+            <div class="wf-ann-meta">Sekolah · 2 hari lalu · <span class="wf-badge badge-dibaca">✓ Dibaca</span></div>
+          </div>
+          <div class="wf-announcement">
+            <div class="wf-ann-title">🟢 Jadwal Olahraga Diganti Besok</div>
+            <div class="wf-ann-meta">Kelas 5A · 1 jam lalu · <span class="wf-badge badge-baru">Baru</span></div>
+          </div>
+          <div class="wf-section-label" style="margin-top:1.25rem">Pesan dari Wali Kelas</div>
+          <div class="wf-penghubung">
+            <div class="wf-peng-header"><span class="wf-peng-siswa">Ibu Sari (Wali Kelas 5A)</span><span class="wf-peng-date">Kemarin</span></div>
+            <div class="wf-peng-body">Mohon perhatikan PR Matematika bab 3. Nilai UH terakhir perlu ditingkatkan.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INPUT ABSEN -->
+    <div id="wf-absen" class="wf-panel">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">✅ Input Kehadiran</div>
+            <div class="mockup-role">Kelas 5A · Senin, 14 Juli 2025</div>
+          </div>
+        </div>
+        <div class="mockup-body">
+          <table class="wf-table">
+            <thead><tr><th>#</th><th>Nama Siswa</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Ahmad Faizal</td><td><span class="wf-badge badge-hadir">Hadir</span></td></tr>
+              <tr><td>2</td><td>Bunga Maharani</td><td><span class="wf-badge badge-sakit">Sakit</span></td></tr>
+              <tr><td>3</td><td>Candra Wijaya</td><td><span class="wf-badge badge-hadir">Hadir</span></td></tr>
+              <tr><td>4</td><td>Dewi Lestari</td><td><span class="wf-badge badge-izin">Izin</span></td></tr>
+              <tr><td>5</td><td>Eko Prasetyo</td><td><span class="wf-badge badge-hadir">Hadir</span></td></tr>
+            </tbody>
+          </table>
+          <div class="wf-btn" style="margin-top:1rem">💾 Simpan Absen Hari Ini</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INPUT NILAI -->
+    <div id="wf-nilai" class="wf-panel">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">📊 Input Nilai</div>
+            <div class="mockup-role">Matematika · Kelas 5A · UH Bab 3</div>
+          </div>
+        </div>
+        <div class="mockup-body">
+          <table class="wf-table">
+            <thead><tr><th>#</th><th>Nama Siswa</th><th>Nilai (0–100)</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Ahmad Faizal</td><td style="color:var(--red);font-weight:700">65</td></tr>
+              <tr><td>2</td><td>Bunga Maharani</td><td style="color:#1E8449;font-weight:700">92</td></tr>
+              <tr><td>3</td><td>Candra Wijaya</td><td style="font-weight:700">78</td></tr>
+              <tr><td>4</td><td>Dewi Lestari</td><td style="color:#1E8449;font-weight:700">88</td></tr>
+              <tr><td>5</td><td>Eko Prasetyo</td><td style="font-weight:700">74</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:0.75rem;font-size:0.78rem;color:var(--muted)">Rata-rata kelas: <strong>79.4</strong> · KKM: 70</div>
+          <div class="wf-btn" style="margin-top:0.75rem">💾 Simpan Nilai</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATERI -->
+    <div id="wf-materi" class="wf-panel">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">📁 Materi & PR</div>
+            <div class="mockup-role">Kelas 5A · Semua Mata Pelajaran</div>
+          </div>
+        </div>
+        <div class="mockup-body">
+          <div class="wf-section-label">Matematika</div>
+          <div class="wf-materi-item">
+            <div><div class="wf-materi-info">📄 Modul Bab 3 — Pecahan</div><div class="wf-materi-meta">Ditambahkan: 10 Jul 2025</div></div>
+            <button class="wf-materi-btn">↗ Buka GDrive</button>
+          </div>
+          <div class="wf-materi-item">
+            <div><div class="wf-materi-info">📄 Latihan Soal UH Bab 3</div><div class="wf-materi-meta">Ditambahkan: 12 Jul 2025</div></div>
+            <button class="wf-materi-btn">↗ Buka GDrive</button>
+          </div>
+          <div class="wf-section-label" style="margin-top:1rem">Bahasa Indonesia</div>
+          <div class="wf-materi-item">
+            <div><div class="wf-materi-info">📄 Teks Narasi — Contoh & Latihan</div><div class="wf-materi-meta">Ditambahkan: 8 Jul 2025</div></div>
+            <button class="wf-materi-btn">↗ Buka GDrive</button>
+          </div>
+          <div class="wf-materi-item">
+            <div><div class="wf-materi-info">🖼️ Presentasi Materi Puisi</div><div class="wf-materi-meta">Ditambahkan: 5 Jul 2025</div></div>
+            <button class="wf-materi-btn">↗ Buka GDrive</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUKU PENGHUBUNG -->
+    <div id="wf-penghubung" class="wf-panel">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div>
+            <div class="mockup-title">📓 Buku Penghubung</div>
+            <div class="mockup-role">Tulis catatan untuk wali murid</div>
+          </div>
+        </div>
+        <div class="mockup-body">
+          <div class="wf-section-label">Catatan Terbaru</div>
+          <div class="wf-penghubung">
+            <div class="wf-peng-header"><span class="wf-peng-siswa">Ahmad Faizal</span><span style="display:flex;gap:0.4rem;align-items:center"><span class="wf-badge badge-baru">Belum Dibaca</span><span class="wf-peng-date">Hari ini</span></span></div>
+            <div class="wf-peng-body">Mohon perhatikan PR Matematika bab 3. Nilai UH terakhir perlu ditingkatkan lagi agar bisa tuntas KKM.</div>
+          </div>
+          <div class="wf-penghubung">
+            <div class="wf-peng-header"><span class="wf-peng-siswa">Bunga Maharani</span><span style="display:flex;gap:0.4rem;align-items:center"><span class="wf-badge badge-dibaca">✓ Dibaca</span><span class="wf-peng-date">Kemarin</span></span></div>
+            <div class="wf-peng-body">Bunga sudah menunjukkan peningkatan yang baik. Pertahankan semangat belajarnya di rumah.</div>
+          </div>
+          <div class="wf-section-label" style="margin-top:1rem">Tulis Catatan Baru</div>
+          <div style="background:var(--sand);border-radius:var(--r-md);padding:1rem">
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.35rem">Pilih Siswa</div>
+            <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--muted);margin-bottom:0.75rem">— Pilih nama siswa —</div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.35rem">Isi Catatan</div>
+            <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-sm);padding:0.6rem 0.75rem;font-size:0.82rem;color:var(--muted);height:80px;margin-bottom:0.75rem">Tulis catatan untuk wali murid...</div>
+            <div class="wf-btn">📨 Kirim Catatan</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- PROSES -->
+<div class="bg-sand">
+  <div class="wrap section">
+    <div class="section-label">06 · Alur Pengerjaan</div>
+    <h2 class="section-title">Dari Deal sampai Go-Live</h2>
+    <p class="section-lead">Estimasi pengerjaan 5–6 pekan dengan update progress setiap pekan.</p>
+    <div class="proses-grid">
+      <div class="proses-card"><div class="proses-num">1</div><div class="proses-icon">🤝</div><div class="proses-title">Onboarding</div><div class="proses-desc">Kumpulkan data sekolah: daftar kelas, siswa, guru, mata pelajaran. DP 50% (Rp 1.750.000)</div></div>
+      <div class="proses-card"><div class="proses-num">2</div><div class="proses-icon">🎨</div><div class="proses-title">Desain UI</div><div class="proses-desc">Review prototype desain aplikasi, feedback, dan persetujuan tampilan sebelum coding dimulai</div></div>
+      <div class="proses-card"><div class="proses-num">3</div><div class="proses-icon">⚙️</div><div class="proses-title">Development</div><div class="proses-desc">5 pekan pengerjaan — update progress rutin setiap pekan via WA. Testing internal per modul</div></div>
+      <div class="proses-card"><div class="proses-num">4</div><div class="proses-icon">🔍</div><div class="proses-title">Review & UAT</div><div class="proses-desc">Sekolah mencoba langsung, beri feedback, kami perbaiki. Minimal 1 pekan testing bersama</div></div>
+      <div class="proses-card"><div class="proses-num">5</div><div class="proses-icon">🚀</div><div class="proses-title">Go-Live</div><div class="proses-desc">Domain aktif, aplikasi online, semua pengguna bisa login. Pelunasan 50% (Rp 1.750.000)</div></div>
+      <div class="proses-card"><div class="proses-num">6</div><div class="proses-icon">📚</div><div class="proses-title">Onboarding User</div><div class="proses-desc">Training singkat via video call untuk admin, wali kelas, dan guru. Panduan penggunaan disertakan</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- TEKNOLOGI -->
+<div class="bg-white">
+  <div class="wrap section">
+    <div class="section-label">07 · Stack Teknologi</div>
+    <h2 class="section-title">Dibangun dengan Teknologi Modern</h2>
+    <p class="section-lead">Proven, aman, dan skalabel — tanpa biaya server mahal di awal.</p>
+    <div class="tech-grid">
+      <div class="tech-item"><div class="tech-component">Frontend</div><div class="tech-name">Next.js + React</div><div class="tech-why">Cepat, SEO-friendly, mendukung PWA penuh — bisa di-install di HP tanpa Play Store</div></div>
+      <div class="tech-item"><div class="tech-component">Database & Backend</div><div class="tech-name">Supabase</div><div class="tech-why">Open-source, gratis di awal, auto-scaling, mendukung Row Level Security</div></div>
+      <div class="tech-item"><div class="tech-component">Keamanan Data</div><div class="tech-name">Row Level Security</div><div class="tech-why">Setiap role hanya lihat data yang relevan — wali murid hanya lihat data anaknya sendiri</div></div>
+      <div class="tech-item"><div class="tech-component">Login & Akses</div><div class="tech-name">Supabase Auth</div><div class="tech-why">Email & password, aman dan mudah dipakai guru yang tidak melek teknologi sekalipun</div></div>
+      <div class="tech-item"><div class="tech-component">File & Materi</div><div class="tech-name">Google Drive (Link)</div><div class="tech-why">Guru paste link GDrive, wali murid klik dan buka. Zero storage cost, tidak butuh upload server</div></div>
+      <div class="tech-item"><div class="tech-component">Hosting</div><div class="tech-name">Vercel</div><div class="tech-why">Gratis tier, deployment cepat, performa tinggi, otomatis update</div></div>
+      <div class="tech-item"><div class="tech-component">Domain</div><div class="tech-name">Custom .web.id</div><div class="tech-why">Domain lokal Indonesia, terpercaya, harga terjangkau untuk perpanjangan tahun berikutnya</div></div>
+      <div class="tech-item"><div class="tech-component">Notifikasi</div><div class="tech-name">PWA Push + WA Link</div><div class="tech-why">Notifikasi browser via PWA; aksi darurat tetap bisa via WA click-to-chat tanpa API berbayar</div></div>
+    </div>
+    <div class="security-note">
+      🔒 Data siswa dilindungi sesuai UU PDP Indonesia dan enkripsi standar industri (TLS + AES-256). Tidak ada data siswa yang dijual atau dibagikan ke pihak ketiga.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FAQ -->
+<div class="bg-sand" id="faq">
+  <div class="wrap section">
+    <div class="section-label">08 · FAQ</div>
+    <h2 class="section-title">Pertanyaan yang Sering Ditanya</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Apakah perlu download di Play Store? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Tidak. LAPIS LADA adalah web app — cukup buka browser di HP. Tapi dengan fitur PWA, orang tua dan guru bisa "install" ikon LAPIS LADA langsung di layar HP, sehingga terasa seperti aplikasi native tanpa Play Store atau App Store.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Apakah data siswa aman? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Ya. Data tersimpan di Supabase dengan enkripsi standar industri. Setiap pengguna hanya bisa melihat data yang relevan — wali murid hanya bisa lihat data anaknya sendiri, tidak bisa lihat data siswa lain. Kami menerapkan Row Level Security (RLS) secara ketat di semua tabel.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Bagaimana wali murid bisa login? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Setiap wali murid akan mendapatkan akun (email dan password) yang disiapkan oleh admin sekolah saat onboarding. Tidak perlu daftar sendiri — sekolah yang mengelola akun pengguna.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Bagaimana kalau satu siswa punya dua wali murid (ayah dan ibu)? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Bisa diatur — satu siswa bisa dihubungkan ke dua akun wali murid. Keduanya akan bisa melihat data anak yang sama. Ini cukup umum untuk kondisi orang tua yang keduanya aktif pantau anak.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Bagaimana kalau internet sekolah lambat? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Dengan teknologi PWA, halaman yang sudah pernah dibuka tetap bisa dilihat meskipun internet terputus sementara. Data baru akan tersinkronisasi otomatis ketika koneksi kembali.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Apakah setelah go-live ada biaya lagi? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Untuk tahun pertama, domain .web.id sudah termasuk dalam harga Rp 3.500.000. Mulai tahun ke-2, biaya perpanjangan domain sekitar Rp 50.000–100.000/tahun. Hosting di Vercel dan Supabase gratis selama penggunaan masih dalam batas wajar untuk skala satu sekolah dasar.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Bagaimana cara upload materi? Ribet tidak? <span class="faq-arrow">▼</span></div>
+        <div class="faq-a">Sangat mudah. Guru cukup upload file ke Google Drive mereka sendiri (yang biasanya sudah biasa dipakai), lalu salin link-nya dan tempelkan ke LAPIS LADA. Tidak perlu upload ulang ke server — jadi tidak ada batasan ukuran file dan tidak memakan biaya storage tambahan.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section" id="cta">
+  <div class="cta-inner">
+    <h2>Siap Wujudkan<br><em>LAPIS LADA?</em></h2>
+    <p>Platform informasi lengkap untuk SD Latsari Dua — dari absen hingga materi download, semua dalam satu tempat yang rapi dan mudah dipakai semua orang.</p>
+    <div class="cta-buttons">
+      <a href="https://wa.me/6288228511309" class="btn-white">📱 Hubungi via WhatsApp</a>
+      <a href="https://aidukasi.net" class="btn-outline">🌐 aidukasi.net</a>
+    </div>
+    <p class="cta-free">✨ Konsultasi GRATIS · Tanpa kewajiban pesan</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2025 · <a href="https://aidukasi.net">aidukasi.net</a> · <a href="https://pakhusnul.id">pakhusnul.id</a> · Platform Solusi Digital untuk Pendidikan Indonesia</p>
+  <p>Dokumen Penawaran Rahasia · LAPIS LADA · Versi 2.0</p>
+</footer>
+
+<script>
+  function switchRole(id, btn) {
+    document.querySelectorAll('.role-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('role-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function switchWf(id, btn) {
+    document.querySelectorAll('.wf-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.wf-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('wf-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleFaq(el) {
+    const item = el.parentElement;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+</script>
+</body>
+</html>

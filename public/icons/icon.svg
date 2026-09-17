@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="108" fill="#922B21"/>
+  <rect x="24" y="24" width="464" height="464" rx="90" fill="none" stroke="#C0392B" stroke-width="8"/>
+  <g transform="translate(106, 110)">
+    <!-- School & Book Emblem -->
+    <path d="M150 40 L260 95 L150 150 L40 95 Z" fill="#FFFFFF"/>
+    <path d="M80 140 L80 210 Q150 255 220 210 L220 140" fill="none" stroke="#F1948A" stroke-width="14" stroke-linecap="round"/>
+    <path d="M150 150 L150 245" stroke="#922B21" stroke-width="8"/>
+    <!-- Mortarboard cap tassel -->
+    <path d="M225 112 L250 160 L242 165 L217 117 Z" fill="#E9C46A"/>
+    <circle cx="246" cy="165" r="8" fill="#E9C46A"/>
+  </g>
+  <text x="256" y="390" font-family="Georgia, serif" font-size="52" font-weight="bold" fill="#FFFFFF" text-anchor="middle" letter-spacing="4">LAPIS LADA</text>
+  <text x="256" y="430" font-family="-apple-system, sans-serif" font-size="20" font-weight="600" fill="#F1948A" text-anchor="middle" letter-spacing="2">SEKOLAH DASAR</text>
+</svg>

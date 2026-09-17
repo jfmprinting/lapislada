@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* PRD v2 Design Tokens */
+  --red: #C0392B;
+  --red-deep: #922B21;
+  --red-light: #F1948A;
+  --red-pale: #FDEDEC;
+  --sand: #F5F0E8;
+  --sand-mid: #E8E0D0;
+  --ink: #1A1A1A;
+  --ink-mid: #3D3D3D;
+  --muted: #6B6B6B;
+  --white: #FFFFFF;
+  --border: #DDD8CE;
+
+  /* Typography */
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  /* Border Radius */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 20px;
+
+  /* Default theme mappings */
+  --background: var(--sand);
+  --foreground: var(--ink);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-brand-red: #C0392B;
+  --color-brand-red-deep: #922B21;
+  --color-brand-red-light: #F1948A;
+  --color-brand-red-pale: #FDEDEC;
+  --color-brand-sand: #F5F0E8;
+  --color-brand-sand-mid: #E8E0D0;
+  --color-brand-ink: #1A1A1A;
+  --color-brand-ink-mid: #3D3D3D;
+  --color-brand-muted: #6B6B6B;
+  --color-brand-border: #DDD8CE;
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--sand);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif-display {
+  font-family: var(--font-display);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--sand);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sand-mid);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
