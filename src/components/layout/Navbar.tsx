@@ -37,15 +37,20 @@ export default function Navbar({
     <header className="sticky top-0 z-50 bg-[#922B21] text-white shadow-md border-b border-[#771F18]">
       <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-lg bg-white p-0.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white p-0.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden border border-white/30 shrink-0">
             <img src="/logo.webp" alt="Logo Sekolah" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
-            <span className="font-serif font-bold text-sm tracking-tight text-white line-clamp-1">
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-sm sm:text-base tracking-wider text-white drop-shadow-sm">
+                LAPIS LADA
+              </span>
+              <span className="hidden xs:inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                PORTAL
+              </span>
+            </div>
+            <span className="text-[10px] sm:text-[11px] text-amber-100/90 font-medium line-clamp-1">
               {schoolName}
-            </span>
-            <span className="text-[11px] text-[#F1948A] font-medium tracking-wide">
-              LAPIS LADA
             </span>
           </div>
         </Link>
