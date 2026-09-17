@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
-import BottomNav from '@/components/layout/BottomNav';
-import { ArrowLeft, FolderOpen, ExternalLink, Plus, BookCheck } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
+import { FolderOpen, ExternalLink, Plus, BookCheck } from 'lucide-react';
 
 interface MateriItem {
   id: string;
@@ -46,67 +45,58 @@ export default function MateriPage() {
   const [materiList] = useState<MateriItem[]>(INITIAL_MATERI);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-      <Navbar schoolName="Materi Pelajaran" />
-
-      <main className="w-full max-w-md mx-auto sm:max-w-xl md:max-w-2xl px-4 py-4 flex-1">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6B6B6B] hover:text-[#922B21]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
-          <span className="text-xs font-bold text-[#922B21] bg-[#FDEDEC] px-2.5 py-1 rounded-md border border-[#F1948A]">
-            Zero Storage Server
-          </span>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE] mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#FDEDEC] text-[#922B21]">
-              <FolderOpen className="w-5 h-5" />
+    <AppShell
+      role="guru"
+      pageTitle="Materi Pelajaran"
+      pageSubtitle="Penyimpanan link Google Drive materi belajar siswa (Zero Storage Server)"
+    >
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+              <FolderOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-serif font-bold text-base text-[#1A1A1A]">
-                Materi & Lembar Belajar
-              </h1>
-              <p className="text-[11px] text-[#6B6B6B]">
-                Tautan materi Google Drive langsung dari guru tanpa membebani memori HP
+              <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                Materi & Lembar Belajar Siswa
+              </h2>
+              <p className="text-xs text-[#6B6B6B]">
+                Wali murid dan siswa dapat mengunduh langsung dari Google Drive
               </p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {materiList.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE] hover:border-[#C0392B]/40 transition"
+              className="bg-white rounded-2xl p-5 shadow-xs border border-[#DDD8CE] hover:border-[#C0392B]/40 transition flex flex-col justify-between"
             >
-              <div className="flex items-center justify-between gap-2 mb-1.5">
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F5F0E8] text-[#922B21]">
-                  {item.mapel}
-                </span>
-                <span className="text-[10px] text-[#6B6B6B] font-medium">
-                  {item.kelas}
-                </span>
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]">
+                    {item.mapel}
+                  </span>
+                  <span className="text-[11px] text-[#6B6B6B] font-medium">
+                    {item.kelas}
+                  </span>
+                </div>
+
+                <h3 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 leading-snug">
+                  {item.judul}
+                </h3>
+                <p className="text-xs text-[#6B6B6B] mb-4 leading-relaxed">
+                  {item.deskripsi}
+                </p>
               </div>
 
-              <h3 className="font-serif font-bold text-sm text-[#1A1A1A] mb-1">
-                {item.judul}
-              </h3>
-              <p className="text-xs text-[#6B6B6B] mb-3 leading-relaxed">
-                {item.deskripsi}
-              </p>
-
-              <div className="pt-2 border-t border-[#F5F0E8] flex justify-end">
+              <div className="pt-3 border-t border-[#F5F0E8] flex justify-end">
                 <a
                   href={item.link_gdrive}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-xs transition"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-xs transition active:scale-95"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Buka di Google Drive</span>
@@ -115,9 +105,7 @@ export default function MateriPage() {
             </div>
           ))}
         </div>
-      </main>
-
-      <BottomNav role="guru" />
-    </div>
+      </div>
+    </AppShell>
   );
 }

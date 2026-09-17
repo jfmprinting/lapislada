@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
-import BottomNav from '@/components/layout/BottomNav';
-import { ArrowLeft, Bell, Plus, Calendar, Pin } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
+import { Bell, Plus, Calendar, Pin } from 'lucide-react';
 
 interface Pengumuman {
   id: string;
@@ -69,97 +68,92 @@ export default function PengumumanPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-      <Navbar schoolName="Pengumuman Sekolah" />
-
-      <main className="w-full max-w-md mx-auto sm:max-w-xl md:max-w-2xl px-4 py-4 flex-1">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6B6B6B] hover:text-[#922B21]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
-
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow transition active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Buat Pengumuman</span>
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE] mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#FDEDEC] text-[#922B21]">
-              <Bell className="w-5 h-5" />
+    <AppShell
+      role="guru"
+      pageTitle="Pengumuman Sekolah & Kelas"
+      pageSubtitle="Papan informasi resmi sekolah tanpa tenggelam di WA grup"
+    >
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+              <Bell className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-serif font-bold text-base text-[#1A1A1A]">
-                Papan Informasi Sekolah
-              </h1>
-              <p className="text-[11px] text-[#6B6B6B]">
-                Pengumuman resmi dari sekolah & wali kelas (tidak tenggelam di grup WA)
+              <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                Papan Informasi Resmi
+              </h2>
+              <p className="text-xs text-[#6B6B6B]">
+                Total {announcements.length} Pengumuman Aktif
               </p>
             </div>
           </div>
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Buat Pengumuman Baru</span>
+          </button>
         </div>
 
-        <div className="space-y-3">
+        {/* ANNOUNCEMENT CARDS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {announcements.map((p) => (
             <div
               key={p.id}
-              className={`bg-white rounded-xl p-4 shadow-sm border transition ${
+              className={`bg-white rounded-2xl p-5 shadow-xs border transition flex flex-col justify-between ${
                 p.isPinned ? 'border-[#C0392B]/50 ring-1 ring-[#C0392B]/20' : 'border-[#DDD8CE]'
               }`}
             >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]">
-                    {p.kategori}
-                  </span>
-                  {p.isPinned && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C0392B]">
-                      <Pin className="w-3 h-3" />
-                      Disematkan
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]">
+                      {p.kategori}
                     </span>
-                  )}
+                    {p.isPinned && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C0392B]">
+                        <Pin className="w-3 h-3" />
+                        Disematkan
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-[#6B6B6B] flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {p.tanggal}
+                  </span>
                 </div>
-                <span className="text-[11px] text-[#6B6B6B] flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {p.tanggal}
-                </span>
-              </div>
 
-              <h3 className="font-serif font-bold text-sm text-[#1A1A1A] mb-1.5">
-                {p.judul}
-              </h3>
-              <p className="text-xs text-[#3D3D3D] leading-relaxed whitespace-pre-wrap">
-                {p.konten}
-              </p>
+                <h3 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 leading-snug">
+                  {p.judul}
+                </h3>
+                <p className="text-xs text-[#3D3D3D] leading-relaxed whitespace-pre-wrap">
+                  {p.konten}
+                </p>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Modal Buat Pengumuman */}
+        {/* MODAL BUAT PENGUMUMAN */}
         {showModal && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 border border-[#DDD8CE] animate-in slide-in-from-bottom duration-200">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#E8E0D0]">
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 border border-[#DDD8CE] animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#E8E0D0]">
                 <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
                   Buat Pengumuman Baru
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-xs font-bold text-[#6B6B6B] hover:text-black p-1"
+                  className="text-sm font-bold text-[#6B6B6B] hover:text-black p-1"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleAdd} className="space-y-3 text-xs">
+              <form onSubmit={handleAdd} className="space-y-4 text-xs">
                 <div>
                   <label className="block font-semibold text-[#3D3D3D] mb-1">
                     Kategori
@@ -167,7 +161,7 @@ export default function PengumumanPage() {
                   <select
                     value={formKategori}
                     onChange={(e) => setFormKategori(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-[#DDD8CE] bg-white text-[#1A1A1A]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A]"
                   >
                     <option value="Akademik">Akademik</option>
                     <option value="Kegiatan">Kegiatan Sekolah</option>
@@ -186,7 +180,7 @@ export default function PengumumanPage() {
                     value={formJudul}
                     onChange={(e) => setFormJudul(e.target.value)}
                     placeholder="Misal: Pelaksanaan Ujian Semester"
-                    className="w-full px-3 py-2 rounded-lg border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
                   />
                 </div>
 
@@ -200,21 +194,21 @@ export default function PengumumanPage() {
                     value={formKonten}
                     onChange={(e) => setFormKonten(e.target.value)}
                     placeholder="Tuliskan detail pengumuman secara jelas..."
-                    className="w-full p-3 rounded-lg border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
+                    className="w-full p-3 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-2.5 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 rounded-lg border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold"
+                    className="px-4 py-2.5 rounded-xl border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold"
                   >
                     Batalkan
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 cursor-pointer"
                   >
                     Publikasikan →
                   </button>
@@ -223,9 +217,7 @@ export default function PengumumanPage() {
             </div>
           </div>
         )}
-      </main>
-
-      <BottomNav role="guru" />
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Navbar from '@/components/layout/Navbar';
-import BottomNav from '@/components/layout/BottomNav';
-import { ArrowLeft, Award, Plus, CheckCircle2, TrendingUp } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
+import { Award, Plus, CheckCircle2, TrendingUp, Filter } from 'lucide-react';
 
 interface NilaiEntry {
   id: string;
@@ -32,45 +31,35 @@ export default function NilaiPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-      <Navbar schoolName="Nilai Siswa Kelas 4A" />
-
-      <main className="w-full max-w-md mx-auto sm:max-w-xl md:max-w-2xl px-4 py-4 flex-1">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6B6B6B] hover:text-[#922B21]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
-
-          <span className="text-xs font-bold text-[#922B21] bg-[#FDEDEC] px-2.5 py-1 rounded-md border border-[#F1948A]">
-            T.A 2025/2026
-          </span>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE] mb-4">
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="p-2 rounded-lg bg-[#FDEDEC] text-[#922B21]">
-              <Award className="w-5 h-5" />
+    <AppShell
+      role="guru"
+      pageTitle="Nilai Siswa"
+      pageSubtitle="Capaian asesmen sumatif dan formatif kelas 4A"
+    >
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+              <Award className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-serif font-bold text-base text-[#1A1A1A]">
-                Capaian & Nilai Siswa
-              </h1>
-              <p className="text-[11px] text-[#6B6B6B]">
-                Wali murid dapat memantau perkembangan nilai anak tanpa harus menunggu rapor
+              <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                Rekapitulasi Nilai Siswa
+              </h2>
+              <p className="text-xs text-[#6B6B6B]">
+                Wali murid dapat memantau capaian belajar anak secara transparan
               </p>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-[#F5F0E8] flex items-center gap-2 text-xs">
-            <span className="text-[#6B6B6B] font-semibold text-[11px]">Mapel:</span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[#6B6B6B] font-semibold flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5" /> Filter Mapel:
+            </span>
             <select
               value={filterMapel}
               onChange={(e) => setFilterMapel(e.target.value)}
-              className="px-2.5 py-1 rounded-md border border-[#DDD8CE] bg-white text-[#1A1A1A]"
+              className="px-3 py-2 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
             >
               <option value="Semua">Semua Mata Pelajaran</option>
               <option value="Matematika">Matematika</option>
@@ -80,40 +69,41 @@ export default function NilaiPage() {
           </div>
         </div>
 
-        <div className="space-y-2.5">
+        {/* GRADES GRID (RESPONSIVE MULTI-COLUMN ON DESKTOP) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item) => {
             const isLulus = item.skor >= item.kkm;
             return (
               <div
                 key={item.id}
-                className="bg-white rounded-xl p-3.5 shadow-sm border border-[#DDD8CE] flex items-center justify-between"
+                className="bg-white rounded-2xl p-5 shadow-xs border border-[#DDD8CE] flex items-center justify-between hover:border-[#C0392B]/50 transition"
               >
                 <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#F5F0E8] text-[#922B21]">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]">
                       {item.mapel}
                     </span>
-                    <span className="text-[10px] text-[#6B6B6B]">{item.jenisUjian}</span>
+                    <span className="text-xs text-[#6B6B6B]">{item.jenisUjian}</span>
                   </div>
-                  <h3 className="font-bold text-xs text-[#1A1A1A]">
+                  <h3 className="font-bold text-sm text-[#1A1A1A]">
                     {item.namaSiswa}
                   </h3>
-                  <span className="text-[10px] text-[#6B6B6B]">
-                    KKM: {item.kkm}
+                  <span className="text-[11px] text-[#6B6B6B] mt-0.5 block">
+                    Standar KKM: {item.kkm}
                   </span>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span
-                    className={`block font-serif font-bold text-xl ${
+                    className={`block font-serif font-bold text-2xl ${
                       isLulus ? 'text-emerald-700' : 'text-[#C0392B]'
                     }`}
                   >
                     {item.skor}
                   </span>
                   <span
-                    className={`text-[9px] font-bold uppercase tracking-wider ${
-                      isLulus ? 'text-emerald-600' : 'text-[#C0392B]'
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      isLulus ? 'bg-emerald-50 text-emerald-700' : 'bg-[#FDEDEC] text-[#C0392B]'
                     }`}
                   >
                     {isLulus ? 'Tuntas' : 'Remidial'}
@@ -123,9 +113,7 @@ export default function NilaiPage() {
             );
           })}
         </div>
-      </main>
-
-      <BottomNav role="guru" />
-    </div>
+      </div>
+    </AppShell>
   );
 }

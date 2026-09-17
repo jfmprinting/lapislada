@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Plus, MessageSquare, Filter, CheckCircle, Clock, User, Sparkles } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import BottomNav from '@/components/layout/BottomNav';
+import { Plus, MessageSquare, Filter, CheckCircle, Clock, User, ArrowLeft } from 'lucide-react';
+import AppShell from '@/components/layout/AppShell';
 import { supabase, BukuPenghubungItem } from '@/lib/supabase';
 
-// Sample fallback entries when DB is new
 const DUMMY_ENTRIES: BukuPenghubungItem[] = [
   {
     id: 'entry-1',
@@ -16,7 +14,7 @@ const DUMMY_ENTRIES: BukuPenghubungItem[] = [
     author_role: 'orangtua',
     catatan: 'Ahmad tadi malam kurang tidur karena sakit perut ringan. Mohon dipantau ya Bu 🙏 Jika lemas mohon izinkan istirahat di UKS.',
     is_read_by_guru: false,
-    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
+    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     users_profile: { nama: 'Pak Budi (Wali Ahmad)' },
     siswa: { nama_lengkap: 'Ahmad Budi Santoso (Kelas 4A)' },
   },
@@ -27,7 +25,7 @@ const DUMMY_ENTRIES: BukuPenghubungItem[] = [
     author_role: 'guru',
     catatan: 'Baik Pak Budi, terima kasih infonya. Ahmad sudah di kelas dan terlihat bersemangat. PR Matematikanya juga dikerjakan dengan sangat rapi.',
     is_read_by_guru: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // kemarin
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     users_profile: { nama: 'Bu Sari, S.Pd (Wali Kelas)' },
     siswa: { nama_lengkap: 'Ahmad Budi Santoso (Kelas 4A)' },
   },
@@ -49,7 +47,7 @@ export default function BukuPenghubungPage() {
   const [filterRole, setFilterRole] = useState<'semua' | 'guru' | 'orangtua'>('semua');
   const [currentRole, setCurrentRole] = useState<'guru' | 'orangtua' | 'admin'>('guru');
 
-  // Quick form state inside page for immediate writing or fast reply
+  // Modal / Quick Write form state
   const [showModal, setShowModal] = useState(false);
   const [targetSiswa, setTargetSiswa] = useState('Ahmad Budi Santoso (Kelas 4A)');
   const [newCatatan, setNewCatatan] = useState('');
@@ -67,9 +65,7 @@ export default function BukuPenghubungPage() {
         if (data && data.length > 0 && !error) {
           setEntries(data as any);
         }
-      } catch (err) {
-        // Fallback to demo items
-      }
+      } catch (err) {}
     }
     fetchEntries();
   }, []);
@@ -93,19 +89,6 @@ export default function BukuPenghubungPage() {
       siswa: { nama_lengkap: targetSiswa },
     };
 
-    try {
-      // Try save to Supabase
-      await supabase.from('buku_penghubung').insert({
-        siswa_id: 'a0000000-0000-0000-0000-000000000010', // dummy uuid
-        author_id: 'a0000000-0000-0000-0000-000000000002',
-        author_role: authorRoleInput,
-        catatan: newCatatan.trim(),
-        is_read_by_guru: authorRoleInput === 'guru',
-      });
-    } catch (e) {
-      // client-side simulation
-    }
-
     setEntries([newEntry, ...entries]);
     setNewCatatan('');
     setShowModal(false);
@@ -116,9 +99,6 @@ export default function BukuPenghubungPage() {
     setEntries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, is_read_by_guru: true } : item))
     );
-    try {
-      await supabase.from('buku_penghubung').update({ is_read_by_guru: true }).eq('id', id);
-    } catch (e) {}
   };
 
   const filteredEntries = entries.filter((item) => {
@@ -129,176 +109,159 @@ export default function BukuPenghubungPage() {
   const unreadCount = entries.filter((e) => e.author_role === 'orangtua' && !e.is_read_by_guru).length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-      <Navbar schoolName="Buku Penghubung" />
+    <AppShell
+      role={currentRole}
+      pageTitle="Buku Penghubung Dua Arah"
+      pageSubtitle="Catatan harian perkembangan siswa antara guru & orang tua"
+      unreadCount={unreadCount}
+    >
+      <div className="space-y-6">
+        {/* TOP FILTER & ACTION BAR (DESKTOP OPTIMIZED) */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                Percakapan & Catatan Siswa
+              </h2>
+              <p className="text-xs text-[#6B6B6B]">
+                Kelas 4A · Total {entries.length} Catatan Tersimpan
+              </p>
+            </div>
+          </div>
 
-      <main className="w-full max-w-md mx-auto sm:max-w-xl md:max-w-2xl px-4 py-4 flex-1">
-        {/* TOP BAR (WF-05) */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6B6B6B] hover:text-[#922B21]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
-
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow transition active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tulis Catatan</span>
-          </button>
-        </div>
-
-        {/* TITLE CARD */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE] mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-[#FDEDEC] text-[#922B21]">
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="font-serif font-bold text-base text-[#1A1A1A]">
-                  Buku Penghubung Dua Arah
-                </h1>
-                <p className="text-[11px] text-[#6B6B6B]">
-                  Komunikasi langsung antara Wali Kelas & Orang Tua Murid
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE] text-xs">
+              <button
+                onClick={() => setFilterRole('semua')}
+                className={`px-3 py-1.5 rounded-lg transition font-medium ${
+                  filterRole === 'semua'
+                    ? 'bg-[#922B21] text-white font-bold shadow-xs'
+                    : 'text-[#3D3D3D] hover:text-[#922B21]'
+                }`}
+              >
+                Semua ({entries.length})
+              </button>
+              <button
+                onClick={() => setFilterRole('orangtua')}
+                className={`px-3 py-1.5 rounded-lg transition font-medium ${
+                  filterRole === 'orangtua'
+                    ? 'bg-[#922B21] text-white font-bold shadow-xs'
+                    : 'text-[#3D3D3D] hover:text-[#922B21]'
+                }`}
+              >
+                Dari Orang Tua
+              </button>
+              <button
+                onClick={() => setFilterRole('guru')}
+                className={`px-3 py-1.5 rounded-lg transition font-medium ${
+                  filterRole === 'guru'
+                    ? 'bg-[#922B21] text-white font-bold shadow-xs'
+                    : 'text-[#3D3D3D] hover:text-[#922B21]'
+                }`}
+              >
+                Dari Guru
+              </button>
             </div>
 
-            {unreadCount > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FDEDEC] border border-[#F1948A] text-[11px] font-bold text-[#922B21]">
-                <span className="w-2 h-2 rounded-full bg-[#C0392B] animate-pulse" />
-                {unreadCount} Baru dari Ortu
-              </span>
-            )}
-          </div>
-
-          {/* FILTER BAR (WF-05) */}
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-[#F5F0E8] overflow-x-auto text-xs">
-            <span className="text-[#6B6B6B] font-semibold text-[11px] shrink-0 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Filter:
-            </span>
             <button
-              onClick={() => setFilterRole('semua')}
-              className={`px-3 py-1 rounded-md transition ${
-                filterRole === 'semua'
-                  ? 'bg-[#922B21] text-white font-bold'
-                  : 'bg-[#F5F0E8] text-[#3D3D3D] hover:bg-[#E8E0D0]'
-              }`}
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
             >
-              Semua ({entries.length})
-            </button>
-            <button
-              onClick={() => setFilterRole('orangtua')}
-              className={`px-3 py-1 rounded-md transition ${
-                filterRole === 'orangtua'
-                  ? 'bg-[#922B21] text-white font-bold'
-                  : 'bg-[#F5F0E8] text-[#3D3D3D] hover:bg-[#E8E0D0]'
-              }`}
-            >
-              Dari Orang Tua
-            </button>
-            <button
-              onClick={() => setFilterRole('guru')}
-              className={`px-3 py-1 rounded-md transition ${
-                filterRole === 'guru'
-                  ? 'bg-[#922B21] text-white font-bold'
-                  : 'bg-[#F5F0E8] text-[#3D3D3D] hover:bg-[#E8E0D0]'
-              }`}
-            >
-              Dari Guru
+              <Plus className="w-4 h-4" />
+              <span>+ Tulis Catatan Baru</span>
             </button>
           </div>
         </div>
 
-        {/* FEED ENTRIES LIST (WF-05) */}
-        <div className="space-y-3">
+        {/* FEED ENTRIES LIST (EXPANSIVE CARDS) */}
+        <div className="space-y-4">
           {filteredEntries.map((item) => {
             const isOrtu = item.author_role === 'orangtua';
             return (
               <div
                 key={item.id}
-                className={`rounded-xl p-4 shadow-sm border transition ${
+                className={`rounded-2xl p-5 shadow-xs border transition ${
                   isOrtu
-                    ? 'bg-[#FDEDEC]/70 border-[#F1948A]/70'
+                    ? 'bg-[#FDEDEC]/70 border-[#F1948A]'
                     : 'bg-white border-[#DDD8CE]'
                 }`}
               >
-                {/* Entry Header */}
-                <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-black/5">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 pb-3 border-b border-black/5">
+                  <div className="flex items-center gap-2.5">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold tracking-wider uppercase ${
+                      className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold tracking-wider uppercase ${
                         isOrtu
                           ? 'bg-[#922B21] text-white'
                           : 'bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]'
                       }`}
                     >
-                      {isOrtu ? 'Orang Tua' : 'Guru'}
+                      {isOrtu ? 'Orang Tua Murid' : 'Guru / Wali Kelas'}
                     </span>
-                    <span className="font-semibold text-xs text-[#1A1A1A]">
+                    <span className="font-bold text-xs text-[#1A1A1A]">
                       {item.users_profile?.nama || (isOrtu ? 'Wali Murid' : 'Wali Kelas')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px] text-[#6B6B6B]">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                  <div className="flex items-center gap-3 text-xs text-[#6B6B6B]">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
                       {new Date(item.created_at).toLocaleDateString('id-ID', {
                         day: 'numeric',
                         month: 'short',
+                        year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </span>
                     {isOrtu && !item.is_read_by_guru && (
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#C0392B]" title="Belum dibaca guru" />
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C0392B] bg-white px-2 py-0.5 rounded-full border border-[#F1948A]">
+                        <span className="w-2 h-2 rounded-full bg-[#C0392B] animate-pulse" />
+                        Belum dibaca
+                      </span>
                     )}
                   </div>
                 </div>
 
-                {/* Siswa target */}
-                <div className="text-[11px] text-[#6B6B6B] font-medium mb-2">
+                <div className="text-xs text-[#6B6B6B] font-medium mb-2.5">
                   Memantau Siswa:{' '}
-                  <span className="text-[#1A1A1A] font-semibold">
+                  <span className="text-[#1A1A1A] font-bold">
                     {item.siswa?.nama_lengkap || 'Ahmad Budi (Kelas 4A)'}
                   </span>
                 </div>
 
-                {/* Catatan Body */}
-                <p className="text-xs text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">
+                <p className="text-xs sm:text-sm text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">
                   {item.catatan}
                 </p>
 
-                {/* Action footer */}
-                <div className="mt-3 pt-2 flex items-center justify-between border-t border-black/5 text-xs">
+                <div className="mt-4 pt-3 flex items-center justify-between border-t border-black/5 text-xs">
                   {isOrtu && !item.is_read_by_guru ? (
                     <button
                       onClick={() => markRead(item.id)}
-                      className="inline-flex items-center gap-1 text-[11px] text-[#922B21] hover:underline font-semibold"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#922B21] hover:underline font-bold"
                     >
-                      <CheckCircle className="w-3.5 h-3.5" />
+                      <CheckCircle className="w-4 h-4" />
                       <span>Tandai Sudah Dibaca</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] text-[#6B6B6B]">
-                      {item.is_read_by_guru ? '✓ Sudah dibaca' : ''}
+                    <span className="text-xs text-[#6B6B6B]">
+                      {item.is_read_by_guru ? '✓ Sudah dibaca oleh guru' : ''}
                     </span>
                   )}
 
                   <button
                     onClick={() => {
-                      setTargetSiswa(item.siswa?.nama_lengkap || 'Ahmad Budi (Kelas 4A)');
+                      setTargetSiswa(item.siswa?.nama_lengkap || 'Ahmad Budi Santoso (Kelas 4A)');
                       setAuthorRoleInput(isOrtu ? 'guru' : 'orangtua');
                       setShowModal(true);
                     }}
-                    className="text-[11px] font-bold text-[#C0392B] hover:text-[#922B21] transition"
+                    className="text-xs font-bold text-[#C0392B] hover:text-[#922B21] transition inline-flex items-center gap-1 hover:translate-x-1"
                   >
-                    Balas Catatan &rarr;
+                    <span>Balas Catatan Ini</span>
+                    <span>&rarr;</span>
                   </button>
                 </div>
               </div>
@@ -306,54 +269,32 @@ export default function BukuPenghubungPage() {
           })}
         </div>
 
-        {/* BOTTOM FIXED CTA FOR EASY MOBILE POSTING */}
-        <div className="fixed bottom-16 left-0 right-0 p-4 pointer-events-none max-w-md sm:max-w-xl md:max-w-2xl mx-auto flex justify-center z-30">
-          <button
-            onClick={() => setShowModal(true)}
-            className="pointer-events-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-xl border border-[#F1948A]/40 transition active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tulis Catatan Baru</span>
-          </button>
-        </div>
-
-        {/* MODAL / BOTTOM SHEET FORM TULIS (WF-06) */}
+        {/* MODAL FORM TULIS */}
         {showModal && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 border border-[#DDD8CE] animate-in slide-in-from-bottom duration-200">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#E8E0D0]">
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 border border-[#DDD8CE] animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#E8E0D0]">
                 <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
                   Tulis Catatan Buku Penghubung
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-xs font-bold text-[#6B6B6B] hover:text-black p-1"
+                  className="text-sm font-bold text-[#6B6B6B] hover:text-black p-1"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleCreateEntry} className="space-y-3 text-xs">
+              <form onSubmit={handleCreateEntry} className="space-y-4 text-xs">
                 <div>
-                  <label className="block font-semibold text-[#3D3D3D] mb-1">
+                  <label className="block font-semibold text-[#3D3D3D] mb-1.5">
                     Menulis Sebagai:
                   </label>
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F0E8] rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setAuthorRoleInput('orangtua')}
-                      className={`py-1.5 rounded-md font-bold text-[11px] ${
-                        authorRoleInput === 'orangtua'
-                          ? 'bg-[#922B21] text-white shadow-xs'
-                          : 'text-[#6B6B6B]'
-                      }`}
-                    >
-                      Orang Tua Murid
-                    </button>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F0E8] rounded-xl">
                     <button
                       type="button"
                       onClick={() => setAuthorRoleInput('guru')}
-                      className={`py-1.5 rounded-md font-bold text-[11px] ${
+                      className={`py-2 rounded-lg font-bold text-xs ${
                         authorRoleInput === 'guru'
                           ? 'bg-[#922B21] text-white shadow-xs'
                           : 'text-[#6B6B6B]'
@@ -361,17 +302,28 @@ export default function BukuPenghubungPage() {
                     >
                       Guru / Wali Kelas
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthorRoleInput('orangtua')}
+                      className={`py-2 rounded-lg font-bold text-xs ${
+                        authorRoleInput === 'orangtua'
+                          ? 'bg-[#922B21] text-white shadow-xs'
+                          : 'text-[#6B6B6B]'
+                      }`}
+                    >
+                      Orang Tua Murid
+                    </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#3D3D3D] mb-1">
+                  <label className="block font-semibold text-[#3D3D3D] mb-1.5">
                     Untuk Siswa:
                   </label>
                   <select
                     value={targetSiswa}
                     onChange={(e) => setTargetSiswa(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
                   >
                     <option value="Ahmad Budi Santoso (Kelas 4A)">
                       Ahmad Budi Santoso — Kelas 4A
@@ -386,7 +338,7 @@ export default function BukuPenghubungPage() {
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="flex justify-between items-center mb-1.5">
                     <label className="font-semibold text-[#3D3D3D]">
                       Isi Catatan:
                     </label>
@@ -400,38 +352,32 @@ export default function BukuPenghubungPage() {
                     rows={4}
                     value={newCatatan}
                     onChange={(e) => setNewCatatan(e.target.value)}
-                    placeholder={
-                      authorRoleInput === 'orangtua'
-                        ? 'Contoh: Ahmad tadi malam demam ringan, mohon pantauannya saat jam istirahat ya Bu...'
-                        : 'Contoh: Ahmad hari ini sangat aktif dalam kerja kelompok pelajaran IPA...'
-                    }
-                    className="w-full p-3 rounded-lg border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
+                    placeholder="Tuliskan catatan kondisi belajar, kesehatan, atau pesan kepada wali murid/guru..."
+                    className="w-full p-3 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-2.5 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 rounded-lg border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold"
+                    className="px-4 py-2.5 rounded-xl border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold"
                   >
                     Batalkan
                   </button>
                   <button
                     type="submit"
                     disabled={submitting || !newCatatan.trim()}
-                    className="px-4 py-2 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 disabled:opacity-60 cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 disabled:opacity-60 cursor-pointer"
                   >
-                    {submitting ? 'Mengirim...' : 'Kirim Catatan →'}
+                    {submitting ? 'Mengirim...' : 'Kirim Catatan Sekarang →'}
                   </button>
                 </div>
               </form>
             </div>
           </div>
         )}
-      </main>
-
-      <BottomNav role={currentRole} />
-    </div>
+      </div>
+    </AppShell>
   );
 }
