@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { Bell, Plus, Calendar, Pin } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface Pengumuman {
   id: string;
@@ -41,12 +43,29 @@ const INITIAL_ANNOUNCEMENTS: Pengumuman[] = [
   },
 ];
 
-export default function PengumumanPage() {
+function PengumumanContent() {
+  const searchParams = useSearchParams();
+  const queryRole = searchParams.get('role');
+  const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
+
   const [announcements, setAnnouncements] = useState<Pengumuman[]>(INITIAL_ANNOUNCEMENTS);
   const [showModal, setShowModal] = useState(false);
   const [formJudul, setFormJudul] = useState('');
   const [formKonten, setFormKonten] = useState('');
   const [formKategori, setFormKategori] = useState('Akademik');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null;
+      const detectedRole =
+        (queryRole as 'guru' | 'admin' | 'orangtua') ||
+        (user?.user_metadata?.role as 'guru' | 'admin' | 'orangtua') ||
+        'guru';
+      setRole(detectedRole);
+    });
+  }, [queryRole]);
+
+  const isOrangTua = role === 'orangtua';
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +88,13 @@ export default function PengumumanPage() {
 
   return (
     <AppShell
-      role="guru"
-      pageTitle="Pengumuman Sekolah & Kelas"
-      pageSubtitle="Papan informasi resmi sekolah tanpa tenggelam di WA grup"
+      role={role}
+      pageTitle={isOrangTua ? 'Pengumuman Sekolah' : 'Pengumuman Sekolah & Kelas'}
+      pageSubtitle={
+        isOrangTua
+          ? 'Informasi resmi dari pihak sekolah dan wali kelas untuk wali murid'
+          : 'Papan informasi resmi sekolah tanpa tenggelam di WA grup'
+      }
     >
       <div className="space-y-6">
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -89,13 +112,15 @@ export default function PengumumanPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Buat Pengumuman Baru</span>
-          </button>
+          {!isOrangTua && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Buat Pengumuman Baru</span>
+            </button>
+          )}
         </div>
 
         {/* ANNOUNCEMENT CARDS GRID */}
@@ -219,5 +244,13 @@ export default function PengumumanPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function PengumumanPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center text-xs text-[#6B6B6B]">Memuat Pengumuman...</div>}>
+      <PengumumanContent />
+    </Suspense>
   );
 }

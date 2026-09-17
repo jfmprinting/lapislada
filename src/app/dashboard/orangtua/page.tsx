@@ -29,7 +29,7 @@ export default function DashboardOrangTuaPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-      <Navbar schoolName="Portal Orang Tua" />
+      <Navbar schoolName="Portal Orang Tua" showLoginCta={false} />
 
       <main className="w-full max-w-md mx-auto sm:max-w-xl md:max-w-2xl px-4 py-4 flex-1 space-y-4">
         {/* GREETING CARD */}
@@ -123,7 +123,7 @@ export default function DashboardOrangTuaPage() {
               </h2>
             </div>
             <Link
-              href="/buku-penghubung"
+              href="/buku-penghubung?role=orangtua"
               className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
             >
               <span>Semua Catatan</span>
@@ -148,7 +148,7 @@ export default function DashboardOrangTuaPage() {
             {/* Action Buttons */}
             <div className="pt-2 flex flex-col gap-2">
               <Link
-                href="/buku-penghubung"
+                href="/buku-penghubung?role=orangtua&tulis=true"
                 className="w-full py-2.5 px-4 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -170,7 +170,7 @@ export default function DashboardOrangTuaPage() {
               </h2>
             </div>
             <Link
-              href="/pengumuman"
+              href="/pengumuman?role=orangtua"
               className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
             >
               <span>Lihat Semua</span>

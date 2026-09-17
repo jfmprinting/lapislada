@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { Plus, MessageSquare, Filter, CheckCircle, Clock, User, ArrowLeft } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Plus, MessageSquare, CheckCircle, Clock, ArrowLeft, Send } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { supabase, BukuPenghubungItem } from '@/lib/supabase';
 
@@ -42,7 +43,11 @@ const DUMMY_ENTRIES: BukuPenghubungItem[] = [
   },
 ];
 
-export default function BukuPenghubungPage() {
+function BukuPenghubungContent() {
+  const searchParams = useSearchParams();
+  const queryRole = searchParams.get('role');
+  const autoTulis = searchParams.get('tulis') === 'true';
+
   const [entries, setEntries] = useState<BukuPenghubungItem[]>(DUMMY_ENTRIES);
   const [filterRole, setFilterRole] = useState<'semua' | 'guru' | 'orangtua'>('semua');
   const [currentRole, setCurrentRole] = useState<'guru' | 'orangtua' | 'admin'>('guru');
@@ -51,10 +56,21 @@ export default function BukuPenghubungPage() {
   const [showModal, setShowModal] = useState(false);
   const [targetSiswa, setTargetSiswa] = useState('Ahmad Budi Santoso (Kelas 4A)');
   const [newCatatan, setNewCatatan] = useState('');
-  const [authorRoleInput, setAuthorRoleInput] = useState<'guru' | 'orangtua'>('orangtua');
+  const [authorRoleInput, setAuthorRoleInput] = useState<'guru' | 'orangtua'>('guru');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null;
+      const detectedRole =
+        (queryRole as 'guru' | 'orangtua' | 'admin') ||
+        (user?.user_metadata?.role as 'guru' | 'orangtua' | 'admin') ||
+        'guru';
+
+      setCurrentRole(detectedRole);
+      setAuthorRoleInput(detectedRole === 'orangtua' ? 'orangtua' : 'guru');
+    });
+
     async function fetchEntries() {
       try {
         const { data, error } = await supabase
@@ -68,25 +84,34 @@ export default function BukuPenghubungPage() {
       } catch (err) {}
     }
     fetchEntries();
-  }, []);
+  }, [queryRole]);
+
+  useEffect(() => {
+    if (autoTulis) {
+      setShowModal(true);
+    }
+  }, [autoTulis]);
+
+  const isOrangTua = currentRole === 'orangtua';
 
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatatan.trim()) return;
 
     setSubmitting(true);
+    const roleForEntry = isOrangTua ? 'orangtua' : authorRoleInput;
     const newEntry: BukuPenghubungItem = {
       id: `entry-${Date.now()}`,
       siswa_id: 'siswa-1',
       author_id: 'user-current',
-      author_role: authorRoleInput,
+      author_role: roleForEntry,
       catatan: newCatatan.trim(),
-      is_read_by_guru: authorRoleInput === 'guru',
+      is_read_by_guru: roleForEntry === 'guru',
       created_at: new Date().toISOString(),
       users_profile: {
-        nama: authorRoleInput === 'guru' ? 'Bu Sari, S.Pd (Guru)' : 'Pak Budi (Wali Murid)',
+        nama: roleForEntry === 'guru' ? 'Bu Sari, S.Pd (Guru)' : 'Pak Budi (Wali Murid)',
       },
-      siswa: { nama_lengkap: targetSiswa },
+      siswa: { nama_lengkap: isOrangTua ? 'Ahmad Budi Santoso (Kelas 4A)' : targetSiswa },
     };
 
     setEntries([newEntry, ...entries]);
@@ -101,7 +126,16 @@ export default function BukuPenghubungPage() {
     );
   };
 
-  const filteredEntries = entries.filter((item) => {
+  // If orang tua, only show notes related to their child (Ahmad Budi Santoso) per PRD 6.1
+  const visibleEntries = isOrangTua
+    ? entries.filter(
+        (e) =>
+          e.siswa_id === 'siswa-1' ||
+          (e.siswa?.nama_lengkap && e.siswa.nama_lengkap.includes('Ahmad'))
+      )
+    : entries;
+
+  const filteredEntries = visibleEntries.filter((item) => {
     if (filterRole === 'semua') return true;
     return item.author_role === filterRole;
   });
@@ -111,12 +145,16 @@ export default function BukuPenghubungPage() {
   return (
     <AppShell
       role={currentRole}
-      pageTitle="Buku Penghubung Dua Arah"
-      pageSubtitle="Catatan harian perkembangan siswa antara guru & orang tua"
+      pageTitle={isOrangTua ? 'Buku Penghubung Siswa' : 'Buku Penghubung Dua Arah'}
+      pageSubtitle={
+        isOrangTua
+          ? 'Catatan harian komunikasi antara orang tua dan wali kelas ananda'
+          : 'Catatan harian perkembangan siswa antara guru & orang tua'
+      }
       unreadCount={unreadCount}
     >
       <div className="space-y-6">
-        {/* TOP FILTER & ACTION BAR (DESKTOP OPTIMIZED) */}
+        {/* TOP FILTER & ACTION BAR */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
@@ -124,10 +162,12 @@ export default function BukuPenghubungPage() {
             </div>
             <div>
               <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
-                Percakapan & Catatan Siswa
+                {isOrangTua ? 'Percakapan Ananda' : 'Percakapan & Catatan Siswa'}
               </h2>
               <p className="text-xs text-[#6B6B6B]">
-                Kelas 4A · Total {entries.length} Catatan Tersimpan
+                {isOrangTua
+                  ? 'Ahmad Budi Santoso · Kelas 4A'
+                  : `Kelas 4A · Total ${entries.length} Catatan Tersimpan`}
               </p>
             </div>
           </div>
@@ -143,7 +183,7 @@ export default function BukuPenghubungPage() {
                     : 'text-[#3D3D3D] hover:text-[#922B21]'
                 }`}
               >
-                Semua ({entries.length})
+                Semua ({visibleEntries.length})
               </button>
               <button
                 onClick={() => setFilterRole('orangtua')}
@@ -153,7 +193,7 @@ export default function BukuPenghubungPage() {
                     : 'text-[#3D3D3D] hover:text-[#922B21]'
                 }`}
               >
-                Dari Orang Tua
+                {isOrangTua ? 'Dari Saya' : 'Dari Orang Tua'}
               </button>
               <button
                 onClick={() => setFilterRole('guru')}
@@ -168,16 +208,22 @@ export default function BukuPenghubungPage() {
             </div>
 
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                if (isOrangTua) {
+                  setAuthorRoleInput('orangtua');
+                  setTargetSiswa('Ahmad Budi Santoso (Kelas 4A)');
+                }
+                setShowModal(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Tulis Catatan Baru</span>
+              <span>{isOrangTua ? '+ Tulis Catatan ke Guru' : '+ Tulis Catatan Baru'}</span>
             </button>
           </div>
         </div>
 
-        {/* FEED ENTRIES LIST (EXPANSIVE CARDS) */}
+        {/* FEED ENTRIES LIST */}
         <div className="space-y-4">
           {filteredEntries.map((item) => {
             const isOrtu = item.author_role === 'orangtua';
@@ -229,7 +275,7 @@ export default function BukuPenghubungPage() {
                 <div className="text-xs text-[#6B6B6B] font-medium mb-2.5">
                   Memantau Siswa:{' '}
                   <span className="text-[#1A1A1A] font-bold">
-                    {item.siswa?.nama_lengkap || 'Ahmad Budi (Kelas 4A)'}
+                    {item.siswa?.nama_lengkap || 'Ahmad Budi Santoso (Kelas 4A)'}
                   </span>
                 </div>
 
@@ -238,10 +284,10 @@ export default function BukuPenghubungPage() {
                 </p>
 
                 <div className="mt-4 pt-3 flex items-center justify-between border-t border-black/5 text-xs">
-                  {isOrtu && !item.is_read_by_guru ? (
+                  {!isOrangTua && isOrtu && !item.is_read_by_guru ? (
                     <button
                       onClick={() => markRead(item.id)}
-                      className="inline-flex items-center gap-1.5 text-xs text-[#922B21] hover:underline font-bold"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#922B21] hover:underline font-bold cursor-pointer"
                     >
                       <CheckCircle className="w-4 h-4" />
                       <span>Tandai Sudah Dibaca</span>
@@ -254,11 +300,16 @@ export default function BukuPenghubungPage() {
 
                   <button
                     onClick={() => {
-                      setTargetSiswa(item.siswa?.nama_lengkap || 'Ahmad Budi Santoso (Kelas 4A)');
-                      setAuthorRoleInput(isOrtu ? 'guru' : 'orangtua');
+                      if (isOrangTua) {
+                        setTargetSiswa('Ahmad Budi Santoso (Kelas 4A)');
+                        setAuthorRoleInput('orangtua');
+                      } else {
+                        setTargetSiswa(item.siswa?.nama_lengkap || 'Ahmad Budi Santoso (Kelas 4A)');
+                        setAuthorRoleInput(isOrtu ? 'guru' : 'orangtua');
+                      }
                       setShowModal(true);
                     }}
-                    className="text-xs font-bold text-[#C0392B] hover:text-[#922B21] transition inline-flex items-center gap-1 hover:translate-x-1"
+                    className="text-xs font-bold text-[#C0392B] hover:text-[#922B21] transition inline-flex items-center gap-1 hover:translate-x-1 cursor-pointer"
                   >
                     <span>Balas Catatan Ini</span>
                     <span>&rarr;</span>
@@ -275,67 +326,84 @@ export default function BukuPenghubungPage() {
             <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 border border-[#DDD8CE] animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#E8E0D0]">
                 <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                  Tulis Catatan Buku Penghubung
+                  {isOrangTua ? 'Tulis Catatan ke Guru Wali Kelas' : 'Tulis Catatan Buku Penghubung'}
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-sm font-bold text-[#6B6B6B] hover:text-black p-1"
+                  className="text-sm font-bold text-[#6B6B6B] hover:text-black p-1 cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
 
               <form onSubmit={handleCreateEntry} className="space-y-4 text-xs">
-                <div>
-                  <label className="block font-semibold text-[#3D3D3D] mb-1.5">
-                    Menulis Sebagai:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F0E8] rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setAuthorRoleInput('guru')}
-                      className={`py-2 rounded-lg font-bold text-xs ${
-                        authorRoleInput === 'guru'
-                          ? 'bg-[#922B21] text-white shadow-xs'
-                          : 'text-[#6B6B6B]'
-                      }`}
-                    >
-                      Guru / Wali Kelas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthorRoleInput('orangtua')}
-                      className={`py-2 rounded-lg font-bold text-xs ${
-                        authorRoleInput === 'orangtua'
-                          ? 'bg-[#922B21] text-white shadow-xs'
-                          : 'text-[#6B6B6B]'
-                      }`}
-                    >
-                      Orang Tua Murid
-                    </button>
+                {isOrangTua ? (
+                  <div className="p-3 bg-[#FAF8F2] rounded-xl border border-[#DDD8CE] flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-[#6B6B6B] block">Pengirim:</span>
+                      <span className="font-bold text-[#1A1A1A]">Pak Budi (Wali Murid)</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#6B6B6B] block text-right">Untuk Siswa:</span>
+                      <span className="font-bold text-[#922B21] bg-[#FDEDEC] px-2 py-0.5 rounded border border-[#F1948A]">
+                        Ahmad Budi Santoso (4A)
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block font-semibold text-[#3D3D3D] mb-1.5">
+                        Menulis Sebagai:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F0E8] rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setAuthorRoleInput('guru')}
+                          className={`py-2 rounded-lg font-bold text-xs cursor-pointer ${
+                            authorRoleInput === 'guru'
+                              ? 'bg-[#922B21] text-white shadow-xs'
+                              : 'text-[#6B6B6B]'
+                          }`}
+                        >
+                          Guru / Wali Kelas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAuthorRoleInput('orangtua')}
+                          className={`py-2 rounded-lg font-bold text-xs cursor-pointer ${
+                            authorRoleInput === 'orangtua'
+                              ? 'bg-[#922B21] text-white shadow-xs'
+                              : 'text-[#6B6B6B]'
+                          }`}
+                        >
+                          Orang Tua Murid
+                        </button>
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="block font-semibold text-[#3D3D3D] mb-1.5">
-                    Untuk Siswa:
-                  </label>
-                  <select
-                    value={targetSiswa}
-                    onChange={(e) => setTargetSiswa(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
-                  >
-                    <option value="Ahmad Budi Santoso (Kelas 4A)">
-                      Ahmad Budi Santoso (Kelas 4A)
-                    </option>
-                    <option value="Citra Lestari (Kelas 4A)">
-                      Citra Lestari (Kelas 4A)
-                    </option>
-                    <option value="Dimas Prasetyo (Kelas 4A)">
-                      Dimas Prasetyo (Kelas 4A)
-                    </option>
-                  </select>
-                </div>
+                    <div>
+                      <label className="block font-semibold text-[#3D3D3D] mb-1.5">
+                        Untuk Siswa:
+                      </label>
+                      <select
+                        value={targetSiswa}
+                        onChange={(e) => setTargetSiswa(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
+                      >
+                        <option value="Ahmad Budi Santoso (Kelas 4A)">
+                          Ahmad Budi Santoso (Kelas 4A)
+                        </option>
+                        <option value="Citra Lestari (Kelas 4A)">
+                          Citra Lestari (Kelas 4A)
+                        </option>
+                        <option value="Dimas Prasetyo (Kelas 4A)">
+                          Dimas Prasetyo (Kelas 4A)
+                        </option>
+                      </select>
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
@@ -352,7 +420,11 @@ export default function BukuPenghubungPage() {
                     rows={4}
                     value={newCatatan}
                     onChange={(e) => setNewCatatan(e.target.value)}
-                    placeholder="Tuliskan catatan kondisi belajar, kesehatan, atau pesan kepada wali murid/guru..."
+                    placeholder={
+                      isOrangTua
+                        ? 'Tuliskan catatan kondisi ananda di rumah, izin sakit, atau pertanyaan kepada guru...'
+                        : 'Tuliskan catatan kondisi belajar, kesehatan, atau pesan kepada wali murid/guru...'
+                    }
                     className="w-full p-3 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
                   />
                 </div>
@@ -361,16 +433,17 @@ export default function BukuPenghubungPage() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2.5 rounded-xl border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold"
+                    className="px-4 py-2.5 rounded-xl border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#F5F0E8] font-semibold cursor-pointer"
                   >
                     Batalkan
                   </button>
                   <button
                     type="submit"
                     disabled={submitting || !newCatatan.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 disabled:opacity-60 cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold shadow active:scale-95 disabled:opacity-60 cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    {submitting ? 'Mengirim...' : 'Kirim Catatan Sekarang →'}
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{submitting ? 'Mengirim...' : isOrangTua ? 'Kirim ke Guru' : 'Kirim Catatan'}</span>
                   </button>
                 </div>
               </form>
@@ -379,5 +452,13 @@ export default function BukuPenghubungPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function BukuPenghubungPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center text-xs text-[#6B6B6B]">Memuat Buku Penghubung...</div>}>
+      <BukuPenghubungContent />
+    </Suspense>
   );
 }
