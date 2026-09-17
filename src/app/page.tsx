@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import {
-  School,
   Award,
   Calendar,
   MapPin,
@@ -37,6 +36,7 @@ const DEFAULT_PROFIL: ProfilSekolah = {
   email: 'sdnlatsari2@gmail.com',
   visi: 'Terwujudnya peserta didik yang beriman, bertaqwa, cerdas, terampil, mandiri, dan berwawasan lingkungan.',
   misi: '1. Menanamkan keimanan dan ketaqwaan melalui pembiasaan ibadah dan akhlak mulia.\n2. Melaksanakan proses pembelajaran yang aktif, inovatif, kreatif, dan menyenangkan.\n3. Mengembangkan bakat, minat, dan potensi peserta didik secara optimal.\n4. Menumbuhkan kepedulian sosial dan kesadaran menjaga kelestarian lingkungan hidup.',
+  logo_url: '/logo.webp',
   maps_embed_url:
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3961.854890696347!2d111.7766!3d-6.7865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwNDcnMTEuNCJTIDExMcKwNDYnMzUuOCJF!5e0!3m2!1sid!2sid!4v1700000000000',
 };
@@ -93,18 +93,12 @@ export default function HomePage() {
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-[#F1948A]/20 rounded-full blur-xl pointer-events-none" />
 
           {/* School Emblem / Logo */}
-          <div className="relative mx-auto mb-4 w-20 h-20 rounded-2xl bg-white shadow-lg p-2 flex items-center justify-center border-2 border-[#F1948A]">
-            {profil.logo_url ? (
-              <img
-                src={profil.logo_url}
-                alt={profil.nama_sekolah}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="w-full h-full bg-[#FDEDEC] rounded-xl flex flex-col items-center justify-center text-[#922B21]">
-                <School className="w-9 h-9" />
-              </div>
-            )}
+          <div className="relative mx-auto mb-4 w-24 h-24 rounded-2xl bg-white shadow-lg p-2 flex items-center justify-center border-2 border-[#F1948A] overflow-hidden">
+            <img
+              src={profil.logo_url || '/logo.webp'}
+              alt={profil.nama_sekolah}
+              className="w-full h-full object-contain drop-shadow-sm"
+            />
           </div>
 
           <h1 className="font-serif text-2xl font-bold tracking-tight text-white leading-tight mb-2">

@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { School, ArrowRight, UserCheck, GraduationCap, Lock, Mail, AlertCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, UserCheck, GraduationCap, Lock, Mail, AlertCircle, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 function LoginForm() {
@@ -69,8 +69,8 @@ function LoginForm() {
         {/* BRANDING HEADER */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-flex items-center justify-center mb-3">
-            <div className="w-12 h-12 rounded-xl bg-[#922B21] text-white flex items-center justify-center shadow-md">
-              <School className="w-6 h-6 text-white" />
+            <div className="w-16 h-16 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-md border border-[#DDD8CE] overflow-hidden">
+              <img src="/logo.webp" alt="Logo Sekolah" className="w-full h-full object-contain" />
             </div>
           </Link>
           <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1A1A1A]">

@@ -25,7 +25,7 @@ export default function AdminProfilSekolahPage() {
     email: 'sdnlatsari2@gmail.com',
     visi: 'Terwujudnya peserta didik yang beriman, bertaqwa, cerdas, terampil, mandiri, dan berwawasan lingkungan.',
     misi: '1. Menanamkan keimanan dan ketaqwaan melalui pengamalan ajaran agama.\n2. Melaksanakan pembelajaran dan bimbingan secara efektif.\n3. Mengembangkan potensi bakat dan minat siswa.',
-    logo_url: '',
+    logo_url: '/logo.webp',
     maps_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3961.854890696347!2d111.7766!3d-6.7865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwNDcnMTEuNCJTIDExMcKwNDYnMzUuOCJF!5e0!3m2!1sid!2sid!4v1',
   });
 

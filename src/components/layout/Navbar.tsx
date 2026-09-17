@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { School, LogIn, User, LogOut } from 'lucide-react';
+import { LogIn, User, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -37,8 +37,8 @@ export default function Navbar({
     <header className="sticky top-0 z-50 bg-[#922B21] text-white shadow-md border-b border-[#771F18]">
       <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#922B21] shadow-sm transition-transform group-hover:scale-105">
-            <School className="w-5 h-5 text-[#922B21]" />
+          <div className="w-9 h-9 rounded-lg bg-white p-0.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden">
+            <img src="/logo.webp" alt="Logo Sekolah" className="w-full h-full object-contain" />
           </div>
           <div className="flex flex-col">
             <span className="font-serif font-bold text-sm tracking-tight text-white line-clamp-1">

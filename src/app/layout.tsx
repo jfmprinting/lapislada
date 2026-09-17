@@ -35,7 +35,8 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:ital,wght@0,500;0,600;0,700;1,400&display=swap"
           rel="stylesheet"
         />
-        <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/logo.webp" type="image/webp" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F0E8] text-[#1A1A1A] antialiased selection:bg-[#C0392B] selection:text-white">
         <PWARegister />
