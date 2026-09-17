@@ -90,7 +90,7 @@ export default function HomePage() {
     : '#';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F0E8] text-[#1A1A1A]">
+    <div className="min-h-[100dvh] flex flex-col bg-[#F5F0E8] text-[#1A1A1A]">
       <Navbar schoolName={profil.nama_sekolah} />
 
       {/* Main container with responsive desktop width & mobile comfort */}
@@ -435,36 +435,65 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* 3 Main Pillars of LAPIS LADA */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className="p-4 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group">
-                  <div className="w-10 h-10 rounded-xl bg-[#FDEDEC] text-[#922B21] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <BookOpen className="w-5 h-5" />
+              {/* Asymmetric Bento Grid for LAPIS LADA Features (Anti 3-card slop) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-6">
+                {/* Flagship Feature (Spans 7 cols): Buku Penghubung Digital */}
+                <div className="md:col-span-7 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF7F2] to-[#FDEDEC]/40 border border-[#F1948A]/40 flex flex-col justify-between hover:border-[#922B21]/50 transition-all group shadow-xs">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-11 h-11 rounded-xl bg-[#FDEDEC] text-[#922B21] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#922B21]/10 text-[#922B21]">
+                        Pilar Utama
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-1.5">
+                      Buku Penghubung Digital 2 Arah
+                    </h4>
+                    <p className="text-xs text-[#525252] leading-relaxed">
+                      Jembatan komunikasi harian antara guru dan orang tua. Catatan pembinaan akhlak, perkembangan belajar, hingga konsultasi pribadi langsung tersimpan aman tanpa resiko buku hilang.
+                    </p>
                   </div>
-                  <h4 className="font-bold text-sm text-[#1A1A1A] mb-1">Buku Penghubung Digital</h4>
-                  <p className="text-xs text-[#6B6B6B] leading-relaxed">
-                    Catatan perkembangan, pembinaan karakter, dan komunikasi dua arah harian antara guru dan orang tua tanpa buku kertas.
-                  </p>
+
+                  <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-[#E8E0D0]">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#922B21] bg-white px-2 py-0.5 rounded-md border border-[#F1948A]/30">
+                      <CheckCircle2 className="w-3 h-3 text-[#25D366]" /> Notifikasi Terkirim
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#525252] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
+                      Riwayat Permanen
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#525252] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
+                      Privasi Terjamin
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <Clock className="w-5 h-5" />
+                {/* Right Column Stack (Spans 5 cols): Presensi & Transparansi */}
+                <div className="md:col-span-5 flex flex-col gap-4">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group flex-1 flex flex-col justify-center">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-sm text-[#1A1A1A]">Presensi Terpadu Realtime</h4>
+                    </div>
+                    <p className="text-xs text-[#6B6B6B] leading-relaxed">
+                      Pencatatan kehadiran harian per rombel kelas yang terpantau instan oleh wali murid.
+                    </p>
                   </div>
-                  <h4 className="font-bold text-sm text-[#1A1A1A] mb-1">Presensi Siswa Terpadu</h4>
-                  <p className="text-xs text-[#6B6B6B] leading-relaxed">
-                    Pencatatan absensi akurat setiap hari per rombel kelas. Notifikasi ketidakhadiran dapat langsung dipantau oleh wali murid.
-                  </p>
-                </div>
 
-                <div className="p-4 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <FileText className="w-5 h-5" />
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group flex-1 flex flex-col justify-center">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-bold text-sm text-[#1A1A1A]">Transparansi BOS & Nilai</h4>
+                    </div>
+                    <p className="text-xs text-[#6B6B6B] leading-relaxed">
+                      Publikasi dokumen akuntabilitas anggaran BOS dan transkrip perkembangan siswa secara teratur.
+                    </p>
                   </div>
-                  <h4 className="font-bold text-sm text-[#1A1A1A] mb-1">Transparansi BOS & Nilai</h4>
-                  <p className="text-xs text-[#6B6B6B] leading-relaxed">
-                    Keterbukaan informasi pengelolaan dokumen BOS sekolah serta ringkasan penilaian akademik yang tertata rapi.
-                  </p>
                 </div>
               </div>
 

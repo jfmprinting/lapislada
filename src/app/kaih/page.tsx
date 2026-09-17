@@ -39,7 +39,7 @@ export default function KaihPage() {
     <AppShell
       role="guru"
       pageTitle="Karakter KAIH"
-      pageSubtitle="7 Kebiasaan Anak Indonesia Hebat — Warisan ABAT"
+      pageSubtitle="7 Kebiasaan Anak Indonesia Hebat: Warisan ABAT"
     >
       <div className="space-y-6">
         <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-[#DDD8CE]">

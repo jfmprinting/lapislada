@@ -164,11 +164,11 @@ export default function AppShell({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] text-[#1A1A1A] flex flex-col md:flex-row">
+    <div className="min-h-[100dvh] bg-[#F5F0E8] text-[#1A1A1A] flex flex-col md:flex-row">
       {/* ============================================================ */}
       {/* DESKTOP SIDEBAR (Visible on md screens and wider >= 768px) */}
       {/* ============================================================ */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white border-r border-[#DDD8CE] h-screen sticky top-0 shrink-0 z-30 shadow-xs">
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white border-r border-[#DDD8CE] h-[100dvh] sticky top-0 shrink-0 z-30 shadow-xs">
         {/* Brand & School Header */}
         <div className="p-4 border-b border-[#E8E0D0] bg-[#922B21] text-white">
           <Link href="/" className="flex items-center gap-3 group">

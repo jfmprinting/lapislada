@@ -326,13 +326,13 @@ export default function BukuPenghubungPage() {
                     className="w-full px-3 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-medium"
                   >
                     <option value="Ahmad Budi Santoso (Kelas 4A)">
-                      Ahmad Budi Santoso — Kelas 4A
+                      Ahmad Budi Santoso (Kelas 4A)
                     </option>
                     <option value="Citra Lestari (Kelas 4A)">
-                      Citra Lestari — Kelas 4A
+                      Citra Lestari (Kelas 4A)
                     </option>
                     <option value="Dimas Prasetyo (Kelas 4A)">
-                      Dimas Prasetyo — Kelas 4A
+                      Dimas Prasetyo (Kelas 4A)
                     </option>
                   </select>
                 </div>
