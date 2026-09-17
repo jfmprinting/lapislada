@@ -1,9 +1,10 @@
 // Service Worker LAPIS LADA v2
-const CACHE_NAME = 'lapislada-v2-cache-v1';
+const CACHE_NAME = 'lapislada-v2-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/icons/icon.svg',
+  '/logo.webp',
+  '/logo.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -32,6 +33,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // Never cache Next.js internal runtime chunks or HMR
+  if (url.pathname.startsWith('/_next/static/chunks') || url.pathname.includes('hot-update') || url.pathname.includes('turbopack')) {
+    return;
+  }
 
   // Network-first for dynamic navigation and API data
   if (event.request.mode === 'navigate' || url.pathname.startsWith('/api') || url.hostname.includes('supabase.co')) {
