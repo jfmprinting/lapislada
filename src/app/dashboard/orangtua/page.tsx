@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Sparkles,
   Heart,
+  Award,
 } from 'lucide-react';
 
 export default function DashboardOrangTuaPage() {
@@ -108,6 +109,50 @@ export default function DashboardOrangTuaPage() {
                 Alpha
               </span>
             </div>
+          </div>
+        </section>
+
+        {/* CAPAIAN NILAI & ASESMEN (Fitur Transparansi Nilai) */}
+        <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-[#FDEDEC] text-[#922B21]">
+                <Award className="w-4 h-4" />
+              </div>
+              <h2 className="font-serif font-bold text-sm text-[#1A1A1A]">
+                Capaian Nilai & Asesmen
+              </h2>
+            </div>
+            <Link
+              href="/nilai?role=orangtua"
+              className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
+            >
+              <span>Lihat Detail Nilai</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-[#666] block">
+                Rata-rata Capaian Belajar Semester Ini
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-serif font-bold text-2xl text-emerald-700">88.5</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                  Sangat Baik · 9/9 Tuntas
+                </span>
+              </div>
+              <p className="text-[11px] text-[#666]">
+                Seluruh nilai mata pelajaran (Formatif & Sumatif) memenuhi standar KKM.
+              </p>
+            </div>
+            <Link
+              href="/nilai?role=orangtua"
+              className="px-3.5 py-2 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+            >
+              Buka Rapor Nilai
+            </Link>
           </div>
         </section>
 

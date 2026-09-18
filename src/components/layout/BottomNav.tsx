@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookOpen, Bell, CalendarCheck, GraduationCap, FolderLock, Menu } from 'lucide-react';
+import { Home, BookOpen, Bell, CalendarCheck, GraduationCap, FolderLock, Menu, Award } from 'lucide-react';
 
 interface BottomNavProps {
   role?: 'guru' | 'orangtua' | 'admin';
@@ -23,6 +23,7 @@ export default function BottomNav({ role = 'guru', onMenuClick }: BottomNavProps
     if (role === 'orangtua') {
       return [
         { label: 'Beranda', href: '/dashboard/orangtua', icon: Home },
+        { label: 'Nilai', href: '/nilai?role=orangtua', icon: Award },
         { label: 'Buku', href: '/buku-penghubung?role=orangtua', icon: BookOpen },
         { label: 'Kehadiran', href: '/kehadiran?role=orangtua', icon: CalendarCheck },
         { label: 'Pengumuman', href: '/pengumuman?role=orangtua', icon: Bell },

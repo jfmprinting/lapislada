@@ -136,3 +136,19 @@ export type Kehadiran = {
   keterangan?: string | null;
 };
 
+export type Nilai = {
+  id: string;
+  siswa_id: string;
+  mapel_id: string;
+  jenis_ujian: string; // Formatif, Sumatif 1, UTS, UAS/SAS, Tugas
+  nilai: number;
+  semester?: number;
+  tahun_ajaran?: string;
+  catatan?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  siswa?: Siswa;
+  mapel?: Mapel;
+};
+
+
