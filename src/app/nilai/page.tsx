@@ -301,7 +301,7 @@ function NilaiContent() {
 
     return (
       <div className="min-h-screen flex flex-col bg-[#F5F0E8] pb-24 text-[#1A1A1A]">
-        <Navbar schoolName="Portal Nilai Siswa" showLoginCta={false} />
+        <Navbar schoolName="Portal Nilai Siswa" showLogout={true} />
 
         <main className="w-full max-w-4xl mx-auto px-4 py-5 flex-1 space-y-5">
           {/* Back link & Header */}

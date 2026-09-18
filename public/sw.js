@@ -1,7 +1,6 @@
-// Service Worker LAPIS LADA v2
-const CACHE_NAME = 'lapislada-v2-cache-v3';
+// Service Worker LAPIS LADA v2 (Auto-update & Network-first for all pages)
+const CACHE_NAME = 'lapislada-v2-cache-v6';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/logo.webp',
   '/logo.png',
@@ -32,32 +31,45 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Cache API only supports GET requests
   if (event.request.method !== 'GET') {
     return;
   }
 
   const url = new URL(event.request.url);
 
-  // Never cache Next.js internal runtime chunks or HMR
-  if (url.pathname.startsWith('/_next/static/chunks') || url.pathname.includes('hot-update') || url.pathname.includes('turbopack')) {
+  // Never cache Supabase, Next.js internal runtime chunks, or APIs
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/_next/static/chunks') ||
+    url.pathname.includes('hot-update') ||
+    url.pathname.includes('turbopack')
+  ) {
     return;
   }
 
-  // Network-first for dynamic navigation and API data
-  if (event.request.mode === 'navigate' || url.pathname.startsWith('/api') || url.hostname.includes('supabase.co')) {
+  // Network-first for all HTML pages and navigation
+  if (
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document' ||
+    url.pathname.endsWith('.html') ||
+    !url.pathname.includes('.')
+  ) {
     event.respondWith(
-      fetch(event.request).catch(async () => {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) return cachedResponse;
-        const fallback = await caches.match('/');
-        return fallback;
-      })
+      fetch(event.request)
+        .then((response) => {
+          return response;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) return cachedResponse;
+          return caches.match('/');
+        })
     );
     return;
   }
 
-  // Cache-first for static assets (fonts, images, scripts)
+  // Cache-first for images, fonts, and manifest
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

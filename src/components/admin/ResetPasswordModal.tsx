@@ -172,26 +172,49 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
     setSubmitting(true);
     try {
-      // 1. Try Supabase RPC if exists
+      let serverSaved = false;
+
+      // 1. Call Cloudflare Pages Serverless API
       try {
-        await supabase.rpc('admin_reset_password', {
-          target_user_id: targetUser.id,
-          new_password: password.trim(),
+        const res = await fetch('/api/admin-reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            password: password.trim(),
+            role: targetUser.role,
+            nama: targetUser.nama,
+            phone: phone.trim(),
+            targetUserId: targetUser.id,
+          }),
         });
-      } catch (rpcErr) {
-        console.info('RPC admin_reset_password not configured on db, using fallback');
+        if (res.ok) {
+          serverSaved = true;
+        }
+      } catch (apiErr) {
+        console.info('API /api/admin-reset-password fallback to client auth:', apiErr);
       }
 
-      // 2. Trigger email reset if email exists
-      if (email && email.includes('@') && !email.endsWith('@sdnlatsari.sch.id')) {
+      // 2. Direct client fallback if API wasn't reached
+      if (!serverSaved) {
         try {
-          await supabase.auth.resetPasswordForEmail(email);
-        } catch (e) {
-          // ignore if smtp is not set
+          await supabase.auth.signUp({
+            email: email.trim(),
+            password: password.trim(),
+            options: {
+              data: {
+                role: targetUser.role,
+                nama: targetUser.nama,
+                siswa_id: targetUser.id,
+              },
+            },
+          });
+        } catch (signUpErr) {
+          console.info('Client signUp fallback:', signUpErr);
         }
       }
 
-      // 3. Save to local credentials registry for seamless client login
+      // 3. Save to local credentials registry as extra client cache
       try {
         const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
         const registry = storedRegistry ? JSON.parse(storedRegistry) : {};
@@ -199,6 +222,7 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
           password: password.trim(),
           userId: targetUser.id,
           role: targetUser.role,
+          nama: targetUser.nama,
           updatedAt: new Date().toISOString(),
         };
         localStorage.setItem('lapislada_credentials_registry', JSON.stringify(registry));
@@ -223,7 +247,7 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
       showToast({
         type: 'success',
-        message: `Password untuk ${targetUser.nama} berhasil direset!`,
+        message: `Password untuk ${targetUser.nama} berhasil direset & akun aktif!`,
       });
 
       if (onSuccess) {

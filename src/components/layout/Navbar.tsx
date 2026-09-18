@@ -9,6 +9,7 @@ import { useNotification } from '@/components/ui/NotificationContext';
 interface NavbarProps {
   schoolName?: string;
   showLoginCta?: boolean;
+  showLogout?: boolean;
   onMenuClick?: () => void;
   showMenuButton?: boolean;
 }
@@ -16,6 +17,7 @@ interface NavbarProps {
 export default function Navbar({
   schoolName = 'SDN Latsari 2 Bancar',
   showLoginCta = true,
+  showLogout = false,
   onMenuClick,
   showMenuButton = false,
 }: NavbarProps) {
@@ -88,7 +90,18 @@ export default function Navbar({
           </Link>
         </div>
 
-        {showLoginCta && (
+        {showLogout ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/20 hover:bg-black/35 active:bg-black/50 text-white text-xs font-semibold border border-white/20 transition-all cursor-pointer shadow-xs"
+              title="Keluar dari Akun"
+            >
+              <LogOut className="w-3.5 h-3.5 text-amber-200" />
+              <span>Keluar</span>
+            </button>
+          </div>
+        ) : showLoginCta && (
           <div className="flex items-center gap-2">
             {currentUser ? (
               <div className="flex items-center gap-2">
@@ -102,7 +115,7 @@ export default function Navbar({
                 <button
                   onClick={handleLogout}
                   title="Keluar"
-                  className="p-1.5 text-[#F1948A] hover:text-white hover:bg-[#771F18] rounded-md transition-colors"
+                  className="p-1.5 text-[#F1948A] hover:text-white hover:bg-[#771F18] rounded-md transition-colors cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>

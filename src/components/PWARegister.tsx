@@ -10,6 +10,7 @@ export default function PWARegister() {
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {
+          reg.update();
           console.log('[PWA] Service Worker registered in production with scope:', reg.scope);
         })
         .catch((err) => {
