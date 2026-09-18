@@ -21,6 +21,7 @@ import {
   GraduationCap,
   Layers,
   BookMarked,
+  Camera,
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -218,6 +219,11 @@ export default function AppShell({
               icon: FolderLock,
             },
             {
+              label: 'Kelola Galeri',
+              href: '/admin/galeri',
+              icon: Camera,
+            },
+            {
               label: 'Profil Sekolah',
               href: '/admin/profil-sekolah',
               icon: School,
@@ -287,6 +293,11 @@ export default function AppShell({
             label: 'Dokumen BOS',
             href: '/dokumen-bos',
             icon: FolderLock,
+          },
+          {
+            label: 'Galeri Sekolah',
+            href: '/galeri',
+            icon: Camera,
           },
           {
             label: 'Halaman Publik',

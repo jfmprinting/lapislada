@@ -151,4 +151,16 @@ export type Nilai = {
   mapel?: Mapel;
 };
 
+export type GaleriKegiatan = {
+  id: string;
+  judul: string;
+  kategori: string;
+  tanggal: string;
+  foto_url: string;
+  deskripsi?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+};
+
+
 

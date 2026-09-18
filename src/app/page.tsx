@@ -25,8 +25,10 @@ import {
   Layers,
   HeartHandshake,
   Target,
+  Camera,
 } from 'lucide-react';
 import { supabase, ProfilSekolah } from '@/lib/supabase';
+import { INITIAL_GALERI } from '@/lib/galeriData';
 
 const DEFAULT_PROFIL: ProfilSekolah = {
   id: 'default',
@@ -87,7 +89,7 @@ export const TUJUAN_SEKOLAH_LIST = [
 export default function HomePage() {
   const [profil, setProfil] = useState<ProfilSekolah>(DEFAULT_PROFIL);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profil' | 'visi' | 'layanan' | 'kontak'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'visi' | 'galeri' | 'layanan' | 'kontak'>('profil');
 
   useEffect(() => {
     async function loadProfil() {
@@ -289,6 +291,18 @@ export default function HomePage() {
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Visi, Misi & Tujuan</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('galeri')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+              activeTab === 'galeri'
+                ? 'bg-[#922B21] text-white shadow-sm'
+                : 'text-[#3D3D3D] hover:bg-white/60'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Galeri Kegiatan</span>
           </button>
 
           <button
@@ -504,7 +518,81 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* TAB 3: LAYANAN LAPIS LADA */}
+        {/* TAB: GALERI KEGIATAN SEKOLAH */}
+        {activeTab === 'galeri' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-[#E8E0D0]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                      Galeri & Dokumentasi Kegiatan
+                    </h3>
+                    <p className="text-xs text-[#7A7A7A]">
+                      Dokumentasi resmi pembiasaan karakter, kegiatan belajar, dan kepramukaan siswa
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/galeri"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-xs transition-colors"
+                >
+                  <span>Buka Galeri Lengkap</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {/* Grid 4 Kegiatan */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {INITIAL_GALERI.slice(0, 4).map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/galeri"
+                    className="group rounded-xl border border-[#DDD8CE] overflow-hidden bg-[#FAF8F2]/50 hover:bg-white hover:border-[#922B21]/50 hover:shadow-md transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative aspect-video w-full overflow-hidden bg-black/5">
+                        <img
+                          src={item.foto_url}
+                          alt={item.judul}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-2.5 left-2.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
+                            {item.kategori}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-1.5">
+                        <span className="text-[11px] text-[#7A7A7A] block font-medium">
+                          {item.tanggal}
+                        </span>
+                        <h4 className="font-bold text-sm text-[#1A1A1A] group-hover:text-[#922B21] transition-colors leading-snug line-clamp-2">
+                          {item.judul}
+                        </h4>
+                        <p className="text-xs text-[#555] line-clamp-2">
+                          {item.deskripsi}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-2.5 bg-[#FAF8F2] border-t border-[#DDD8CE]/60 flex items-center justify-between text-xs font-semibold text-[#922B21]">
+                      <span>Lihat Foto & Detail</span>
+                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: LAYANAN LAPIS LADA */}
         {activeTab === 'layanan' && (
           <div className="space-y-5 animate-in fade-in duration-300">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
