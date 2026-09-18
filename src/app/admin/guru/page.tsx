@@ -18,7 +18,9 @@ import {
   ShieldCheck,
   UserCheck,
   Layers,
+  KeyRound,
 } from 'lucide-react';
+import ResetPasswordModal, { TargetResetUser } from '@/components/admin/ResetPasswordModal';
 
 interface GuruWithKelas extends UserProfile {
   kelas_binaan?: string[];
@@ -36,6 +38,8 @@ export default function MasterGuruPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [targetResetUser, setTargetResetUser] = useState<TargetResetUser | null>(null);
   const [formData, setFormData] = useState({
     nama: '',
     email: '',
@@ -177,6 +181,18 @@ export default function MasterGuruPage() {
       wali_kelas_id: assignedKelas ? assignedKelas.id : '',
     });
     setIsModalOpen(true);
+  };
+
+  const handleOpenResetPassword = (item: GuruWithKelas) => {
+    setTargetResetUser({
+      id: item.id,
+      nama: item.nama,
+      email: item.email || '',
+      telepon: item.telepon || '',
+      role: (item.role as any) || 'guru',
+      rombel: item.kelas_binaan?.join(', ') || null,
+    });
+    setResetModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -465,6 +481,13 @@ export default function MasterGuruPage() {
 
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={() => handleOpenResetPassword(item)}
+                        className="p-1.5 text-[#6B6B6B] hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                        title="Reset Password & Bagikan Akun via WhatsApp"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleOpenEditModal(item)}
                         className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
                         title="Edit Data Guru"
@@ -632,6 +655,13 @@ export default function MasterGuruPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Reset Password */}
+      <ResetPasswordModal
+        isOpen={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        targetUser={targetResetUser}
+      />
     </AppShell>
   );
 }

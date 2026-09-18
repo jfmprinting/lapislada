@@ -21,7 +21,9 @@ import {
   Phone,
   ArrowUpDown,
   Check,
+  KeyRound,
 } from 'lucide-react';
+import ResetPasswordModal, { TargetResetUser } from '@/components/admin/ResetPasswordModal';
 
 const normalizeClassName = (name: string) => {
   return (name || '')
@@ -42,6 +44,8 @@ export default function MasterSiswaPage() {
   // Manual CRUD Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [targetResetUser, setTargetResetUser] = useState<TargetResetUser | null>(null);
   const [formData, setFormData] = useState({
     nisn: '',
     nis: '',
@@ -431,6 +435,25 @@ export default function MasterSiswaPage() {
     setIsModalOpen(true);
   };
 
+  const handleOpenResetPassword = (item: Siswa) => {
+    const rombelName =
+      item.kelas?.nama_kelas ||
+      kelasList.find((k) => k.id === item.kelas_id)?.nama_kelas ||
+      '';
+    const cleanNISN = item.nisn ? item.nisn.trim() : '';
+    setTargetResetUser({
+      id: item.id,
+      nama: item.nama_lengkap,
+      email: cleanNISN ? `${cleanNISN}@sdnlatsari.sch.id` : 'ortu@guru.com',
+      telepon: item.no_hp_wali || '',
+      role: 'orangtua',
+      rombel: rombelName,
+      nisn: cleanNISN || null,
+      nama_wali: item.nama_wali || null,
+    });
+    setResetModalOpen(true);
+  };
+
   const handleSubmitManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_lengkap.trim()) {
@@ -680,6 +703,13 @@ export default function MasterSiswaPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenResetPassword(item)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            title="Reset Password & Bagikan Akun ke Wali Murid via WA"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => handleOpenEditModal(item)}
                             className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
@@ -965,6 +995,13 @@ export default function MasterSiswaPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Reset Password */}
+      <ResetPasswordModal
+        isOpen={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        targetUser={targetResetUser}
+      />
     </AppShell>
   );
 }
