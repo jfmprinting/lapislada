@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Layers,
   HeartHandshake,
+  Target,
 } from 'lucide-react';
 import { supabase, ProfilSekolah } from '@/lib/supabase';
 
@@ -43,12 +44,45 @@ const DEFAULT_PROFIL: ProfilSekolah = {
   telepon: '(0356) 411000',
   hp_kepsek: '082230898376',
   email: 'sdnlatsari2@gmail.com',
-  visi: 'Terwujudnya peserta didik yang beriman, bertaqwa, cerdas, terampil, mandiri, dan berwawasan lingkungan.',
-  misi: '1. Menanamkan keimanan dan ketaqwaan melalui pembiasaan ibadah dan akhlak mulia.\n2. Melaksanakan proses pembelajaran yang aktif, inovatif, kreatif, dan menyenangkan.\n3. Mengembangkan bakat, minat, dan potensi peserta didik secara optimal.\n4. Menumbuhkan kepedulian sosial dan kesadaran menjaga kelestarian lingkungan hidup.',
+  visi: 'Terwujudnya Peserta didik yang beriman dan bertaqwa kepada Tuhan Yang Maha Esa, Berkewargaan, kolaboratif, mandiri, dan berprestasi',
+  misi: '1. Melaksanakan Pembelajaran sesuai kebutuhan peserta didik yang terintegrasi dalam setiap aspek kehidupan peserta didik.\n2. Menciptakan sekolah aman, sehat, dan nyaman.\n3. Mengembangkan kemandirian, bernalar kritis dan kreatifitas yang memfasilitasi keragaman minat dan bakat peserta didik.\n4. Mengembangkan dan memfasilitasi peningkatan prestasi belajar peserta didik sesuai minat dan bakatnya.\n5. Merancang pembelajaran yang bermakna, berkesadaran dan menyenangkan yang mampu memotivasi peserta didik untuk selalu belajar dan menjadi pembelajar sepanjang hayat.\n6. Membangun lingkungan sekolah yang membentuk peserta didik memiliki akhlak mulia melalui rutinitas kegiatan keagamaan serta menerapkan ajaran agama dan juga melalui program pendidikan karakter melalui kegiatan intrakurikuler, kokurikuler dan ekstrakurikuler.\n7. Membangun lingkungan sekolah yang bertoleransi dalam kebhinekaan global, mencintai budaya lokal, dan menjunjung nilai gotong royong.\n8. Membangun atmosfir belajar yang mandiri dan kolaboratif untuk memberikan pengalaman belajar yang bermakna.\n9. Membangun sinergi yang positif bersama masyarakat (komite, paguyuban dan pemerintah desa) untuk mewujudkan pendidikan yang bermakna dalam setiap proses pembelajaran.',
   logo_url: '/logo.webp',
   maps_embed_url:
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3961.854890696347!2d111.7766!3d-6.7865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwNDcnMTEuNCJTIDExMcKwNDYnMzUuOCJF!5e0!3m2!1sid!2sid!4v1700000000000',
 };
+
+export const TUJUAN_SEKOLAH_LIST = [
+  {
+    target: '≥ 90%',
+    kategori: 'Religius & Akhlak Mulia',
+    deskripsi:
+      'Terwujudnya peserta didik yang beriman dan bertaqwa kepada Tuhan Yang Maha Esa, melalui pembiasaan kegiatan keagamaan dan penerapan akhlak mulia dalam kehidupan sehari-hari, dengan target sekurang-kurangnya 90% peserta didik menunjukkan perilaku religius dan berakhlak baik setiap tahun yang diukur dalam jurnal harian siswa.',
+  },
+  {
+    target: '≥ 90%',
+    kategori: 'Karakter Berkewargaan',
+    deskripsi:
+      'Terwujudnya peserta didik yang memiliki karakter berkewargaan, dengan menerapkan nilai-nilai Pancasila, disiplin, tanggung jawab, toleransi, cinta tanah air, gotong royong, dan menghargai keberagaman, dengan target sekurang-kurangnya 90% peserta didik menunjukkan perkembangan karakter positif setiap semester yang diukur dalam jurnal siswa.',
+  },
+  {
+    target: '≥ 85%',
+    kategori: 'Kolaborasi & Kerjasama',
+    deskripsi:
+      'Terwujudnya peserta didik yang mampu berkolaborasi, melalui kegiatan pembelajaran, projek, kokurikuler, ekstrakurikuler, dan kegiatan sosial, dengan target sekurang-kurangnya 85% peserta didik mampu bekerja sama, berkomunikasi, berbagi tugas, dan menyelesaikan kegiatan secara bertanggung jawab dalam satu tahun pelajaran melalui penilaian sikap yang terukur dalam setiap asesmen intrakurikuler, ekstrakurikuler maupun kokurikuler.',
+  },
+  {
+    target: '≥ 85%',
+    kategori: 'Kemandirian Belajar',
+    deskripsi:
+      'Terwujudnya peserta didik yang mandiri dalam belajar dan melaksanakan tanggung jawabnya, melalui pembiasaan, pemberian tugas, pengambilan keputusan sederhana, serta pengelolaan diri dan lingkungan, dengan target sekurang-kurangnya 85% peserta didik menunjukkan peningkatan kemandirian pada setiap semester yang terukur dalam nilai asesmen dan buku jurnal siswa.',
+  },
+  {
+    target: 'Berkelanjutan',
+    kategori: 'Prestasi Akademik & Non-Akademik',
+    deskripsi:
+      'Terwujudnya peserta didik yang berprestasi sesuai potensi, bakat, dan minatnya dalam bidang akademik maupun nonakademik melalui pembinaan yang terencana dan berkelanjutan, dengan target meningkatnya capaian prestasi peserta didik setiap tahun pelajaran yang terukur dari kegiatan asesmen intrakurikuler, ekstrakurikuler maupun kokurikuler.',
+  },
+];
 
 export default function HomePage() {
   const [profil, setProfil] = useState<ProfilSekolah>(DEFAULT_PROFIL);
@@ -254,7 +288,7 @@ export default function HomePage() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Visi & Misi</span>
+            <span>Visi, Misi & Tujuan</span>
           </button>
 
           <button
@@ -372,45 +406,97 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* TAB 2: VISI & MISI */}
+        {/* TAB 2: VISI, MISI & TUJUAN */}
         {activeTab === 'visi' && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-5 animate-in fade-in duration-300">
-            {/* Visi Sekolah (2 cols) */}
-            <div className="md:col-span-2 bg-gradient-to-br from-[#FAF7F2] to-[#FDEDEC]/40 rounded-2xl p-6 shadow-sm border border-[#F1948A]/40 flex flex-col justify-center relative overflow-hidden">
-              <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21] w-fit mb-3">
-                <Sparkles className="w-5 h-5" />
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Visi & Misi Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+              {/* Visi Sekolah (2 cols) */}
+              <div className="md:col-span-2 bg-gradient-to-br from-[#FAF7F2] to-[#FDEDEC]/40 rounded-2xl p-6 shadow-sm border border-[#F1948A]/40 flex flex-col justify-center relative overflow-hidden">
+                <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21] w-fit mb-3">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-[#922B21] uppercase tracking-wider block mb-2">
+                  Visi UPT SDN Latsari 2 Bancar
+                </span>
+                <blockquote className="font-serif italic text-base sm:text-lg text-[#1A1A1A] leading-relaxed relative z-10">
+                  &ldquo;{profil.visi}&rdquo;
+                </blockquote>
               </div>
-              <span className="text-[11px] font-bold text-[#922B21] uppercase tracking-wider block mb-2">
-                Visi UPT SDN Latsari 2 Bancar
-              </span>
-              <blockquote className="font-serif italic text-base sm:text-lg text-[#1A1A1A] leading-relaxed relative z-10">
-                &ldquo;{profil.visi}&rdquo;
-              </blockquote>
+
+              {/* Misi Sekolah (3 cols) */}
+              <div className="md:col-span-3 bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
+                <div className="flex items-center gap-2 pb-3 mb-4 border-b border-[#E8E0D0]">
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-800">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
+                      Misi Satuan Pendidikan
+                    </h3>
+                    <p className="text-[11px] text-[#7A7A7A]">9 Program aksi strategis satuan pendidikan</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 text-xs max-h-[360px] overflow-y-auto pr-1">
+                  {misiList.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-3 p-3 rounded-xl bg-[#F5F0E8]/50 border border-[#E8E0D0] hover:bg-[#FAF8F2] transition-colors"
+                    >
+                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#922B21] text-white font-bold text-[11px] shrink-0 mt-0.5 shadow-sm">
+                        {idx + 1}
+                      </span>
+                      <p className="text-[#3D3D3D] leading-relaxed font-medium">
+                        {m.replace(/^[0-9]+\.\s*/, '')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Misi Sekolah (3 cols) */}
-            <div className="md:col-span-3 bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
-              <div className="flex items-center gap-2 pb-3 mb-4 border-b border-[#E8E0D0]">
-                <div className="p-2 rounded-xl bg-amber-50 text-amber-800">
-                  <CheckCircle2 className="w-4 h-4" />
+            {/* Tujuan Satuan Pendidikan Section */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-[#E8E0D0]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                      Tujuan Satuan Pendidikan
+                    </h3>
+                    <p className="text-xs text-[#7A7A7A]">
+                      Sasaran strategis terukur UPT SDN Latsari 2 Bancar berbasis asesmen & karakter
+                    </p>
+                  </div>
                 </div>
-                <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                  Misi Satuan Pendidikan
-                </h3>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F0E8] border border-[#DDD8CE] text-xs font-semibold text-[#666]">
+                  <span>5 Sasaran Mutu</span>
+                </div>
               </div>
 
-              <div className="space-y-3 text-xs">
-                {misiList.map((m, idx) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TUJUAN_SEKOLAH_LIST.map((t, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-3 p-3 rounded-xl bg-[#F5F0E8]/50 border border-[#E8E0D0] hover:bg-[#FAF8F2] transition-colors"
+                    className="p-4 rounded-xl border border-[#E8E0D0] bg-[#FAF8F2]/60 hover:bg-white hover:border-[#922B21]/40 transition-all flex flex-col justify-between group shadow-sm"
                   >
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#922B21] text-white font-bold text-[11px] shrink-0 mt-0.5">
-                      {idx + 1}
-                    </span>
-                    <p className="text-[#3D3D3D] leading-relaxed font-medium">
-                      {m.replace(/^[0-9]+\.\s*/, '')}
-                    </p>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="font-bold text-xs text-[#1A1A1A] group-hover:text-[#922B21] transition-colors flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[#922B21]" />
+                          {t.kategori}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]/40 shrink-0">
+                          Target: {t.target}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#4A4A4A] leading-relaxed text-justify">
+                        {t.deskripsi}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -25,8 +25,8 @@ export default function AdminProfilSekolahPage() {
     telepon: '(0356) 411000',
     hp_kepsek: '082230898376',
     email: 'sdnlatsari2@gmail.com',
-    visi: 'Terwujudnya peserta didik yang beriman, bertaqwa, cerdas, terampil, mandiri, dan berwawasan lingkungan.',
-    misi: '1. Menanamkan keimanan dan ketaqwaan melalui pengamalan ajaran agama.\n2. Melaksanakan pembelajaran dan bimbingan secara efektif.\n3. Mengembangkan potensi bakat dan minat siswa.',
+    visi: 'Terwujudnya Peserta didik yang beriman dan bertaqwa kepada Tuhan Yang Maha Esa, Berkewargaan, kolaboratif, mandiri, dan berprestasi',
+    misi: '1. Melaksanakan Pembelajaran sesuai kebutuhan peserta didik yang terintegrasi dalam setiap aspek kehidupan peserta didik.\n2. Menciptakan sekolah aman, sehat, dan nyaman.\n3. Mengembangkan kemandirian, bernalar kritis dan kreatifitas yang memfasilitasi keragaman minat dan bakat peserta didik.\n4. Mengembangkan dan memfasilitasi peningkatan prestasi belajar peserta didik sesuai minat dan bakatnya.\n5. Merancang pembelajaran yang bermakna, berkesadaran dan menyenangkan yang mampu memotivasi peserta didik untuk selalu belajar dan menjadi pembelajar sepanjang hayat.\n6. Membangun lingkungan sekolah yang membentuk peserta didik memiliki akhlak mulia melalui rutinitas kegiatan keagamaan serta menerapkan ajaran agama dan juga melalui program pendidikan karakter melalui kegiatan intrakurikuler, kokurikuler dan ekstrakurikuler.\n7. Membangun lingkungan sekolah yang bertoleransi dalam kebhinekaan global, mencintai budaya lokal, dan menjunjung nilai gotong royong.\n8. Membangun atmosfir belajar yang mandiri dan kolaboratif untuk memberikan pengalaman belajar yang bermakna.\n9. Membangun sinergi yang positif bersama masyarakat (komite, paguyuban dan pemerintah desa) untuk mewujudkan pendidikan yang bermakna dalam setiap proses pembelajaran.',
     logo_url: '/logo.webp',
     maps_embed_url: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3961.854890696347!2d111.7766!3d-6.7865!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNsKwNDcnMTEuNCJTIDExMcKwNDYnMzUuOCJF!5e0!3m2!1sid!2sid!4v1',
   });
@@ -54,8 +54,9 @@ export default function AdminProfilSekolahPage() {
     setStatusMsg(null);
 
     try {
+      const { tujuan, ...dbPayload } = form as any;
       const payload = {
-        ...form,
+        ...dbPayload,
         updated_at: new Date().toISOString(),
       };
 
@@ -310,11 +311,43 @@ export default function AdminProfilSekolahPage() {
                 Misi Sekolah (Pisahkan per baris)
               </label>
               <textarea
-                rows={4}
+                rows={5}
                 value={form.misi || ''}
                 onChange={(e) => handleChange('misi', e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C0392B]"
               />
+            </div>
+
+            <div className="p-4 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-bold text-sm text-[#1A1A1A] flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#922B21]" />
+                  Tujuan Satuan Pendidikan (5 Sasaran Terukur)
+                </label>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FDEDEC] text-[#922B21]">
+                  Resmi Terdaftar
+                </span>
+              </div>
+              <p className="text-xs text-[#666] mb-3">
+                Ditampilkan otomatis di Landing Page publik (Tab Visi, Misi & Tujuan) dengan indikator target mutu (≥90% religius & berkewargaan, ≥85% kolaborasi & kemandirian, serta prestasi berkelanjutan).
+              </p>
+              <div className="space-y-2 text-xs text-[#3D3D3D]">
+                <div className="p-2.5 rounded-lg bg-white border border-[#E8E0D0]">
+                  <strong>1. Religius & Akhlak Mulia:</strong> Target ≥90% peserta didik menunjukkan perilaku religius & akhlak baik tiap tahun dalam jurnal harian siswa.
+                </div>
+                <div className="p-2.5 rounded-lg bg-white border border-[#E8E0D0]">
+                  <strong>2. Karakter Berkewargaan:</strong> Target ≥90% peserta didik menunjukkan perkembangan karakter positif tiap semester.
+                </div>
+                <div className="p-2.5 rounded-lg bg-white border border-[#E8E0D0]">
+                  <strong>3. Kolaborasi & Kerjasama:</strong> Target ≥85% peserta didik mampu bekerjasama dan berbagi tugas secara bertanggung jawab.
+                </div>
+                <div className="p-2.5 rounded-lg bg-white border border-[#E8E0D0]">
+                  <strong>4. Kemandirian Belajar:</strong> Target ≥85% peserta didik menunjukkan peningkatan kemandirian tiap semester.
+                </div>
+                <div className="p-2.5 rounded-lg bg-white border border-[#E8E0D0]">
+                  <strong>5. Prestasi Akademik & Nonakademik:</strong> Peningkatan capaian prestasi berkelanjutan di intrakurikuler, kokurikuler, dan ekstrakurikuler.
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -42,6 +42,7 @@ export type ProfilSekolah = {
   email?: string | null;
   visi?: string | null;
   misi?: string | null;
+  tujuan?: string | null;
   logo_url?: string | null;
   maps_embed_url?: string | null;
   updated_at?: string;
