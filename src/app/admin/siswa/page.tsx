@@ -22,6 +22,14 @@ import {
   Check,
 } from 'lucide-react';
 
+const normalizeClassName = (name: string) => {
+  return (name || '')
+    .toLowerCase()
+    .replace(/^kelas\s*/i, '')
+    .replace(/\s+/g, '')
+    .trim();
+};
+
 export default function MasterSiswaPage() {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
@@ -65,7 +73,23 @@ export default function MasterSiswaPage() {
         .from('kelas')
         .select('*')
         .order('nama_kelas', { ascending: true });
-      setKelasList(kelasData || []);
+
+      const defaultClasses: any[] = [
+        { id: 'k-1', nama_kelas: 'Kelas 1', tahun_ajaran: '2026/2027' },
+        { id: 'k-2', nama_kelas: 'Kelas 2', tahun_ajaran: '2026/2027' },
+        { id: 'k-3', nama_kelas: 'Kelas 3', tahun_ajaran: '2026/2027' },
+        { id: 'k-4a', nama_kelas: 'Kelas 4A', tahun_ajaran: '2026/2027' },
+        { id: 'k-4b', nama_kelas: 'Kelas 4B', tahun_ajaran: '2026/2027' },
+        { id: 'k-4c', nama_kelas: 'Kelas 4C', tahun_ajaran: '2026/2027' },
+        { id: 'k-5a', nama_kelas: 'Kelas 5A', tahun_ajaran: '2026/2027' },
+        { id: 'k-5b', nama_kelas: 'Kelas 5B', tahun_ajaran: '2026/2027' },
+        { id: 'k-5c', nama_kelas: 'Kelas 5C', tahun_ajaran: '2026/2027' },
+        { id: 'k-6a', nama_kelas: 'Kelas 6A', tahun_ajaran: '2026/2027' },
+        { id: 'k-6b', nama_kelas: 'Kelas 6B', tahun_ajaran: '2026/2027' },
+        { id: 'k-6c', nama_kelas: 'Kelas 6C', tahun_ajaran: '2026/2027' },
+      ];
+      const effectiveKelas = kelasData && kelasData.length > 0 ? kelasData : defaultClasses;
+      setKelasList(effectiveKelas);
 
       // 2. Fetch siswa with joined kelas
       const { data: siswaData, error } = await supabase
@@ -81,7 +105,15 @@ export default function MasterSiswaPage() {
       }
 
       if (siswaData && siswaData.length > 0) {
-        setSiswaList(siswaData);
+        const enrichedSiswa = siswaData.map((s) => ({
+          ...s,
+          kelas: s.kelas?.nama_kelas
+            ? s.kelas
+            : {
+                nama_kelas: effectiveKelas.find((k: any) => k.id === s.kelas_id)?.nama_kelas || '',
+              },
+        }));
+        setSiswaList(enrichedSiswa);
       } else {
         // Fallback default sample data
         setSiswaList([
@@ -218,9 +250,11 @@ export default function MasterSiswaPage() {
           const noHpWali = String(row[6] || '').trim();
           const alamat = String(row[7] || '').trim();
 
-          // Match with existing class in db
+          // Match with existing class in db flexibly
           const matchedKelas = kelasList.find(
-            (k) => k.nama_kelas.toLowerCase() === kelasStr.toLowerCase()
+            (k) =>
+              k.nama_kelas.toLowerCase() === kelasStr.toLowerCase() ||
+              normalizeClassName(k.nama_kelas) === normalizeClassName(kelasStr)
           );
 
           return {
@@ -256,16 +290,57 @@ export default function MasterSiswaPage() {
     setImporting(true);
 
     try {
-      const inserts = importedRows.map((row) => ({
-        nisn: row.nisn || null,
-        nis: row.nis || null,
-        nama_lengkap: row.nama_lengkap,
-        jenis_kelamin: row.jenis_kelamin,
-        kelas_id: row.kelas_id,
-        nama_wali: row.nama_wali || null,
-        no_hp_wali: row.no_hp_wali || null,
-        alamat: row.alamat || null,
-      }));
+      // 1. Identify any unlinked classes and auto-create them in database
+      const unlinkedClassNames = Array.from(
+        new Set(
+          importedRows
+            .filter((row) => !row.kelas_id && row.kelas_str)
+            .map((row) => row.kelas_str.trim())
+        )
+      );
+
+      let currentKelasList = [...kelasList];
+
+      if (unlinkedClassNames.length > 0) {
+        const classesToInsert = unlinkedClassNames.map((name) => ({
+          nama_kelas: name.toLowerCase().startsWith('kelas') ? name : `Kelas ${name}`,
+          tahun_ajaran: '2026/2027',
+        }));
+
+        const { data: newClasses } = await supabase
+          .from('kelas')
+          .insert(classesToInsert)
+          .select();
+
+        if (newClasses && newClasses.length > 0) {
+          currentKelasList = [...currentKelasList, ...newClasses];
+          setKelasList(currentKelasList);
+        }
+      }
+
+      // Map rows with final class ids
+      const inserts = importedRows.map((row) => {
+        let finalKelasId = row.kelas_id;
+        if (!finalKelasId && row.kelas_str) {
+          const matched = currentKelasList.find(
+            (k) =>
+              k.nama_kelas.toLowerCase() === row.kelas_str.toLowerCase() ||
+              normalizeClassName(k.nama_kelas) === normalizeClassName(row.kelas_str)
+          );
+          if (matched) finalKelasId = matched.id;
+        }
+
+        return {
+          nisn: row.nisn || null,
+          nis: row.nis || null,
+          nama_lengkap: row.nama_lengkap,
+          jenis_kelamin: row.jenis_kelamin,
+          kelas_id: finalKelasId || null,
+          nama_wali: row.nama_wali || null,
+          no_hp_wali: row.no_hp_wali || null,
+          alamat: row.alamat || null,
+        };
+      });
 
       const { error } = await supabase.from('siswa').insert(inserts);
       if (error) throw error;
@@ -278,19 +353,27 @@ export default function MasterSiswaPage() {
       setImportedRows([]);
       fetchData();
     } catch (err: any) {
+      console.error('Import processing fallback:', err);
       // Optimistic local add
-      const newLocalSiswa: Siswa[] = importedRows.map((r, i) => ({
-        id: `local-imp-${Date.now()}-${i}`,
-        nisn: r.nisn,
-        nis: r.nis,
-        nama_lengkap: r.nama_lengkap,
-        jenis_kelamin: r.jenis_kelamin,
-        kelas_id: r.kelas_id,
-        nama_wali: r.nama_wali,
-        no_hp_wali: r.no_hp_wali,
-        alamat: r.alamat,
-        kelas: { nama_kelas: r.kelas_nama },
-      }));
+      const newLocalSiswa: Siswa[] = importedRows.map((r, i) => {
+        const matched = kelasList.find(
+          (k) =>
+            k.id === r.kelas_id ||
+            normalizeClassName(k.nama_kelas) === normalizeClassName(r.kelas_str)
+        );
+        return {
+          id: `local-imp-${Date.now()}-${i}`,
+          nisn: r.nisn,
+          nis: r.nis,
+          nama_lengkap: r.nama_lengkap,
+          jenis_kelamin: r.jenis_kelamin,
+          kelas_id: matched?.id || r.kelas_id || null,
+          nama_wali: r.nama_wali,
+          no_hp_wali: r.no_hp_wali,
+          alamat: r.alamat,
+          kelas: { nama_kelas: matched?.nama_kelas || r.kelas_nama || r.kelas_str },
+        };
+      });
 
       setSiswaList((prev) => [...newLocalSiswa, ...prev]);
       setNotification({
@@ -585,7 +668,9 @@ export default function MasterSiswaPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-semibold text-xs">
-                          {item.kelas?.nama_kelas || 'Rombel Belum Diset'}
+                          {item.kelas?.nama_kelas ||
+                            kelasList.find((k) => k.id === item.kelas_id)?.nama_kelas ||
+                            'Rombel Belum Diset'}
                         </span>
                       </td>
                       <td className="px-5 py-3.5">

@@ -10,6 +10,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+/**
+ * Creates an ephemeral Supabase client without persisting sessions to localStorage.
+ * Ideal for creating new user accounts (auth.signUp) on behalf of users without signing out the current admin.
+ */
+export const createEphemeralClient = () => {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+};
+
 export type ProfilSekolah = {
   id: string;
   nama_sekolah: string;

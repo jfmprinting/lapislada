@@ -1,5 +1,5 @@
 // Service Worker LAPIS LADA v2
-const CACHE_NAME = 'lapislada-v2-cache-v2';
+const CACHE_NAME = 'lapislada-v2-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -32,6 +32,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Cache API only supports GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // Never cache Next.js internal runtime chunks or HMR
