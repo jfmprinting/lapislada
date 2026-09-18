@@ -199,10 +199,9 @@ export default function MateriPage() {
     }
   };
 
-  const canEdit = (item: MateriItem) => {
-    if (currentUserRole === 'admin') return true;
-    if (!item.created_by) return item.id.startsWith('s-') ? false : true; // sample data is not editable
-    return item.created_by === currentUserId;
+  const canEdit = (_item: MateriItem) => {
+    // Both admin and guru have full CRUD access to materials
+    return currentUserRole === 'admin' || currentUserRole === 'guru';
   };
 
   // Filtered list
