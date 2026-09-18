@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, createEphemeralClient, UserProfile, Kelas } from '@/lib/supabase';
 import AppShell from '@/components/layout/AppShell';
+import { useNotification } from '@/components/ui/NotificationContext';
 import {
   Users,
   Plus,
@@ -25,6 +26,7 @@ interface GuruWithKelas extends UserProfile {
 }
 
 export default function MasterGuruPage() {
+  const { showToast, confirm } = useNotification();
   const [guruList, setGuruList] = useState<GuruWithKelas[]>([]);
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,6 @@ export default function MasterGuruPage() {
     wali_kelas_id: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -181,7 +182,7 @@ export default function MasterGuruPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama.trim()) {
-      setNotification({ type: 'error', message: 'Nama lengkap guru wajib diisi!' });
+      showToast({ type: 'error', message: 'Nama lengkap guru wajib diisi!' });
       return;
     }
 
@@ -280,7 +281,7 @@ export default function MasterGuruPage() {
         }
       }
 
-      setNotification({
+      showToast({
         type: 'success',
         message: `Data ${formData.nama} berhasil disimpan!`,
       });
@@ -307,27 +308,31 @@ export default function MasterGuruPage() {
         };
         setGuruList((prev) => [...prev, newLocal]);
       }
-      setNotification({ type: 'success', message: 'Data guru berhasil disimpan.' });
+      showToast({ type: 'success', message: 'Data guru berhasil disimpan.' });
       setIsModalOpen(false);
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   const handleDelete = async (id: string, nama: string) => {
-    if (!confirm(`Hapus data ${nama}?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Hapus Data Guru / Staf',
+      message: `Yakin ingin menghapus data ${nama}? Status wali kelas dan profil akun akan dihapus dari sistem.`,
+      confirmText: 'Ya, Hapus Pendidik',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
+    if (!isConfirmed) return;
 
     try {
       if (!id.startsWith('sample-') && !id.startsWith('local-')) {
         await supabase.from('users_profile').delete().eq('id', id);
       }
       setGuruList((prev) => prev.filter((g) => g.id !== id));
-      setNotification({ type: 'success', message: `Data ${nama} berhasil dihapus.` });
+      showToast({ type: 'success', message: `Data ${nama} berhasil dihapus.` });
     } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Gagal menghapus guru.' });
-    } finally {
-      setTimeout(() => setNotification(null), 4000);
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus guru.' });
     }
   };
 
@@ -404,24 +409,6 @@ export default function MasterGuruPage() {
             <span>Tambah Guru / PTK</span>
           </button>
         </div>
-
-        {/* Notifications */}
-        {notification && (
-          <div
-            className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {notification.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-            )}
-            <span>{notification.message}</span>
-          </div>
-        )}
 
         {/* Teachers Grid */}
         {loading ? (

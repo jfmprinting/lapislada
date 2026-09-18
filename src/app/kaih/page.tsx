@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { HeartHandshake, CheckCircle2, Sparkles } from 'lucide-react';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 interface HabitItem {
   id: string;
@@ -23,6 +24,7 @@ const DEFAULT_HABITS: HabitItem[] = [
 ];
 
 export default function KaihPage() {
+  const { showToast } = useNotification();
   const [habits, setHabits] = useState<HabitItem[]>(DEFAULT_HABITS);
   const [saved, setSaved] = useState(false);
 
@@ -31,6 +33,15 @@ export default function KaihPage() {
       prev.map((h) => (h.id === id ? { ...h, checked: !h.checked } : h))
     );
     setSaved(false);
+  };
+
+  const handleSave = () => {
+    setSaved(true);
+    showToast({
+      type: 'success',
+      title: 'KAIH Tersimpan',
+      message: `Rekap ${completedCount} dari 7 karakter positif KAIH hari ini berhasil dicatat!`,
+    });
   };
 
   const completedCount = habits.filter((h) => h.checked).length;
@@ -116,7 +127,7 @@ export default function KaihPage() {
 
         <div className="flex justify-end pt-2">
           <button
-            onClick={() => setSaved(true)}
+            onClick={handleSave}
             className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 cursor-pointer"
           >
             Simpan Rekap Karakter KAIH Hari Ini →

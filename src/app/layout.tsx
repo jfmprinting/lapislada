@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Lora } from "next/font/google";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
+import { NotificationProvider } from "@/components/ui/NotificationContext";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -50,7 +51,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#F5F0E8] text-[#1A1A1A] antialiased selection:bg-[#C0392B] selection:text-white">
         <PWARegister />
-        {children}
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase, Siswa, Kelas } from '@/lib/supabase';
 import AppShell from '@/components/layout/AppShell';
+import { useNotification } from '@/components/ui/NotificationContext';
 import {
   GraduationCap,
   Plus,
@@ -31,6 +32,7 @@ const normalizeClassName = (name: string) => {
 };
 
 export default function MasterSiswaPage() {
+  const { showToast, confirm } = useNotification();
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,6 @@ export default function MasterSiswaPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -235,7 +236,11 @@ export default function MasterSiswaPage() {
         const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (json.length <= 1) {
-          alert('File Excel kosong atau tidak memiliki data.');
+          showToast({
+            type: 'warning',
+            title: 'File Kosong',
+            message: 'File Excel tidak memiliki baris data siswa yang terbaca.',
+          });
           return;
         }
 
@@ -277,7 +282,11 @@ export default function MasterSiswaPage() {
         setIsImportModalOpen(true);
       } catch (err: any) {
         console.error('Error parsing Excel:', err);
-        alert('Gagal membaca file Excel. Pastikan format file .xlsx atau .csv valid.');
+        showToast({
+          type: 'error',
+          title: 'Gagal Membaca File',
+          message: 'Pastikan format file .xlsx atau .csv valid dan kolom sesuai template.',
+        });
       }
     };
 
@@ -345,8 +354,9 @@ export default function MasterSiswaPage() {
       const { error } = await supabase.from('siswa').insert(inserts);
       if (error) throw error;
 
-      setNotification({
+      showToast({
         type: 'success',
+        title: 'Import Berhasil',
         message: `Berhasil mengimpor ${importedRows.length} data peserta didik!`,
       });
       setIsImportModalOpen(false);
@@ -376,15 +386,15 @@ export default function MasterSiswaPage() {
       });
 
       setSiswaList((prev) => [...newLocalSiswa, ...prev]);
-      setNotification({
+      showToast({
         type: 'success',
+        title: 'Dimuat ke Aplikasi',
         message: `${importedRows.length} siswa berhasil dimuat ke daftar aplikasi!`,
       });
       setIsImportModalOpen(false);
       setImportedRows([]);
     } finally {
       setImporting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -424,7 +434,7 @@ export default function MasterSiswaPage() {
   const handleSubmitManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_lengkap.trim()) {
-      setNotification({ type: 'error', message: 'Nama lengkap siswa wajib diisi!' });
+      showToast({ type: 'error', message: 'Nama lengkap siswa wajib diisi!' });
       return;
     }
 
@@ -444,11 +454,11 @@ export default function MasterSiswaPage() {
       if (editingId && !editingId.startsWith('sample-') && !editingId.startsWith('local-')) {
         const { error } = await supabase.from('siswa').update(payload).eq('id', editingId);
         if (error) throw error;
-        setNotification({ type: 'success', message: 'Data siswa berhasil diperbarui!' });
+        showToast({ type: 'success', message: 'Data siswa berhasil diperbarui!' });
       } else {
         const { error } = await supabase.from('siswa').insert([payload]);
         if (error) throw error;
-        setNotification({ type: 'success', message: 'Siswa baru berhasil ditambahkan!' });
+        showToast({ type: 'success', message: 'Siswa baru berhasil ditambahkan!' });
       }
 
       setIsModalOpen(false);
@@ -474,27 +484,31 @@ export default function MasterSiswaPage() {
         };
         setSiswaList((prev) => [newLocal, ...prev]);
       }
-      setNotification({ type: 'success', message: 'Data siswa berhasil disimpan.' });
+      showToast({ type: 'success', message: 'Data siswa berhasil disimpan.' });
       setIsModalOpen(false);
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   const handleDelete = async (id: string, nama: string) => {
-    if (!confirm(`Yakin ingin menghapus data siswa ${nama}?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Hapus Data Siswa',
+      message: `Yakin ingin menghapus data siswa ${nama}? Data ini akan dihapus permanen dari sistem.`,
+      confirmText: 'Ya, Hapus Siswa',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
+    if (!isConfirmed) return;
 
     try {
       if (!id.startsWith('sample-') && !id.startsWith('local-')) {
         await supabase.from('siswa').delete().eq('id', id);
       }
       setSiswaList((prev) => prev.filter((s) => s.id !== id));
-      setNotification({ type: 'success', message: `Data ${nama} berhasil dihapus.` });
+      showToast({ type: 'success', message: `Data ${nama} berhasil dihapus.` });
     } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Gagal menghapus siswa.' });
-    } finally {
-      setTimeout(() => setNotification(null), 4000);
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus siswa.' });
     }
   };
 
@@ -580,24 +594,6 @@ export default function MasterSiswaPage() {
             </button>
           </div>
         </div>
-
-        {/* Notifications */}
-        {notification && (
-          <div
-            className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {notification.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-            )}
-            <span>{notification.message}</span>
-          </div>
-        )}
 
         {/* Siswa Table View */}
         <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs overflow-hidden">

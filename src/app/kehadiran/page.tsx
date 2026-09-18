@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { CheckCircle2, Save, Users, Calendar, Sparkles, BookOpen, Clock, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 interface StudentAttendance {
   id: string;
@@ -28,6 +29,7 @@ const INITIAL_STUDENTS: StudentAttendance[] = [
 ];
 
 function KehadiranContent() {
+  const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
   const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
@@ -66,6 +68,7 @@ function KehadiranContent() {
   const markAllHadir = () => {
     setStudents((prev) => prev.map((s) => ({ ...s, status: 'H' })));
     setSavedSuccess(false);
+    showToast({ type: 'info', message: 'Semua siswa ditandai Hadir (H).' });
   };
 
   const handleSave = async () => {
@@ -73,6 +76,11 @@ function KehadiranContent() {
     setTimeout(() => {
       setSaving(false);
       setSavedSuccess(true);
+      showToast({
+        type: 'success',
+        title: 'Presensi Tersimpan',
+        message: `Data kehadiran ${students.length} siswa berhasil disimpan ke sistem!`,
+      });
     }, 400);
   };
 

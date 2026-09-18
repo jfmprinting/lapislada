@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, Mapel } from '@/lib/supabase';
 import AppShell from '@/components/layout/AppShell';
+import { useNotification } from '@/components/ui/NotificationContext';
 import {
   BookMarked,
   Plus,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function MasterMapelPage() {
+  const { showToast, confirm } = useNotification();
   const [mapelList, setMapelList] = useState<Mapel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,7 +31,6 @@ export default function MasterMapelPage() {
     kkm: 75,
   });
   const [submitting, setSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -91,7 +92,7 @@ export default function MasterMapelPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_mapel.trim()) {
-      setNotification({ type: 'error', message: 'Nama mata pelajaran wajib diisi!' });
+      showToast({ type: 'error', message: 'Nama mata pelajaran wajib diisi!' });
       return;
     }
 
@@ -102,14 +103,21 @@ export default function MasterMapelPage() {
         kkm: Number(formData.kkm) || 75,
       };
 
-      if (editingId && !editingId.startsWith('m')) {
-        const { error } = await supabase.from('mapel').update(payload).eq('id', editingId);
+      if (editingId && !editingId.startsWith('m') && !editingId.startsWith('local-')) {
+        const { error } = await supabase
+          .from('mapel')
+          .update(payload)
+          .eq('id', editingId);
+
         if (error) throw error;
-        setNotification({ type: 'success', message: 'Mata pelajaran berhasil diperbarui!' });
+        showToast({ type: 'success', message: 'Mata pelajaran berhasil diperbarui!' });
       } else {
-        const { error } = await supabase.from('mapel').insert([payload]);
+        const { error } = await supabase
+          .from('mapel')
+          .insert([payload]);
+
         if (error) throw error;
-        setNotification({ type: 'success', message: 'Mata pelajaran baru berhasil ditambahkan!' });
+        showToast({ type: 'success', message: 'Mata pelajaran baru berhasil ditambahkan!' });
       }
 
       setIsModalOpen(false);
@@ -126,33 +134,45 @@ export default function MasterMapelPage() {
         };
         setMapelList((prev) => [...prev, newLocal]);
       }
-      setNotification({ type: 'success', message: 'Mata pelajaran berhasil disimpan.' });
+      showToast({ type: 'success', message: 'Mata pelajaran berhasil disimpan.' });
       setIsModalOpen(false);
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   const handleDelete = async (id: string, nama: string) => {
-    if (!confirm(`Yakin ingin menghapus mata pelajaran ${nama}?`)) return;
+    const isConfirmed = await confirm({
+      title: 'Hapus Mata Pelajaran',
+      message: `Yakin ingin menghapus mata pelajaran ${nama}?`,
+      confirmText: 'Ya, Hapus Mapel',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
+    if (!isConfirmed) return;
 
     try {
       if (!id.startsWith('m') && !id.startsWith('local-')) {
         await supabase.from('mapel').delete().eq('id', id);
       }
       setMapelList((prev) => prev.filter((m) => m.id !== id));
-      setNotification({ type: 'success', message: `Mata pelajaran ${nama} berhasil dihapus.` });
+      showToast({ type: 'success', message: `Mata pelajaran ${nama} berhasil dihapus.` });
     } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Gagal menghapus mapel.' });
-    } finally {
-      setTimeout(() => setNotification(null), 4000);
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus mapel.' });
     }
   };
 
   // Seed standard Kurikulum Merdeka SD subjects
   const handleSeedStandardMapel = async () => {
-    if (!confirm('Otomatis isi daftar Mata Pelajaran Standar SD (Kurikulum Merdeka)?')) return;
+    const isConfirmed = await confirm({
+      title: 'Generate Mapel Kurikulum Merdeka',
+      message: 'Otomatis isi daftar Mata Pelajaran Standar SD (Kurikulum Merdeka)?',
+      confirmText: 'Ya, Siapkan Mapel',
+      cancelText: 'Batal',
+      isDanger: false,
+    });
+    if (!isConfirmed) return;
+
     setSubmitting(true);
     const standardSubjects = [
       { nama_mapel: 'Pendidikan Agama & Budi Pekerti', kkm: 75 },
@@ -169,13 +189,12 @@ export default function MasterMapelPage() {
     try {
       await supabase.from('mapel').insert(standardSubjects);
       fetchData();
-      setNotification({ type: 'success', message: 'Daftar mapel Kurikulum Merdeka berhasil dibuat!' });
+      showToast({ type: 'success', message: 'Daftar mapel Kurikulum Merdeka berhasil dibuat!' });
     } catch (err: any) {
       setMapelList(standardSubjects.map((s, i) => ({ id: `seed-${i}`, ...s })));
-      setNotification({ type: 'success', message: 'Daftar mapel berhasil disiapkan.' });
+      showToast({ type: 'success', message: 'Daftar mapel berhasil disiapkan.' });
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -224,24 +243,6 @@ export default function MasterMapelPage() {
             </button>
           </div>
         </div>
-
-        {/* Notifications */}
-        {notification && (
-          <div
-            className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {notification.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-            )}
-            <span>{notification.message}</span>
-          </div>
-        )}
 
         {/* Mapel Cards Grid */}
         {loading ? (

@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Plus, MessageSquare, CheckCircle, Clock, ArrowLeft, Send } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { supabase, BukuPenghubungItem } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 const DUMMY_ENTRIES: BukuPenghubungItem[] = [
   {
@@ -24,10 +25,10 @@ const DUMMY_ENTRIES: BukuPenghubungItem[] = [
     siswa_id: 'siswa-1',
     author_id: 'guru-1',
     author_role: 'guru',
-    catatan: 'Baik Pak Budi, terima kasih infonya. Ahmad sudah di kelas dan terlihat bersemangat. PR Matematikanya juga dikerjakan dengan sangat rapi.',
+    catatan: 'Baik Pak Budi, ananda Ahmad sudah kami pantau di kelas. Sudah ceria dan mengikuti pelajaran seperti biasa.',
     is_read_by_guru: true,
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    users_profile: { nama: 'Bu Sari, S.Pd (Wali Kelas)' },
+    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    users_profile: { nama: 'Bu Sari, S.Pd (Guru)' },
     siswa: { nama_lengkap: 'Ahmad Budi Santoso (Kelas 4A)' },
   },
   {
@@ -44,6 +45,7 @@ const DUMMY_ENTRIES: BukuPenghubungItem[] = [
 ];
 
 function BukuPenghubungContent() {
+  const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
   const autoTulis = searchParams.get('tulis') === 'true';
@@ -118,12 +120,18 @@ function BukuPenghubungContent() {
     setNewCatatan('');
     setShowModal(false);
     setSubmitting(false);
+    showToast({
+      type: 'success',
+      title: 'Catatan Terkirim',
+      message: 'Catatan penghubung berhasil disampaikan!',
+    });
   };
 
   const markRead = async (id: string) => {
     setEntries((prev) =>
       prev.map((item) => (item.id === id ? { ...item, is_read_by_guru: true } : item))
     );
+    showToast({ type: 'info', message: 'Catatan ditandai sudah dibaca.' });
   };
 
   // If orang tua, only show notes related to their child (Ahmad Budi Santoso) per PRD 6.1

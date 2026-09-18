@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { LogIn, User, LogOut, Menu } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 interface NavbarProps {
   schoolName?: string;
@@ -18,6 +19,7 @@ export default function Navbar({
   onMenuClick,
   showMenuButton = false,
 }: NavbarProps) {
+  const { confirm, showToast } = useNotification();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
@@ -33,8 +35,20 @@ export default function Navbar({
   }, []);
 
   const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: 'Keluar dari Akun?',
+      message: 'Apakah Anda yakin ingin keluar dari sistem portal LAPIS LADA?',
+      confirmText: 'Ya, Keluar',
+      cancelText: 'Batal',
+      isDanger: false,
+    });
+    if (!isConfirmed) return;
+
     await supabase.auth.signOut();
-    window.location.href = '/';
+    showToast({ type: 'info', message: 'Sesi telah berakhir. Mengalihkan...' });
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 300);
   };
 
   const userRole = currentUser?.user_metadata?.role;

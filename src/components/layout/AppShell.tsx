@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 import BottomNav from './BottomNav';
 import Navbar from './Navbar';
 
@@ -42,6 +43,7 @@ export default function AppShell({
   pageSubtitle,
   unreadCount = 1,
 }: AppShellProps) {
+  const { confirm, showToast } = useNotification();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -64,8 +66,20 @@ export default function AppShell({
   }, [pathname]);
 
   const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: 'Keluar dari Akun?',
+      message: 'Apakah Anda yakin ingin mengakhiri sesi dan keluar dari sistem LAPIS LADA?',
+      confirmText: 'Ya, Keluar',
+      cancelText: 'Batal',
+      isDanger: false,
+    });
+    if (!isConfirmed) return;
+
     await supabase.auth.signOut();
-    window.location.href = '/';
+    showToast({ type: 'info', message: 'Sesi telah berakhir. Mengalihkan...' });
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 300);
   };
 
   const todayFormatted = new Intl.DateTimeFormat('id-ID', {

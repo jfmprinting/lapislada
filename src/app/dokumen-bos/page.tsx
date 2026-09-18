@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Plus, FolderLock, ExternalLink, Trash2, Edit3, Filter, AlertCircle, FileText } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { supabase, DokumenBOS } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 const DUMMY_BOS: DokumenBOS[] = [
   {
@@ -40,6 +41,7 @@ const DUMMY_BOS: DokumenBOS[] = [
 ];
 
 export default function DokumenBOSPage() {
+  const { showToast, confirm } = useNotification();
   const [documents, setDocuments] = useState<DokumenBOS[]>(DUMMY_BOS);
   const [filterYear, setFilterYear] = useState<string>('2026');
   const [filterKat, setFilterKat] = useState<string>('Semua');
@@ -112,16 +114,33 @@ export default function DokumenBOSPage() {
 
     if (editingDoc) {
       setDocuments(documents.map((d) => (d.id === editingDoc.id ? payload : d)));
+      showToast({ type: 'success', message: 'Perubahan dokumen BOS berhasil disimpan!' });
     } else {
       setDocuments([payload, ...documents]);
+      showToast({ type: 'success', message: 'Dokumen BOS baru berhasil ditambahkan!' });
     }
 
     setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus arsip dokumen BOS ini?')) {
+  const handleDelete = async (id: string, judul?: string) => {
+    const isConfirmed = await confirm({
+      title: 'Hapus Arsip Dokumen BOS',
+      message: `Apakah Anda yakin ingin menghapus arsip "${judul || 'dokumen ini'}"?`,
+      confirmText: 'Ya, Hapus Dokumen',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
+    if (!isConfirmed) return;
+
+    try {
+      if (!id.startsWith('bos-')) {
+        await supabase.from('dokumen_bos').delete().eq('id', id);
+      }
       setDocuments(documents.filter((d) => d.id !== id));
+      showToast({ type: 'success', message: 'Dokumen BOS berhasil dihapus.' });
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus dokumen.' });
     }
   };
 
@@ -252,7 +271,7 @@ export default function DokumenBOSPage() {
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(doc.id)}
+                      onClick={() => handleDelete(doc.id, doc.judul)}
                       title="Hapus Dokumen"
                       className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition"
                     >

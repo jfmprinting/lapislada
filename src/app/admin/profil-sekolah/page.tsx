@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { ArrowLeft, Save, CheckCircle2, AlertCircle, School, Globe } from 'lucide-react';
 import { supabase, ProfilSekolah } from '@/lib/supabase';
 import AppShell from '@/components/layout/AppShell';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 export default function AdminProfilSekolahPage() {
+  const { showToast } = useNotification();
   const [form, setForm] = useState<ProfilSekolah>({
     id: '',
     nama_sekolah: 'UPT SD Negeri Latsari 2 Bancar',
@@ -61,11 +63,14 @@ export default function AdminProfilSekolahPage() {
       if (error) throw error;
 
       setStatusMsg({ type: 'success', text: 'Perubahan profil sekolah berhasil disimpan!' });
+      showToast({ type: 'success', message: 'Perubahan profil sekolah berhasil disimpan!' });
     } catch (err: any) {
+      const errorMsg = err.message || 'Gagal menyimpan. Pastikan tabel profil_sekolah sudah di-migrate di Supabase.';
       setStatusMsg({
         type: 'error',
-        text: err.message || 'Gagal menyimpan. Pastikan tabel profil_sekolah sudah di-migrate di Supabase.',
+        text: errorMsg,
       });
+      showToast({ type: 'error', message: errorMsg });
     } finally {
       setSaving(false);
     }

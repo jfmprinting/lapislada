@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, Kelas, UserProfile } from '@/lib/supabase';
 import AppShell from '@/components/layout/AppShell';
+import { useNotification } from '@/components/ui/NotificationContext';
 import {
   Layers,
   Plus,
@@ -23,6 +24,7 @@ interface KelasWithDetails extends Kelas {
 }
 
 export default function MasterKelasPage() {
+  const { showToast, confirm } = useNotification();
   const [kelasList, setKelasList] = useState<KelasWithDetails[]>([]);
   const [guruList, setGuruList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,6 @@ export default function MasterKelasPage() {
     wali_kelas_id: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -134,7 +135,7 @@ export default function MasterKelasPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_kelas.trim()) {
-      setNotification({ type: 'error', message: 'Nama kelas wajib diisi!' });
+      showToast({ type: 'error', message: 'Nama kelas wajib diisi!' });
       return;
     }
 
@@ -153,14 +154,14 @@ export default function MasterKelasPage() {
           .eq('id', editingId);
 
         if (error) throw error;
-        setNotification({ type: 'success', message: `Kelas ${formData.nama_kelas} berhasil diperbarui!` });
+        showToast({ type: 'success', message: `Kelas ${formData.nama_kelas} berhasil diperbarui!` });
       } else {
         const { error } = await supabase
           .from('kelas')
           .insert([payload]);
 
         if (error) throw error;
-        setNotification({ type: 'success', message: `Kelas ${formData.nama_kelas} berhasil ditambahkan!` });
+        showToast({ type: 'success', message: `Kelas ${formData.nama_kelas} berhasil ditambahkan!` });
       }
 
       setIsModalOpen(false);
@@ -168,7 +169,7 @@ export default function MasterKelasPage() {
     } catch (err: any) {
       if (editingId) {
         setKelasList(prev => prev.map(k => k.id === editingId ? { ...k, ...formData, wali_kelas: guruList.find(g => g.id === formData.wali_kelas_id) } : k));
-        setNotification({ type: 'success', message: 'Perubahan kelas berhasil disimpan.' });
+        showToast({ type: 'success', message: 'Perubahan kelas berhasil disimpan.' });
         setIsModalOpen(false);
       } else {
         const newLocal: KelasWithDetails = {
@@ -180,19 +181,23 @@ export default function MasterKelasPage() {
           wali_kelas: guruList.find(g => g.id === formData.wali_kelas_id),
         };
         setKelasList(prev => [...prev, newLocal]);
-        setNotification({ type: 'success', message: 'Kelas baru berhasil ditambahkan.' });
+        showToast({ type: 'success', message: 'Kelas baru berhasil ditambahkan.' });
         setIsModalOpen(false);
       }
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
   const handleDelete = async (id: string, nama: string) => {
-    if (!confirm(`Yakin ingin menghapus ${nama}? Siswa yang terhubung dengan kelas ini akan kehilangan asosiasi rombel.`)) {
-      return;
-    }
+    const isConfirmed = await confirm({
+      title: 'Hapus Rombel Kelas',
+      message: `Yakin ingin menghapus ${nama}? Siswa yang terhubung dengan kelas ini akan kehilangan asosiasi rombel.`,
+      confirmText: 'Ya, Hapus Kelas',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
+    if (!isConfirmed) return;
 
     try {
       if (!id.startsWith('sample-') && !id.startsWith('local-')) {
@@ -200,16 +205,22 @@ export default function MasterKelasPage() {
         if (error) throw error;
       }
       setKelasList(prev => prev.filter(k => k.id !== id));
-      setNotification({ type: 'success', message: `Kelas ${nama} berhasil dihapus.` });
+      showToast({ type: 'success', message: `Kelas ${nama} berhasil dihapus.` });
     } catch (err: any) {
-      setNotification({ type: 'error', message: err.message || 'Gagal menghapus kelas.' });
-    } finally {
-      setTimeout(() => setNotification(null), 4000);
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus kelas.' });
     }
   };
 
   const handleSeedDefaultClasses = async () => {
-    if (!confirm('Buat otomatis 6 kelas standar SD (Kelas 1 s.d. 6)?')) return;
+    const isConfirmed = await confirm({
+      title: 'Generate Kelas Standar',
+      message: 'Sistem akan otomatis menambahkan rombel Kelas 1 s.d. Kelas 6 ke daftar sekolah.',
+      confirmText: 'Ya, Buat Kelas',
+      cancelText: 'Batal',
+      isDanger: false,
+    });
+    if (!isConfirmed) return;
+
     setSubmitting(true);
     const standardClasses = ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
     try {
@@ -219,12 +230,11 @@ export default function MasterKelasPage() {
       }));
       await supabase.from('kelas').insert(inserts);
       fetchData();
-      setNotification({ type: 'success', message: '6 Kelas standar SD berhasil dibuat!' });
+      showToast({ type: 'success', message: '6 Kelas standar SD berhasil dibuat!' });
     } catch (err: any) {
-      setNotification({ type: 'error', message: 'Gagal membuat kelas standar otomatis.' });
+      showToast({ type: 'error', message: 'Gagal membuat kelas standar otomatis.' });
     } finally {
       setSubmitting(false);
-      setTimeout(() => setNotification(null), 4000);
     }
   };
 
@@ -274,24 +284,6 @@ export default function MasterKelasPage() {
             </button>
           </div>
         </div>
-
-        {/* Notifications */}
-        {notification && (
-          <div
-            className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {notification.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-            )}
-            <span>{notification.message}</span>
-          </div>
-        )}
 
         {/* Class Cards Grid */}
         {loading ? (

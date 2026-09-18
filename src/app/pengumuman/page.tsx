@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { Bell, Plus, Calendar, Pin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useNotification } from '@/components/ui/NotificationContext';
 
 interface Pengumuman {
   id: string;
@@ -44,6 +45,7 @@ const INITIAL_ANNOUNCEMENTS: Pengumuman[] = [
 ];
 
 function PengumumanContent() {
+  const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
   const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
@@ -84,6 +86,11 @@ function PengumumanContent() {
     setFormJudul('');
     setFormKonten('');
     setShowModal(false);
+    showToast({
+      type: 'success',
+      title: 'Pengumuman Diterbitkan',
+      message: 'Pengumuman baru berhasil dipublikasikan ke seluruh wali murid & staf!',
+    });
   };
 
   return (
