@@ -23,6 +23,7 @@ import {
   BookMarked,
   Camera,
   X,
+  ClipboardList,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -207,6 +208,11 @@ export default function AppShell({
               label: 'Mata Pelajaran',
               href: '/admin/mapel',
               icon: BookMarked,
+            },
+            {
+              label: 'Jenis Asesmen',
+              href: '/admin/jenis-asesmen',
+              icon: ClipboardList,
             },
           ],
         },

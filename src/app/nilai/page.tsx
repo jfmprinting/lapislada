@@ -28,7 +28,21 @@ import {
   Clock,
   ArrowRight,
   FileSpreadsheet,
+  Shield,
+  ShieldCheck,
 } from 'lucide-react';
+
+// Default Jenis Asesmen (fallback if admin has not set custom ones)
+const DEFAULT_JENIS_ASESMEN = [
+  { id: 'ja-1', nama: 'Formatif (Tujuan Pembelajaran 1)', kategori: 'Formatif', aktif: true },
+  { id: 'ja-2', nama: 'Formatif (Tujuan Pembelajaran 2)', kategori: 'Formatif', aktif: true },
+  { id: 'ja-3', nama: 'Sumatif Lingkup Materi (Bab 1)', kategori: 'Sumatif', aktif: true },
+  { id: 'ja-4', nama: 'Sumatif Lingkup Materi (Bab 2)', kategori: 'Sumatif', aktif: true },
+  { id: 'ja-5', nama: 'Sumatif Tengah Semester (STS / UTS)', kategori: 'Sumatif', aktif: true },
+  { id: 'ja-6', nama: 'Sumatif Akhir Semester (SAS / PAS)', kategori: 'Sumatif', aktif: true },
+];
+
+const JENIS_ASESMEN_STORAGE_KEY = 'lapislada_jenis_asesmen';
 
 // Default subjects list with KKM
 const DEFAULT_MAPEL: Mapel[] = [
@@ -77,6 +91,33 @@ function NilaiContent() {
   const [semester, setSemester] = useState<number>(1);
   const [tahunAjaran, setTahunAjaran] = useState<string>('2026/2027');
 
+  // Wali Kelas restriction: detected from kelas.wali_kelas_id = currentUser.id
+  const [isWaliKelas, setIsWaliKelas] = useState<boolean>(false);
+  const [waliKelasNama, setWaliKelasNama] = useState<string>('');
+  const [allowedKelasList, setAllowedKelasList] = useState<Kelas[]>([]);
+
+  // Dynamic Jenis Asesmen from Admin settings (localStorage)
+  const [jenisAsesmenList, setJenisAsesmenList] = useState(DEFAULT_JENIS_ASESMEN);
+
+  // Load Jenis Asesmen from localStorage (admin settings)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(JENIS_ASESMEN_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const active = parsed.filter((j: any) => j.aktif !== false);
+          if (active.length > 0) {
+            setJenisAsesmenList(active);
+            setSelectedJenisAsesmen(active[0].nama);
+          }
+        }
+      } catch (e) {
+        // ignore, use defaults
+      }
+    }
+  }, []);
+
   // Input Grid State: studentId -> { nilai: number, catatan: string }
   const [gridScores, setGridScores] = useState<Record<string, { nilai: number; catatan: string }>>({
     's-1': { nilai: 92, catatan: 'Sangat menguasai konsep pecahan senilai' },
@@ -103,24 +144,66 @@ function NilaiContent() {
 
   const [saving, setSaving] = useState(false);
 
-  // Load classes, subjects, and students
+  // Load classes, subjects, students, and detect Wali Kelas assignment
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch kelas
+        // Get current session user
+        const { data: sessionData } = await supabase.auth.getSession();
+        const currentUserId = sessionData?.session?.user?.id;
+
+        // Fetch all kelas
         const { data: kData } = await supabase.from('kelas').select('*').order('nama_kelas');
-        if (kData && kData.length > 0) {
-          setKelasList(kData);
+        const fetchedKelas: Kelas[] = kData && kData.length > 0 ? kData : [
+          { id: 'k-1', nama_kelas: 'Kelas 1', tahun_ajaran: '2026/2027' },
+          { id: 'k-2', nama_kelas: 'Kelas 2', tahun_ajaran: '2026/2027' },
+          { id: 'k-3', nama_kelas: 'Kelas 3', tahun_ajaran: '2026/2027' },
+          { id: 'k-4a', nama_kelas: 'Kelas 4A', tahun_ajaran: '2026/2027' },
+          { id: 'k-4b', nama_kelas: 'Kelas 4B', tahun_ajaran: '2026/2027' },
+          { id: 'k-5a', nama_kelas: 'Kelas 5A', tahun_ajaran: '2026/2027' },
+          { id: 'k-6a', nama_kelas: 'Kelas 6A', tahun_ajaran: '2026/2027' },
+        ];
+        setKelasList(fetchedKelas);
+
+        // Detect Wali Kelas: find a class where wali_kelas_id matches current user
+        if (currentUserId) {
+          const myKelas = kData?.find((k: any) => k.wali_kelas_id === currentUserId);
+          if (myKelas) {
+            setIsWaliKelas(true);
+            setWaliKelasNama(myKelas.nama_kelas);
+            setAllowedKelasList([myKelas]);
+            setSelectedKelasId(myKelas.id);
+          } else {
+            // Guru murni / Admin: akses ke semua kelas
+            setIsWaliKelas(false);
+            setAllowedKelasList(fetchedKelas);
+          }
         } else {
-          setKelasList([
-            { id: 'k-1', nama_kelas: 'Kelas 1', tahun_ajaran: '2026/2027' },
-            { id: 'k-2', nama_kelas: 'Kelas 2', tahun_ajaran: '2026/2027' },
-            { id: 'k-3', nama_kelas: 'Kelas 3', tahun_ajaran: '2026/2027' },
-            { id: 'k-4a', nama_kelas: 'Kelas 4A', tahun_ajaran: '2026/2027' },
-            { id: 'k-4b', nama_kelas: 'Kelas 4B', tahun_ajaran: '2026/2027' },
-            { id: 'k-5a', nama_kelas: 'Kelas 5A', tahun_ajaran: '2026/2027' },
-            { id: 'k-6a', nama_kelas: 'Kelas 6A', tahun_ajaran: '2026/2027' },
-          ]);
+          // Fallback: check localStorage credential registry
+          try {
+            const credRaw = localStorage.getItem('lapislada_credentials');
+            if (credRaw) {
+              const creds = JSON.parse(credRaw);
+              const guruCred = Object.values(creds).find((c: any) => c.role === 'guru') as any;
+              if (guruCred?.userId) {
+                const myKelas = kData?.find((k: any) => k.wali_kelas_id === guruCred.userId);
+                if (myKelas) {
+                  setIsWaliKelas(true);
+                  setWaliKelasNama(myKelas.nama_kelas);
+                  setAllowedKelasList([myKelas]);
+                  setSelectedKelasId(myKelas.id);
+                } else {
+                  setAllowedKelasList(fetchedKelas);
+                }
+              } else {
+                setAllowedKelasList(fetchedKelas);
+              }
+            } else {
+              setAllowedKelasList(fetchedKelas);
+            }
+          } catch {
+            setAllowedKelasList(fetchedKelas);
+          }
         }
 
         // Fetch mapel
@@ -449,30 +532,43 @@ function NilaiContent() {
       <div className="space-y-6">
         {/* TOP TAB TOGGLE: Input Asesmen Mapel VS Buku Leger Rombel */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-[#DDD8CE] shadow-xs">
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 sm:w-auto">
-            <button
-              onClick={() => setActiveTab('input')}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'input'
-                  ? 'bg-[#922B21] text-white shadow-xs'
-                  : 'text-[#666] hover:text-[#1A1A1A]'
-              }`}
-            >
-              <Award className="w-4 h-4" />
-              <span>Input Nilai Guru Mapel</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={`grid gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 ${isWaliKelas ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <button
+                onClick={() => setActiveTab('input')}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'input'
+                    ? 'bg-[#922B21] text-white shadow-xs'
+                    : 'text-[#666] hover:text-[#1A1A1A]'
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                <span>Input Nilai</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('leger')}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'leger'
-                  ? 'bg-[#922B21] text-white shadow-xs'
-                  : 'text-[#666] hover:text-[#1A1A1A]'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Buku Leger Wali Kelas</span>
-            </button>
+              {/* Buku Leger Tab: only visible for Wali Kelas */}
+              {isWaliKelas && (
+                <button
+                  onClick={() => setActiveTab('leger')}
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'leger'
+                      ? 'bg-[#922B21] text-white shadow-xs'
+                      : 'text-[#666] hover:text-[#1A1A1A]'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Buku Leger</span>
+                </button>
+              )}
+            </div>
+
+            {/* Wali Kelas badge */}
+            {isWaliKelas && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Wali Kelas {waliKelasNama}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 px-2 text-xs text-[#666]">
@@ -491,23 +587,33 @@ function NilaiContent() {
             {/* Filter Card: Kelas, Mapel, Asesmen */}
             <div className="bg-white rounded-2xl p-5 border border-[#DDD8CE] shadow-xs space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Pilih Kelas Diajar */}
+                {/* 1. Pilih Kelas Diajar - restricted for Wali Kelas */}
                 <div>
                   <label className="block text-xs font-bold text-[#3D3D3D] mb-1.5 flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-[#922B21]" />
                     <span>1. Kelas / Rombel Diajar:</span>
                   </label>
-                  <select
-                    value={selectedKelasId}
-                    onChange={(e) => setSelectedKelasId(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF8F2] border border-[#DDD8CE] rounded-xl text-xs font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
-                  >
-                    {kelasList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.nama_kelas}
-                      </option>
-                    ))}
-                  </select>
+                  {isWaliKelas ? (
+                    // Wali Kelas: fixed to their own class
+                    <div className="w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>{waliKelasNama}</span>
+                      <span className="ml-auto text-[10px] font-normal text-emerald-600">Hak akses Wali Kelas</span>
+                    </div>
+                  ) : (
+                    // Admin / Guru Mapel: can select all classes
+                    <select
+                      value={selectedKelasId}
+                      onChange={(e) => setSelectedKelasId(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#FAF8F2] border border-[#DDD8CE] rounded-xl text-xs font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
+                    >
+                      {allowedKelasList.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kelas}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* 2. Pilih Mata Pelajaran */}
@@ -529,7 +635,7 @@ function NilaiContent() {
                   </select>
                 </div>
 
-                {/* 3. Jenis Asesmen */}
+                {/* 3. Jenis Asesmen - loaded dynamically from Admin settings (localStorage) */}
                 <div>
                   <label className="block text-xs font-bold text-[#3D3D3D] mb-1.5 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-[#922B21]" />
@@ -540,12 +646,11 @@ function NilaiContent() {
                     onChange={(e) => setSelectedJenisAsesmen(e.target.value)}
                     className="w-full px-3 py-2 bg-[#FAF8F2] border border-[#DDD8CE] rounded-xl text-xs font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
                   >
-                    <option value="Formatif (Tujuan Pembelajaran 1)">Formatif (Tujuan Pembelajaran 1)</option>
-                    <option value="Formatif (Tujuan Pembelajaran 2)">Formatif (Tujuan Pembelajaran 2)</option>
-                    <option value="Sumatif Lingkup Materi (Bab 1)">Sumatif Lingkup Materi (Bab 1)</option>
-                    <option value="Sumatif Lingkup Materi (Bab 2)">Sumatif Lingkup Materi (Bab 2)</option>
-                    <option value="Sumatif Tengah Semester (STS / UTS)">Sumatif Tengah Semester (STS / UTS)</option>
-                    <option value="Sumatif Akhir Semester (SAS / PAS)">Sumatif Akhir Semester (SAS / PAS)</option>
+                    {jenisAsesmenList.map((ja) => (
+                      <option key={ja.id} value={ja.nama}>
+                        {ja.nama}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
