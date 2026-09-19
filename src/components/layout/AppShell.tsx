@@ -114,6 +114,11 @@ export default function AppShell({
               badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
             },
             {
+              label: 'Karakter KAIH',
+              href: '/kaih?role=orangtua',
+              icon: HeartHandshake,
+            },
+            {
               label: 'Kehadiran Ananda',
               href: '/kehadiran?role=orangtua',
               icon: CalendarCheck,

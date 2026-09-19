@@ -15,6 +15,8 @@ import {
   Heart,
   Award,
   LogOut,
+  HeartHandshake,
+  Camera,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -162,6 +164,62 @@ export default function DashboardOrangTuaPage() {
               <span className="block text-[10px] font-bold text-[#922B21] uppercase tracking-wider">
                 Alpha
               </span>
+            </div>
+          </div>
+        </section>
+
+        {/* KARAKTER KAIH ANANDA (7 Kebiasaan Anak Indonesia Hebat) */}
+        <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-[#FDEDEC] text-[#922B21]">
+                <HeartHandshake className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="font-serif font-bold text-sm text-[#1A1A1A]">
+                  Karakter KAIH Ananda
+                </h2>
+                <span className="text-[10px] text-[#6B6B6B] block">7 Kebiasaan Anak Indonesia Hebat</span>
+              </div>
+            </div>
+            <Link
+              href="/kaih?role=orangtua"
+              className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
+            >
+              <span>Buka Log KAIH</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-semibold text-[#666] block">
+                  Pembiasaan di Rumah Hari Ini:
+                </span>
+                <p className="text-xs font-bold text-[#1A1A1A] mt-0.5">
+                  2 Kegiatan Dicatat (Merapikan Kamar & Sarapan Sehat)
+                </p>
+              </div>
+              <span className="shrink-0 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                Sudah Direspon Guru 👍
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-[#E8E0D0]">
+              <Link
+                href="/kaih?role=orangtua"
+                className="w-full sm:flex-1 py-2 px-3 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>+ Catat & Foto Bukti Hari Ini</span>
+              </Link>
+              <Link
+                href="/kaih?role=orangtua"
+                className="w-full sm:w-auto py-2 px-3 rounded-xl bg-white border border-[#DDD8CE] hover:bg-[#F5F0E8] text-[#1A1A1A] font-bold text-xs shadow-xs transition text-center"
+              >
+                Lihat Kegiatan Kelas Hari Ini
+              </Link>
             </div>
           </div>
         </section>

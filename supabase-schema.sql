@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS public.materi (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 12. Tabel KAIH (Modul 07 - 7 Kebiasaan Anak Indonesia Hebat)
+-- 12. Tabel KAIH (Modul 07 - 7 Kebiasaan Anak Indonesia Hebat: Warisan ABAT)
 CREATE TABLE IF NOT EXISTS public.kaih (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     siswa_id UUID NOT NULL REFERENCES public.siswa(id) ON DELETE CASCADE,
@@ -163,6 +163,26 @@ CREATE TABLE IF NOT EXISTS public.kaih (
     catatan TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(siswa_id, tanggal)
+);
+
+-- 12b. Tabel Rekam Kegiatan KAIH (Sekolah & Rumah + Bukti Foto)
+CREATE TABLE IF NOT EXISTS public.kaih_kegiatan (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tipe TEXT NOT NULL CHECK (tipe IN ('sekolah', 'rumah')), -- 'sekolah' = global kelas oleh guru, 'rumah' = per anak oleh orang tua
+    kelas_id UUID REFERENCES public.kelas(id) ON DELETE CASCADE,
+    siswa_id UUID REFERENCES public.siswa(id) ON DELETE CASCADE, -- NULL jika kegiatan sekolah
+    kategori_id INT NOT NULL CHECK (kategori_id BETWEEN 1 AND 7),
+    kategori_nama TEXT NOT NULL,
+    judul TEXT NOT NULL,
+    deskripsi TEXT,
+    jam TEXT,
+    tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
+    foto_url TEXT,
+    created_by UUID REFERENCES public.users_profile(id),
+    creator_nama TEXT,
+    apresiasi_guru BOOLEAN DEFAULT FALSE,
+    catatan_guru TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =========================================================
@@ -182,6 +202,7 @@ ALTER TABLE public.dokumen_bos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pengumuman ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.materi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kaih ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kaih_kegiatan ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: Get user role
 CREATE OR REPLACE FUNCTION public.get_current_role()
@@ -350,6 +371,23 @@ CREATE POLICY "Input KAIH"
     USING (
         public.get_current_role() IN ('admin', 'guru')
         OR siswa_id IN (SELECT id FROM public.siswa WHERE wali_murid_id = auth.uid())
+    );
+
+-- 12b. RLS kaih_kegiatan:
+CREATE POLICY "Baca rekam kegiatan KAIH"
+    ON public.kaih_kegiatan FOR SELECT
+    TO authenticated
+    USING (
+        public.get_current_role() IN ('admin', 'guru')
+        OR tipe = 'sekolah'
+        OR siswa_id IN (SELECT id FROM public.siswa WHERE wali_murid_id = auth.uid())
+    );
+
+CREATE POLICY "Guru/Admin kelola kegiatan KAIH sekolah"
+    ON public.kaih_kegiatan FOR ALL
+    USING (
+        public.get_current_role() IN ('admin', 'guru')
+        OR (tipe = 'rumah' AND siswa_id IN (SELECT id FROM public.siswa WHERE wali_murid_id = auth.uid()))
     );
 
 -- Trigger untuk sync auto-create users_profile saat user baru terdaftar di auth.users
