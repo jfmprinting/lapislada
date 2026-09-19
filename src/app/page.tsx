@@ -89,7 +89,7 @@ export const TUJUAN_SEKOLAH_LIST = [
 export default function HomePage() {
   const [profil, setProfil] = useState<ProfilSekolah>(DEFAULT_PROFIL);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profil' | 'visi' | 'galeri' | 'layanan' | 'kontak'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'visi' | 'galeri' | 'kontak'>('profil');
 
   useEffect(() => {
     async function loadProfil() {
@@ -267,11 +267,185 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* STANDOUT SHOWCASE SECTION: LAPIS LADA */}
+        <section className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-md border-2 border-[#922B21]/20 relative overflow-hidden">
+          {/* Subtle Background decoration */}
+          <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-[#FDEDEC]/50 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-64 h-64 rounded-full bg-amber-50/50 blur-3xl pointer-events-none" />
+
+          <div className="relative z-10">
+            {/* Header / Intro */}
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FDEDEC] text-[#922B21] text-xs font-bold border border-[#F1948A]/40 mb-3 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-[#C0392B]" />
+                <span>INOVASI SISTEM INFORMASI TERPADU</span>
+              </div>
+
+              <h2 className="font-serif font-bold text-2xl sm:text-3xl lg:text-4xl text-[#1A1A1A] tracking-tight">
+                LAPIS LADA
+              </h2>
+              <p className="text-sm sm:text-base font-semibold text-[#922B21] mt-1 mb-3">
+                Layanan Pusat Informasi Sekolah Latsari 2
+              </p>
+
+              <p className="text-xs sm:text-sm text-[#4A4A4A] leading-relaxed">
+                Inovasi sistem informasi terpadu yang berfungsi sebagai pusat kendali komunikasi, transparansi, dan pelayanan data bagi seluruh warga sekolah dan masyarakat. Layanan ini dirancang khusus untuk menjembatani kebutuhan informasi antara pihak sekolah, orang tua/wali murid, siswa, serta instansi terkait secara cepat, tepat, dan akurat.
+              </p>
+            </div>
+
+            {/* 4 Fungsi & Keunggulan Utama Bento Grid */}
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1.5 h-4 bg-[#922B21] rounded-full" />
+                <h3 className="font-serif font-bold text-base sm:text-lg text-[#1A1A1A]">
+                  Fungsi & Keunggulan Utama
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Pusat Informasi Satu Pintu */}
+                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF8F2] to-white border border-[#DDD8CE] hover:border-[#922B21]/50 transition-all group shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-11 h-11 rounded-xl bg-[#FDEDEC] text-[#922B21] flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#922B21]/10 text-[#922B21]">
+                        Pilar 01
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 group-hover:text-[#922B21] transition-colors">
+                      Pusat Informasi Satu Pintu
+                    </h4>
+                    <p className="text-xs text-[#525252] leading-relaxed">
+                      Menyediakan akses mudah terhadap pengumuman sekolah, agenda kegiatan, program akademis, hingga prestasi siswa secara terpadu dan terpercaya.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#E8E0D0] flex flex-wrap gap-1.5 text-[10px] font-semibold text-[#6B6B6B]">
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Pengumuman Resmi</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Agenda Kegiatan</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Prestasi Siswa</span>
+                  </div>
+                </div>
+
+                {/* 2. Transparansi Data & Administrasi */}
+                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF8F2] to-white border border-[#DDD8CE] hover:border-[#922B21]/50 transition-all group shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                        Pilar 02
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 group-hover:text-emerald-800 transition-colors">
+                      Transparansi Data & Administrasi
+                    </h4>
+                    <p className="text-xs text-[#525252] leading-relaxed">
+                      Memudahkan pengelolaan tata usaha dan penyampaian laporan perkembangan sekolah secara terbuka, akuntabel, dan dapat diakses dengan tertib.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#E8E0D0] flex flex-wrap gap-1.5 text-[10px] font-semibold text-[#6B6B6B]">
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Akuntabilitas BOS</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Laporan Perkembangan</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Tata Usaha Terbuka</span>
+                  </div>
+                </div>
+
+                {/* 3. Saluran Komunikasi Interaktif */}
+                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF8F2] to-white border border-[#DDD8CE] hover:border-[#922B21]/50 transition-all group shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                        <BookOpen className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                        Pilar 03
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 group-hover:text-blue-800 transition-colors">
+                      Saluran Komunikasi Interaktif
+                    </h4>
+                    <p className="text-xs text-[#525252] leading-relaxed">
+                      Menjadi wadah aspirasi, layanan pengaduan, serta konsultasi bagi orang tua demi mendukung sinergi pendidikan anak melalui Buku Penghubung Digital 2 Arah.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#E8E0D0] flex flex-wrap gap-1.5 text-[10px] font-semibold text-[#6B6B6B]">
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Buku Penghubung 2 Arah</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Wadah Aspirasi</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Konsultasi Orang Tua</span>
+                  </div>
+                </div>
+
+                {/* 4. Digitalisasi Layanan Sekolah */}
+                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF8F2] to-white border border-[#DDD8CE] hover:border-[#922B21]/50 transition-all group shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                        Pilar 04
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-2 group-hover:text-amber-800 transition-colors">
+                      Digitalisasi Layanan Sekolah
+                    </h4>
+                    <p className="text-xs text-[#525252] leading-relaxed">
+                      Mendukung efisiensi birokrasi sekolah berbasis teknologi digital modern yang adaptif terhadap perkembangan zaman, mulai dari presensi hingga e-rapor.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#E8E0D0] flex flex-wrap gap-1.5 text-[10px] font-semibold text-[#6B6B6B]">
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Presensi Real-time</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Birokrasi Efisien</span>
+                    <span className="bg-[#FAF8F2] px-2 py-0.5 rounded-md border border-[#DDD8CE]">Adaptif & Cepat</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Closing Commitment & Action Bar */}
+            <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF8F2] via-[#FDEDEC]/30 to-white border border-[#F1948A]/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5 max-w-2xl">
+                <div className="w-10 h-10 rounded-xl bg-[#FDEDEC] text-[#922B21] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                  <HeartHandshake className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="font-serif font-bold text-sm text-[#1A1A1A] mb-1">
+                    Komitmen UPT SD Negeri Latsari 2
+                  </h5>
+                  <p className="text-xs text-[#525252] leading-relaxed">
+                    Melalui LAPIS LADA, UPT SD Negeri Latsari 2 berkomitmen menciptakan lingkungan pendidikan yang informatif, akuntabel, dan terkoneksi dengan baik demi mewujudkan generasi yang cerdas dan berkarakter.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-[#DDD8CE]">
+                <Link
+                  href="/login?role=orangtua"
+                  className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-xs transition active:scale-95 text-center flex items-center justify-center gap-1.5"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Portal Orang Tua</span>
+                </Link>
+                <Link
+                  href="/login?role=guru"
+                  className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-[#FAF8F2] text-[#1A1A1A] border border-[#DDD8CE] font-bold text-xs shadow-xs transition active:scale-95 text-center flex items-center justify-center gap-1.5"
+                >
+                  <GraduationCap className="w-4 h-4 text-amber-700" />
+                  <span>Portal Guru</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* MODERN NAVIGATION TABS (ENHANCED USER EXPERIENCE) */}
         <div className="flex items-center gap-1.5 p-1.5 bg-[#E8E0D0]/70 rounded-2xl border border-[#DDD8CE] overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('profil')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
               activeTab === 'profil'
                 ? 'bg-[#922B21] text-white shadow-sm'
                 : 'text-[#3D3D3D] hover:bg-white/60'
@@ -283,7 +457,7 @@ export default function HomePage() {
 
           <button
             onClick={() => setActiveTab('visi')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
               activeTab === 'visi'
                 ? 'bg-[#922B21] text-white shadow-sm'
                 : 'text-[#3D3D3D] hover:bg-white/60'
@@ -306,20 +480,8 @@ export default function HomePage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('layanan')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'layanan'
-                ? 'bg-[#922B21] text-white shadow-sm'
-                : 'text-[#3D3D3D] hover:bg-white/60'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Layanan LAPIS LADA</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('kontak')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
               activeTab === 'kontak'
                 ? 'bg-[#922B21] text-white shadow-sm'
                 : 'text-[#3D3D3D] hover:bg-white/60'
@@ -592,108 +754,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* TAB: LAYANAN LAPIS LADA */}
-        {activeTab === 'layanan' && (
-          <div className="space-y-5 animate-in fade-in duration-300">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#DDD8CE]">
-              <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FDEDEC] text-[#922B21] text-xs font-bold mb-2">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Mengenal LAPIS LADA
-                </div>
-                <h2 className="font-serif font-bold text-xl text-[#1A1A1A] mb-2">
-                  Layanan Pusat Informasi Sekolah Latsari Dua
-                </h2>
-                <p className="text-xs sm:text-sm text-[#6B6B6B] leading-relaxed">
-                  LAPIS LADA adalah platform integrasi informasi dan komunikasi sekolah dasar modern yang dirancang untuk mempererat sinergi antara guru, wali murid, dan pihak sekolah secara transparan dan aman.
-                </p>
-              </div>
 
-              {/* Asymmetric Bento Grid for LAPIS LADA Features (Anti 3-card slop) */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-6">
-                {/* Flagship Feature (Spans 7 cols): Buku Penghubung Digital */}
-                <div className="md:col-span-7 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-[#FAF7F2] to-[#FDEDEC]/40 border border-[#F1948A]/40 flex flex-col justify-between hover:border-[#922B21]/50 transition-all group shadow-xs">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="w-11 h-11 rounded-xl bg-[#FDEDEC] text-[#922B21] flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#922B21]/10 text-[#922B21]">
-                        Pilar Utama
-                      </span>
-                    </div>
-                    <h4 className="font-serif font-bold text-base text-[#1A1A1A] mb-1.5">
-                      Buku Penghubung Digital 2 Arah
-                    </h4>
-                    <p className="text-xs text-[#525252] leading-relaxed">
-                      Jembatan komunikasi harian antara guru dan orang tua. Catatan pembinaan akhlak, perkembangan belajar, hingga konsultasi pribadi langsung tersimpan aman tanpa resiko buku hilang.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-[#E8E0D0]">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#922B21] bg-white px-2 py-0.5 rounded-md border border-[#F1948A]/30">
-                      <CheckCircle2 className="w-3 h-3 text-[#25D366]" /> Notifikasi Terkirim
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#525252] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
-                      Riwayat Permanen
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#525252] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
-                      Privasi Terjamin
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right Column Stack (Spans 5 cols): Presensi & Transparansi */}
-                <div className="md:col-span-5 flex flex-col gap-4">
-                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group flex-1 flex flex-col justify-center">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <h4 className="font-bold text-sm text-[#1A1A1A]">Presensi Terpadu Realtime</h4>
-                    </div>
-                    <p className="text-xs text-[#6B6B6B] leading-relaxed">
-                      Pencatatan kehadiran harian per rombel kelas yang terpantau instan oleh wali murid.
-                    </p>
-                  </div>
-
-                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F0E8]/80 border border-[#DDD8CE] hover:border-[#922B21]/40 transition-all group flex-1 flex flex-col justify-center">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <FileText className="w-4 h-4" />
-                      </div>
-                      <h4 className="font-bold text-sm text-[#1A1A1A]">Transparansi BOS & Nilai</h4>
-                    </div>
-                    <p className="text-xs text-[#6B6B6B] leading-relaxed">
-                      Publikasi dokumen akuntabilitas anggaran BOS dan transkrip perkembangan siswa secara teratur.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Banner inside Layanan */}
-              <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-[#922B21] to-[#C0392B] text-white flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-white/10 text-white">
-                    <HeartHandshake className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h5 className="font-bold text-xs sm:text-sm">Sudah Memiliki Akun Akses?</h5>
-                    <p className="text-[11px] text-amber-200">Silakan login sesuai dengan peran Anda sebagai Wali Murid atau Guru.</p>
-                  </div>
-                </div>
-
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-amber-50 text-[#922B21] font-bold text-xs shadow transition active:scale-95 shrink-0"
-                >
-                  <span>Masuk ke Akun</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* TAB 4: KONTAK & LOKASI */}
         {activeTab === 'kontak' && (
