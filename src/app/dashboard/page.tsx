@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
+import PWAInstallBanner from '@/components/pwa/PWAInstallBanner';
 import {
   CalendarCheck,
   BookOpen,
@@ -76,6 +77,9 @@ export default function DashboardGuruPage() {
             </div>
           </div>
         </section>
+
+        {/* PWA INSTALL BANNER (Hanya tampil jika belum diinstal & belum ditutup) */}
+        <PWAInstallBanner role="guru" />
 
         {/* ============================================================ */}
         {/* DESKTOP TWO-COLUMN GRID (lg:grid-cols-12) */}

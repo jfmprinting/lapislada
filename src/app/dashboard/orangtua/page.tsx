@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import BottomNav from '@/components/layout/BottomNav';
+import PWAInstallBanner from '@/components/pwa/PWAInstallBanner';
 import {
   CalendarCheck,
   BookOpen,
@@ -112,6 +113,9 @@ export default function DashboardOrangTuaPage() {
             </span>
           </div>
         </section>
+
+        {/* PWA INSTALL BANNER (Hanya tampil jika belum diinstal & belum ditutup) */}
+        <PWAInstallBanner role="orangtua" />
 
         {/* KEHADIRAN BULAN INI (WF-04) */}
         <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">

@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 import BottomNav from './BottomNav';
 import Navbar from './Navbar';
+import PWAInstallSidebarButton from '@/components/pwa/PWAInstallSidebarButton';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -446,8 +447,9 @@ export default function AppShell({
               ))}
             </nav>
 
-            {/* Drawer Footer (Logout) */}
+            {/* Drawer Footer (PWA Install + Logout) */}
             <div className="p-3 border-t border-[#E8E0D0] bg-[#FAF8F2]">
+              <PWAInstallSidebarButton />
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold text-[#922B21] hover:bg-[#FDEDEC] border border-[#F1948A]/40 transition active:scale-98 cursor-pointer"
@@ -559,8 +561,9 @@ export default function AppShell({
           ))}
         </nav>
 
-        {/* Sidebar Footer (Logout) */}
+        {/* Sidebar Footer (PWA Install + Logout) */}
         <div className="p-3 border-t border-[#E8E0D0] bg-[#FAF8F2]">
+          <PWAInstallSidebarButton />
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-[#922B21] hover:bg-[#FDEDEC] border border-[#F1948A]/40 transition active:scale-98 cursor-pointer"
