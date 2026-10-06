@@ -172,9 +172,9 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
     setSubmitting(true);
     try {
-      let serverSaved = false;
-
       // 1. Call Cloudflare Pages Serverless API
+      let serverSaved = false;
+      let serverErrorMsg = '';
       try {
         const res = await fetch('/api/admin-reset-password', {
           method: 'POST',
@@ -190,28 +190,17 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
         });
         if (res.ok) {
           serverSaved = true;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          serverErrorMsg = errData.error || 'Terjadi kesalahan pada server saat membuat akun.';
         }
-      } catch (apiErr) {
-        console.info('API /api/admin-reset-password fallback to client auth:', apiErr);
+      } catch (apiErr: any) {
+        serverErrorMsg = apiErr.message || 'Gagal menghubungi server.';
       }
 
       // 2. Direct client fallback if API wasn't reached
       if (!serverSaved) {
-        try {
-          await supabase.auth.signUp({
-            email: email.trim(),
-            password: password.trim(),
-            options: {
-              data: {
-                role: targetUser.role,
-                nama: targetUser.nama,
-                siswa_id: targetUser.id,
-              },
-            },
-          });
-        } catch (signUpErr) {
-          console.info('Client signUp fallback:', signUpErr);
-        }
+        throw new Error(serverErrorMsg || 'API server reset password gagal dihubungi. Pastikan koneksi internet lancar dan coba lagi.');
       }
 
       // 3. Save to local credentials registry as extra client cache
