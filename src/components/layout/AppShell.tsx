@@ -380,14 +380,14 @@ export default function AppShell({
                       (activeRole === 'admin'
                         ? 'Administrator'
                         : activeRole === 'guru'
-                        ? 'Bu Sari, S.Pd'
+                        ? 'Guru'
                         : 'Pak Budi')}
                   </div>
                   <div className="text-[10px] text-[#6B6B6B] truncate">
                     {activeRole === 'admin'
                       ? 'Admin Sekolah'
                       : activeRole === 'guru'
-                      ? 'Wali Kelas 4A'
+                      ? 'Guru / Wali Kelas'
                       : 'Wali Murid'}
                   </div>
                 </div>
@@ -495,14 +495,14 @@ export default function AppShell({
                   (activeRole === 'admin'
                     ? 'Administrator'
                     : activeRole === 'guru'
-                    ? 'Bu Sari, S.Pd'
+                    ? 'Guru'
                     : 'Pak Budi')}
               </div>
               <div className="text-[10px] text-[#6B6B6B] truncate">
                 {activeRole === 'admin'
                   ? 'Admin Sekolah'
                   : activeRole === 'guru'
-                  ? 'Wali Kelas 4A'
+                  ? 'Guru / Wali Kelas'
                   : 'Wali Murid'}
               </div>
             </div>

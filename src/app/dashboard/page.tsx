@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PWAInstallBanner from '@/components/pwa/PWAInstallBanner';
+import { supabase, UserProfile, Kelas } from '@/lib/supabase';
 import {
   CalendarCheck,
   BookOpen,
@@ -25,6 +26,35 @@ import {
 export default function DashboardGuruPage() {
   const [hasAttendanceToday, setHasAttendanceToday] = useState(false);
   const [unreadCount, setUnreadCount] = useState(1);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userKelas, setUserKelas] = useState<Kelas | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data: profile } = await supabase
+        .from('users_profile')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profile) {
+        setUserProfile(profile);
+        const { data: kelas } = await supabase
+          .from('kelas')
+          .select('*')
+          .eq('wali_kelas_id', profile.id)
+          .single();
+        
+        if (kelas) {
+          setUserKelas(kelas);
+        }
+      }
+    }
+    loadData();
+  }, []);
 
   const todayStr = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
@@ -33,11 +63,17 @@ export default function DashboardGuruPage() {
     year: 'numeric',
   }).format(new Date());
 
+  const guruName = userProfile?.nama || 'Guru';
+  const kelasName = userKelas?.nama_kelas || 'Belum Ada Kelas';
+  const pageSubtitle = userKelas 
+    ? `${kelasName} · UPT SD Negeri Latsari 2 Bancar` 
+    : 'UPT SD Negeri Latsari 2 Bancar';
+
   return (
     <AppShell
       role="guru"
       pageTitle="Dashboard Guru & Wali Kelas"
-      pageSubtitle="Kelas 4A · UPT SD Negeri Latsari 2 Bancar"
+      pageSubtitle={pageSubtitle}
       unreadCount={unreadCount}
     >
       <div className="space-y-6">
@@ -48,14 +84,14 @@ export default function DashboardGuruPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-full bg-[#FDEDEC] text-[#922B21] text-[11px] font-bold border border-[#F1948A]">
-                Wali Kelas 4A
+                Wali {kelasName}
               </span>
               <span className="text-xs text-[#6B6B6B] hidden sm:inline">
                 T.A 2025/2026
               </span>
             </div>
             <h2 className="font-serif font-bold text-xl lg:text-2xl text-[#1A1A1A]">
-              Selamat Datang, Bu Sari, S.Pd 👋
+              Selamat Datang, {guruName} 👋
             </h2>
             <p className="text-xs text-[#6B6B6B] mt-1">
               {todayStr} · Mengelola 20 Siswa Terdaftar
