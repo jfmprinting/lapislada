@@ -124,10 +124,16 @@ function KehadiranContent() {
   const [dbKehadiranRecords, setDbKehadiranRecords] = useState<any[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
+  const isOrangTua = role === 'orangtua';
+  const [userId, setUserId] = useState<string | null>(null);
+
   // 1. Detect User Role
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const user = session?.user ?? null;
+      if (user) {
+        setUserId(user.id);
+      }
       const detectedRole =
         (queryRole as 'guru' | 'admin' | 'orangtua') ||
         (user?.user_metadata?.role as 'guru' | 'admin' | 'orangtua') ||
@@ -136,27 +142,31 @@ function KehadiranContent() {
     });
   }, [queryRole]);
 
-  const isOrangTua = role === 'orangtua';
-
   // 2. Fetch Master Kelas from Supabase
   useEffect(() => {
     const fetchKelas = async () => {
       setLoadingKelas(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('kelas')
           .select('id, nama_kelas, tahun_ajaran, wali_kelas_id, wali_kelas:wali_kelas_id(id, nama)')
           .order('nama_kelas', { ascending: true });
+        
+        // Filter classes for guru: only show the class they are wali kelas for
+        if (role === 'guru' && userId) {
+          query = query.eq('wali_kelas_id', userId);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data && data.length > 0) {
           setKelasList(data as unknown as Kelas[]);
-          // Default to class 4A if available, or first class
-          const found4a = data.find((k) => k.nama_kelas.toLowerCase().includes('4a'));
-          if (found4a) {
-            setSelectedKelasId(found4a.id);
-          } else {
-            setSelectedKelasId(data[0].id);
-          }
+          // Default to first class available to them
+          setSelectedKelasId(data[0].id);
+        } else if (role === 'guru') {
+          // If a guru has no class, set an empty list
+          setKelasList([]);
+          setSelectedKelasId('');
         }
       } catch (err) {
         console.warn('Fallback to default classes', err);
@@ -164,8 +174,12 @@ function KehadiranContent() {
         setLoadingKelas(false);
       }
     };
-    fetchKelas();
-  }, []);
+    
+    // Only fetch if role is determined and (for guru) userId is available
+    if (role === 'admin' || (role === 'guru' && userId)) {
+      fetchKelas();
+    }
+  }, [role, userId]);
 
   // 3. Fetch Students & Daily Attendance whenever selectedKelasId or selectedDate changes
   useEffect(() => {
