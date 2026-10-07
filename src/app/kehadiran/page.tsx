@@ -127,6 +127,11 @@ function KehadiranContent() {
   const isOrangTua = role === 'orangtua';
   const [userId, setUserId] = useState<string | null>(null);
 
+  // Parent View States
+  const [parentSiswa, setParentSiswa] = useState<any>(null);
+  const [parentRecords, setParentRecords] = useState<any[]>([]);
+  const [parentLoading, setParentLoading] = useState(false);
+
   // 1. Detect User Role
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -141,6 +146,66 @@ function KehadiranContent() {
       setRole(detectedRole);
     });
   }, [queryRole]);
+
+  // 1b. Fetch Data for Orang Tua View
+  useEffect(() => {
+    if (!isOrangTua) return;
+    const fetchParentData = async () => {
+      setParentLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user) return;
+
+        const meta = user.user_metadata;
+        let sData: any = null;
+
+        // Try meta.siswa_id first
+        if (meta?.siswa_id) {
+          const { data } = await supabase
+            .from('siswa')
+            .select('*, kelas:kelas_id(id, nama_kelas)')
+            .eq('id', meta.siswa_id)
+            .single();
+          sData = data;
+        }
+
+        // Fallback query by wali_murid_id
+        if (!sData) {
+          const { data } = await supabase
+            .from('siswa')
+            .select('*, kelas:kelas_id(id, nama_kelas)')
+            .eq('wali_murid_id', user.id)
+            .single();
+          sData = data;
+        }
+
+        if (sData) {
+          setParentSiswa(sData);
+
+          const startDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+          const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+          const endDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+          const { data: recs } = await supabase
+            .from('kehadiran')
+            .select('*')
+            .eq('siswa_id', sData.id)
+            .gte('tanggal', startDay)
+            .lte('tanggal', endDay)
+            .order('tanggal', { ascending: false });
+
+          setParentRecords(recs || []);
+        }
+      } catch (err) {
+        console.error('Error loading parent attendance data:', err);
+      } finally {
+        setParentLoading(false);
+      }
+    };
+
+    fetchParentData();
+  }, [isOrangTua, selectedMonth, selectedYear]);
 
   // 2. Fetch Master Kelas from Supabase
   useEffect(() => {
@@ -247,6 +312,11 @@ function KehadiranContent() {
 
   // 4. Fetch Month Attendance Records for Monthly Recap
   useEffect(() => {
+    if (!selectedKelasId) {
+      setDbKehadiranRecords([]);
+      return;
+    }
+
     const fetchMonthlyAttendance = async () => {
       try {
         const startDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
@@ -262,6 +332,8 @@ function KehadiranContent() {
 
         if (!error && data) {
           setDbKehadiranRecords(data);
+        } else {
+          setDbKehadiranRecords([]);
         }
       } catch (err) {
         console.warn('Error fetching monthly records:', err);
@@ -271,9 +343,12 @@ function KehadiranContent() {
     fetchMonthlyAttendance();
   }, [selectedKelasId, selectedMonth, selectedYear]);
 
-  // Selected Class Object
+  // Selected Class Object — always safe (never undefined)
   const currentKelasObj = useMemo(() => {
-    return kelasList.find((k) => k.id === selectedKelasId) || kelasList[0];
+    return (
+      kelasList.find((k) => k.id === selectedKelasId) ||
+      kelasList[0] || { id: '', nama_kelas: 'Belum Ada Kelas', tahun_ajaran: '2025/2026' }
+    );
   }, [kelasList, selectedKelasId]);
 
   // Active Month Info
@@ -285,9 +360,8 @@ function KehadiranContent() {
     return BULAN_LIST.find((b) => b.value === selectedMonth)?.label || 'Bulan';
   }, [selectedMonth]);
 
-  // Monthly Recap Data Calculation
+  // Monthly Recap Data Calculation (Strictly Real Data, No Simulation)
   const monthlyRecapRows = useMemo(() => {
-    // Collect all dates 1..daysInMonth
     const datesArr: number[] = [];
     for (let d = 1; d <= daysInMonth; d++) {
       datesArr.push(d);
@@ -306,14 +380,13 @@ function KehadiranContent() {
       let totalI = 0;
       let totalA = 0;
 
-      const dailyStatus: Record<number, 'H' | 'S' | 'I' | 'A' | 'Libur'> = {};
+      const dailyStatus: Record<number, 'H' | 'S' | 'I' | 'A' | 'Libur' | '-'> = {};
 
       datesArr.forEach((day) => {
         const dateObj = new Date(selectedYear, selectedMonth - 1, day);
         const dayOfWeek = dateObj.getDay(); // 0 = Sunday
 
         if (dayOfWeek === 0) {
-          // Sunday / Weekend
           dailyStatus[day] = 'Libur';
           return;
         }
@@ -326,34 +399,12 @@ function KehadiranContent() {
           else if (explicitStatus === 'I') totalI++;
           else if (explicitStatus === 'A') totalA++;
         } else {
-          // Fallback realistic simulation for days without explicit records:
-          // Generate a consistent pattern based on student id + day number
-          const hash = (student.nama.length * 17 + day * 13 + idx * 7) % 100;
-          if (day <= 22) {
-            // Completed weekdays
-            if (hash === 5) {
-              dailyStatus[day] = 'S';
-              totalS++;
-            } else if (hash === 12) {
-              dailyStatus[day] = 'I';
-              totalI++;
-            } else if (hash === 42 && idx === 3) {
-              dailyStatus[day] = 'A';
-              totalA++;
-            } else {
-              dailyStatus[day] = 'H';
-              totalH++;
-            }
-          } else {
-            // Future or unrecorded days in month
-            dailyStatus[day] = 'H';
-            totalH++;
-          }
+          dailyStatus[day] = '-';
         }
       });
 
       const totalEfektif = totalH + totalS + totalI + totalA;
-      const persentase = totalEfektif > 0 ? Math.round((totalH / totalEfektif) * 100) : 100;
+      const persentase = totalEfektif > 0 ? Math.round((totalH / totalEfektif) * 100) : 0;
 
       return {
         ...student,
@@ -368,6 +419,19 @@ function KehadiranContent() {
       };
     });
   }, [dailyStudents, dbKehadiranRecords, daysInMonth, selectedMonth, selectedYear]);
+
+  // Parent Attendance KPI Stats
+  const parentStats = useMemo(() => {
+    const counts = { H: 0, S: 0, I: 0, A: 0, total: parentRecords.length };
+    parentRecords.forEach((r) => {
+      if (r.status === 'H') counts.H++;
+      else if (r.status === 'S') counts.S++;
+      else if (r.status === 'I') counts.I++;
+      else if (r.status === 'A') counts.A++;
+    });
+    const percent = counts.total > 0 ? Math.round((counts.H / counts.total) * 100) : 0;
+    return { ...counts, percent };
+  }, [parentRecords]);
 
   // Filtered monthly recap for search input
   const filteredRecapRows = useMemo(() => {
@@ -580,7 +644,13 @@ function KehadiranContent() {
       }
       pageSubtitle={
         isOrangTua
-          ? 'Rekapitulasi presensi harian Ahmad Budi Santoso (Kelas 4A)'
+          ? parentSiswa
+            ? `Rekapitulasi presensi harian ananda ${parentSiswa.nama_lengkap} (${parentSiswa.kelas?.nama_kelas || 'Kelas'})`
+            : 'Rekapitulasi presensi harian ananda'
+          : kelasList.length === 0
+          ? loadingKelas
+            ? 'Memuat data kelas...'
+            : 'Belum ada kelas yang ditugaskan'
           : `${currentKelasObj.nama_kelas} · ${dailyStudents.length} Siswa Terdaftar · T.A 2026/2027`
       }
     >
@@ -623,7 +693,7 @@ function KehadiranContent() {
           </div>
         )}
 
-        {/* ORANG TUA VIEW */}
+        {/* ORANG TUA VIEW (100% REAL DATABASE DATA) */}
         {isOrangTua ? (
           <div className="space-y-6">
             {/* Header Parent Summary */}
@@ -631,7 +701,7 @@ function KehadiranContent() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#FDEDEC] text-[#922B21] text-[11px] font-bold border border-[#F1948A]">
-                    Status Presensi Ananda
+                    Status Presensi Ananda {parentSiswa?.nama_lengkap ? `· ${parentSiswa.nama_lengkap}` : ''}
                   </span>
                   <span className="text-xs text-[#6B6B6B] flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
@@ -642,26 +712,26 @@ function KehadiranContent() {
                   Presensi Ananda Bulan {monthLabel} {selectedYear}
                 </h2>
                 <p className="text-xs text-[#6B6B6B]">
-                  Data kehadiran dicatat setiap pagi oleh wali kelas untuk memantau kedisiplinan dan kesehatan ananda.
+                  {parentSiswa?.kelas?.nama_kelas ? `${parentSiswa.kelas.nama_kelas} · ` : ''}Data kehadiran dicatat setiap pagi oleh wali kelas untuk memantau kedisiplinan dan kesehatan ananda.
                 </p>
               </div>
 
               {/* Counter Grid */}
               <div className="grid grid-cols-4 gap-2.5 shrink-0 text-center text-xs">
                 <div className="bg-emerald-50 text-emerald-800 p-3 rounded-xl border border-emerald-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">19</span>
+                  <span className="block font-serif font-bold text-lg">{parentStats.H}</span>
                   <span className="text-[10px] uppercase font-bold text-emerald-700">Hadir</span>
                 </div>
                 <div className="bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">1</span>
+                  <span className="block font-serif font-bold text-lg">{parentStats.S}</span>
                   <span className="text-[10px] uppercase font-bold text-amber-700">Sakit</span>
                 </div>
                 <div className="bg-blue-50 text-blue-800 p-3 rounded-xl border border-blue-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">0</span>
+                  <span className="block font-serif font-bold text-lg">{parentStats.I}</span>
                   <span className="text-[10px] uppercase font-bold text-blue-700">Izin</span>
                 </div>
                 <div className="bg-[#FDEDEC] text-[#922B21] p-3 rounded-xl border border-[#F1948A] min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">0</span>
+                  <span className="block font-serif font-bold text-lg">{parentStats.A}</span>
                   <span className="text-[10px] uppercase font-bold text-[#922B21]">Alpha</span>
                 </div>
               </div>
@@ -671,48 +741,62 @@ function KehadiranContent() {
             <div className="bg-white rounded-2xl p-5 shadow-xs border border-[#DDD8CE]">
               <h3 className="font-serif font-bold text-base text-[#1A1A1A] mb-3 pb-2 border-b border-[#F5F0E8] flex items-center justify-between">
                 <span>Riwayat Presensi Ananda ({monthLabel} {selectedYear})</span>
-                <span className="text-xs font-sans font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Kehadiran: 95% (Sangat Baik)
+                <span className={`text-xs font-sans font-bold px-2.5 py-1 rounded-full border ${
+                  parentStats.total === 0
+                    ? 'bg-gray-100 text-gray-700 border-gray-300'
+                    : parentStats.percent >= 90
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-100 text-amber-800 border-amber-300'
+                }`}>
+                  {parentStats.total === 0 ? 'Belum Ada Data' : `Kehadiran: ${parentStats.percent}% (${parentStats.percent >= 90 ? 'Sangat Baik' : 'Cukup Baik'})`}
                 </span>
               </h3>
-              <div className="divide-y divide-[#F5F0E8] text-xs">
-                <div className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#1A1A1A] block">Jumat, 18 September 2026</span>
-                    <span className="text-[11px] text-[#6B6B6B]">Jam masuk: 06.50 WIB · Pembiasaan Sholat Dhuha</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Hadir Tepat Waktu
-                  </span>
+
+              {parentLoading ? (
+                <div className="py-8 text-center text-xs text-[#6B6B6B]">
+                  Memuat riwayat presensi ananda...
                 </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#1A1A1A] block">Kamis, 17 September 2026</span>
-                    <span className="text-[11px] text-[#6B6B6B]">Jam masuk: 06.55 WIB</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Hadir Tepat Waktu
-                  </span>
+              ) : parentRecords.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#6B6B6B]">
+                  <Calendar className="w-8 h-8 text-[#DDD8CE] mx-auto mb-2" />
+                  <p className="font-semibold text-[#1A1A1A]">Belum Ada Catatan Presensi</p>
+                  <p className="text-[11px] text-[#6B6B6B] mt-0.5">
+                    Wali kelas belum menginput data absensi ananda untuk bulan {monthLabel} {selectedYear}.
+                  </p>
                 </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#1A1A1A] block">Rabu, 16 September 2026</span>
-                    <span className="text-[11px] text-[#6B6B6B]">Keterangan: Sakit perut ringan (Ada konfirmasi orang tua)</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                    Sakit (Ada Catatan)
-                  </span>
+              ) : (
+                <div className="divide-y divide-[#F5F0E8] text-xs">
+                  {parentRecords.map((record) => {
+                    const dateFormatted = new Intl.DateTimeFormat('id-ID', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(new Date(record.tanggal));
+
+                    const badgeConfig = {
+                      H: { label: 'Hadir', bg: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+                      S: { label: 'Sakit', bg: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      I: { label: 'Izin', bg: 'bg-blue-100 text-blue-800 border-blue-300' },
+                      A: { label: 'Alpha', bg: 'bg-red-100 text-red-800 border-red-300' },
+                    }[record.status as 'H' | 'S' | 'I' | 'A'] || { label: record.status, bg: 'bg-gray-100 text-gray-800 border-gray-300' };
+
+                    return (
+                      <div key={record.id} className="py-2.5 flex items-center justify-between gap-3">
+                        <div>
+                          <span className="font-bold text-[#1A1A1A] block">{dateFormatted}</span>
+                          <span className="text-[11px] text-[#6B6B6B]">
+                            {record.keterangan || (record.status === 'H' ? 'Presensi terekam tepat waktu' : 'Tercatat di sistem')}
+                          </span>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 ${badgeConfig.bg}`}>
+                          {badgeConfig.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="py-2.5 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-[#1A1A1A] block">Selasa, 15 September 2026</span>
-                    <span className="text-[11px] text-[#6B6B6B]">Jam masuk: 06.45 WIB</span>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    Hadir Tepat Waktu
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Quick Link to Buku Penghubung */}
@@ -733,25 +817,41 @@ function KehadiranContent() {
         ) : activeTab === 'harian' ? (
           /* TAB 1: ABSENSI HARIAN */
           <div className="space-y-6">
+            {/* Warning if teacher has no class assigned */}
+            {!loadingKelas && kelasList.length === 0 && (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
+                <p className="font-bold">Perhatian: Anda belum ditugaskan sebagai Wali Kelas</p>
+                <p className="mt-0.5 text-amber-800">
+                  Presensi absensi harian dicatat oleh masing-masing Wali Kelas. Jika Anda merupakan wali kelas, silakan hubungi Administrator Sekolah untuk penugasan rombel kelas Anda.
+                </p>
+              </div>
+            )}
+
             {/* Filter Bar Harian */}
             <div className="bg-white rounded-2xl p-5 shadow-xs border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Pilih Kelas */}
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1">
-                    Pilih Kelas
+                    {role === 'guru' ? 'Kelas Anda' : 'Pilih Kelas'}
                   </label>
-                  <select
-                    value={selectedKelasId}
-                    onChange={(e) => setSelectedKelasId(e.target.value)}
-                    className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
-                  >
-                    {kelasList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.nama_kelas}
-                      </option>
-                    ))}
-                  </select>
+                  {role === 'guru' && kelasList.length <= 1 ? (
+                    <div className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-[#FAF8F2] text-xs font-bold text-[#1A1A1A]">
+                      {currentKelasObj.nama_kelas}
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedKelasId}
+                      onChange={(e) => setSelectedKelasId(e.target.value)}
+                      className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
+                    >
+                      {kelasList.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kelas}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Pilih Tanggal */}
@@ -906,19 +1006,25 @@ function KehadiranContent() {
                 {/* Pilih Kelas */}
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1">
-                    Kelas
+                    {role === 'guru' ? 'Kelas Anda' : 'Kelas'}
                   </label>
-                  <select
-                    value={selectedKelasId}
-                    onChange={(e) => setSelectedKelasId(e.target.value)}
-                    className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
-                  >
-                    {kelasList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.nama_kelas}
-                      </option>
-                    ))}
-                  </select>
+                  {role === 'guru' && kelasList.length <= 1 ? (
+                    <div className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-[#FAF8F2] text-xs font-bold text-[#1A1A1A]">
+                      {currentKelasObj.nama_kelas}
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedKelasId}
+                      onChange={(e) => setSelectedKelasId(e.target.value)}
+                      className="px-3.5 py-2 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
+                    >
+                      {kelasList.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.nama_kelas}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Pilih Bulan */}
@@ -1384,7 +1490,7 @@ function KehadiranContent() {
                 <p className="font-bold">Wali Kelas {currentKelasObj.nama_kelas}</p>
                 <div className="h-20"></div>
                 <p className="font-bold underline">
-                  {currentKelasObj.wali_kelas?.nama || 'Sari Wardani, S.Pd'}
+                  {currentKelasObj.wali_kelas?.nama || 'Wali Kelas'}
                 </p>
                 <p>NIP. 19850614 201101 2 018</p>
               </div>

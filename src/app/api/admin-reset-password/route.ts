@@ -77,17 +77,32 @@ export async function POST(request: Request) {
       authUserId = createData.user?.id;
     }
 
-    // 3. Update phone number in database if provided
-    if (phone && targetUserId) {
+    // 3. Keep users_profile in sync
+    if (authUserId) {
+      await supabaseAdmin.from('users_profile').upsert({
+        id: authUserId,
+        nama: nama,
+        email: cleanEmail,
+        role: role || 'orangtua',
+        telepon: phone || null,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    // 4. Update student record and link wali_murid_id
+    if (targetUserId) {
       if (role === 'orangtua') {
         await supabaseAdmin
           .from('siswa')
-          .update({ no_hp_wali: phone })
+          .update({
+            ...(authUserId ? { wali_murid_id: authUserId } : {}),
+            ...(phone ? { no_hp_wali: phone } : {}),
+          })
           .eq('id', targetUserId);
       } else {
         await supabaseAdmin
           .from('users_profile')
-          .update({ telepon: phone })
+          .update({ ...(phone ? { telepon: phone } : {}) })
           .eq('id', targetUserId);
       }
     }

@@ -25,9 +25,12 @@ import {
 
 export default function DashboardGuruPage() {
   const [hasAttendanceToday, setHasAttendanceToday] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(1);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userKelas, setUserKelas] = useState<Kelas | null>(null);
+  const [totalSiswa, setTotalSiswa] = useState<number>(0);
+  const [hadirCount, setHadirCount] = useState<number>(0);
+  const [recentBukuCatatan, setRecentBukuCatatan] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -50,6 +53,60 @@ export default function DashboardGuruPage() {
         
         if (kelas) {
           setUserKelas(kelas);
+
+          // 1. Fetch real student count for this class
+          const { count: sCount } = await supabase
+            .from('siswa')
+            .select('*', { count: 'exact', head: true })
+            .eq('kelas_id', kelas.id);
+          setTotalSiswa(sCount || 0);
+
+          // 2. Fetch today's attendance for this class
+          const todayDate = new Date().toISOString().split('T')[0];
+          const { data: todayAtt } = await supabase
+            .from('kehadiran')
+            .select('id, status')
+            .eq('kelas_id', kelas.id)
+            .eq('tanggal', todayDate);
+
+          if (todayAtt && todayAtt.length > 0) {
+            setHasAttendanceToday(true);
+            const hadir = todayAtt.filter((a) => a.status === 'H').length;
+            setHadirCount(hadir);
+          } else {
+            // Check yesterday's attendance as fallback metric
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            const { data: yestAtt } = await supabase
+              .from('kehadiran')
+              .select('id, status')
+              .eq('kelas_id', kelas.id)
+              .eq('tanggal', yesterday);
+
+            if (yestAtt && yestAtt.length > 0) {
+              const hadir = yestAtt.filter((a) => a.status === 'H').length;
+              setHadirCount(hadir);
+            }
+          }
+
+          // 3. Fetch latest Buku Penghubung for this class
+          const { data: bpData } = await supabase
+            .from('buku_penghubung')
+            .select('*, users_profile(nama, role)')
+            .eq('kelas_id', kelas.id)
+            .order('created_at', { ascending: false })
+            .limit(2);
+
+          if (bpData && bpData.length > 0) {
+            setRecentBukuCatatan(bpData);
+          }
+
+          // 4. Fetch unread count for this class
+          const { count: unread } = await supabase
+            .from('buku_penghubung')
+            .select('*', { count: 'exact', head: true })
+            .eq('kelas_id', kelas.id);
+
+          setUnreadCount(unread || 0);
         }
       }
     }
@@ -94,18 +151,18 @@ export default function DashboardGuruPage() {
               Selamat Datang, {guruName} 👋
             </h2>
             <p className="text-xs text-[#6B6B6B] mt-1">
-              {todayStr} · Mengelola 20 Siswa Terdaftar
+              {todayStr} · Mengelola {totalSiswa} Siswa Terdaftar
             </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
             <div className="bg-[#FAF8F2] border border-[#DDD8CE] p-3 rounded-xl text-center">
-              <span className="block font-serif font-bold text-lg text-[#1A1A1A]">20</span>
+              <span className="block font-serif font-bold text-lg text-[#1A1A1A]">{totalSiswa}</span>
               <span className="text-[10px] font-semibold text-[#6B6B6B] uppercase">Total Siswa</span>
             </div>
             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center">
-              <span className="block font-serif font-bold text-lg text-emerald-800">18</span>
-              <span className="text-[10px] font-semibold text-emerald-700 uppercase">Hadir Kemarin</span>
+              <span className="block font-serif font-bold text-lg text-emerald-800">{hadirCount}</span>
+              <span className="text-[10px] font-semibold text-emerald-700 uppercase">Hadir {hasAttendanceToday ? 'Hari Ini' : 'Kemarin'}</span>
             </div>
             <div className="bg-[#FDEDEC] border border-[#F1948A] p-3 rounded-xl text-center col-span-2 sm:col-span-1">
               <span className="block font-serif font-bold text-lg text-[#922B21]">{unreadCount}</span>
@@ -296,7 +353,7 @@ export default function DashboardGuruPage() {
                     <span className="font-bold">Absensi Selesai Disimpan</span>
                   </div>
                   <p className="text-[11px] text-emerald-700">
-                    Semua 20 siswa telah tercatat dan disinkronkan ke sistem.
+                    Semua {totalSiswa} siswa telah tercatat dan disinkronkan ke sistem.
                   </p>
                 </div>
               )}

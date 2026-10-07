@@ -36,11 +36,13 @@ export default function DashboardOrangTuaPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const meta = session.user.user_metadata;
+        const user = session.user;
+        const meta = user.user_metadata;
+        
+        // Initial fallback from metadata
         if (meta?.nama) {
           const rawName = meta.nama.replace(/\s*\(Wali Murid\)/i, '').trim();
-          setParentName(`Wali Murid ${rawName}`);
-          
+          setParentName(rawName);
           const initials = rawName
             .split(' ')
             .slice(0, 2)
@@ -50,23 +52,63 @@ export default function DashboardOrangTuaPage() {
           setAvatarInitials(initials || 'WM');
         }
 
-        if (meta?.siswa_id) {
-          setSiswaId(meta.siswa_id);
-          supabase
-            .from('siswa')
-            .select('*, kelas(nama_kelas)')
-            .eq('id', meta.siswa_id)
-            .single()
-            .then(({ data: siswa }) => {
-              if (siswa) {
-                setStudentName(siswa.nama_lengkap);
-                setStudentClass(siswa.kelas?.nama_kelas || 'Belum Ada Kelas');
-              } else {
-                setStudentName('Data Siswa Tidak Ditemukan (Mungkin terhapus)');
-                setStudentClass('-');
-              }
-            });
-        }
+        // Strategy: try siswa_id from metadata first, then fallback to wali_murid_id
+        const fetchSiswaData = async () => {
+          let siswa: any = null;
+
+          // Attempt 1: query by siswa_id from metadata
+          if (meta?.siswa_id) {
+            const { data } = await supabase
+              .from('siswa')
+              .select('*, kelas:kelas_id(nama_kelas)')
+              .eq('id', meta.siswa_id)
+              .single();
+            siswa = data;
+          }
+
+          // Attempt 2: fallback — query by wali_murid_id = auth.uid()
+          if (!siswa) {
+            const { data } = await supabase
+              .from('siswa')
+              .select('*, kelas:kelas_id(nama_kelas)')
+              .eq('wali_murid_id', user.id)
+              .single();
+            siswa = data;
+          }
+
+          // Also check users_profile for parent name
+          const { data: profile } = await supabase
+            .from('users_profile')
+            .select('nama')
+            .eq('id', user.id)
+            .single();
+
+          if (siswa) {
+            setSiswaId(siswa.id);
+            setStudentName(siswa.nama_lengkap);
+            const kName = (siswa.kelas as any)?.nama_kelas || 'Belum Ada Kelas';
+            setStudentClass(kName);
+
+            // Real parent name: prioritize siswa.nama_wali, then users_profile.nama, then user_metadata.nama
+            const pName = siswa.nama_wali || profile?.nama || meta?.nama;
+            if (pName) {
+              const cleanParent = pName.replace(/\s*\(Wali Murid\)/i, '').trim();
+              setParentName(cleanParent);
+              const initials = cleanParent
+                .split(' ')
+                .slice(0, 2)
+                .map((w: string) => w[0])
+                .join('')
+                .toUpperCase();
+              setAvatarInitials(initials || 'WM');
+            }
+          } else {
+            setStudentName('Data siswa belum tersambung');
+            setStudentClass('-');
+          }
+        };
+
+        fetchSiswaData();
       }
     });
   }, []);
@@ -75,18 +117,20 @@ export default function DashboardOrangTuaPage() {
   useEffect(() => {
     if (!siswaId) return;
 
-    // Fetch Attendance this month
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const firstDay = new Date(currentYear, currentMonth, 1).toISOString();
-    const lastDay = new Date(currentYear, currentMonth + 1, 0).toISOString();
+    // Fetch Attendance this month using YYYY-MM-DD
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
+    const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
     supabase
       .from('kehadiran')
       .select('status')
       .eq('siswa_id', siswaId)
-      .gte('tanggal', firstDay)
-      .lte('tanggal', lastDay)
+      .gte('tanggal', startDate)
+      .lte('tanggal', endDate)
       .then(({ data: kehadiranData }) => {
         if (kehadiranData) {
           const stats = { hadir: 0, sakit: 0, izin: 0, alpha: 0, totalHari: kehadiranData.length };
