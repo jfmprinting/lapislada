@@ -120,69 +120,8 @@ export default function MasterSiswaPage() {
         }));
         setSiswaList(enrichedSiswa);
       } else {
-        // Fallback default sample data
-        setSiswaList([
-          {
-            id: 'sample-s1',
-            nisn: '0123456781',
-            nis: '1001',
-            nama_lengkap: 'Ahmad Budi Santoso',
-            jenis_kelamin: 'L',
-            kelas_id: kelasData?.[0]?.id || 'k1',
-            nama_wali: 'H. Santoso',
-            no_hp_wali: '081234567891',
-            alamat: 'Desa Latsari RT 01 / RW 02 Bancar',
-            kelas: { nama_kelas: 'Kelas 4A' },
-          },
-          {
-            id: 'sample-s2',
-            nisn: '0123456782',
-            nis: '1002',
-            nama_lengkap: 'Aisyah Putri Rahayu',
-            jenis_kelamin: 'P',
-            kelas_id: kelasData?.[0]?.id || 'k1',
-            nama_wali: 'Suhartono',
-            no_hp_wali: '081234567892',
-            alamat: 'Jl. Raya Bancar No. 45 Tuban',
-            kelas: { nama_kelas: 'Kelas 4A' },
-          },
-          {
-            id: 'sample-s3',
-            nisn: '0123456783',
-            nis: '1003',
-            nama_lengkap: 'Bagas Aditya Pratama',
-            jenis_kelamin: 'L',
-            kelas_id: kelasData?.[0]?.id || 'k1',
-            nama_wali: 'Bambang Irawan',
-            no_hp_wali: '081234567893',
-            alamat: 'Dusun Sukolilo RT 03 Bancar',
-            kelas: { nama_kelas: 'Kelas 4A' },
-          },
-          {
-            id: 'sample-s4',
-            nisn: '0123456784',
-            nis: '1004',
-            nama_lengkap: 'Citra Kirana Wulandari',
-            jenis_kelamin: 'P',
-            kelas_id: kelasData?.[1]?.id || 'k2',
-            nama_wali: 'Didik Prasetyo',
-            no_hp_wali: '081234567894',
-            alamat: 'Jl. Kenanga No. 12 Bancar',
-            kelas: { nama_kelas: 'Kelas 4B' },
-          },
-          {
-            id: 'sample-s5',
-            nisn: '0123456785',
-            nis: '1005',
-            nama_lengkap: 'Dimas Wahyu Ramadhan',
-            jenis_kelamin: 'L',
-            kelas_id: kelasData?.[2]?.id || 'k3',
-            nama_wali: 'Supriyadi',
-            no_hp_wali: '081234567895',
-            alamat: 'Desa Latsari RT 04 Bancar',
-            kelas: { nama_kelas: 'Kelas 5' },
-          },
-        ]);
+        // Fallback default sample data removed as requested by user
+        setSiswaList([]);
       }
     } catch (err: any) {
       console.error('Error fetching siswa data:', err);

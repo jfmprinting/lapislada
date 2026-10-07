@@ -35,8 +35,8 @@ export default function DashboardOrangTuaPage() {
         const meta = session.user.user_metadata;
         if (meta?.nama) {
           const rawName = meta.nama.replace(/\s*\(Wali Murid\)/i, '').trim();
-          setStudentName(rawName);
           setParentName(`Wali Murid ${rawName}`);
+          
           const initials = rawName
             .split(' ')
             .slice(0, 2)
@@ -44,6 +44,20 @@ export default function DashboardOrangTuaPage() {
             .join('')
             .toUpperCase();
           setAvatarInitials(initials || 'WM');
+        }
+
+        if (meta?.siswa_id) {
+          supabase
+            .from('siswa')
+            .select('*, kelas(nama_kelas)')
+            .eq('id', meta.siswa_id)
+            .single()
+            .then(({ data: siswa }) => {
+              if (siswa) {
+                setStudentName(siswa.nama_lengkap);
+                setStudentClass(siswa.kelas?.nama_kelas || 'Belum Ada Kelas');
+              }
+            });
         }
       }
     });
