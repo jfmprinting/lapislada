@@ -9,15 +9,12 @@ import {
   CalendarCheck,
   BookOpen,
   Bell,
-  User,
-  Plus,
   ArrowRight,
-  Sparkles,
-  Heart,
-  Award,
   LogOut,
   HeartHandshake,
   Camera,
+  Award,
+  Plus,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -28,6 +25,13 @@ export default function DashboardOrangTuaPage() {
   const [studentName, setStudentName] = useState('Memuat Data Siswa...');
   const [studentClass, setStudentClass] = useState('...');
   const [avatarInitials, setAvatarInitials] = useState('WM');
+  const [siswaId, setSiswaId] = useState<string | null>(null);
+
+  // States for backend data
+  const [attendanceStats, setAttendanceStats] = useState({ hadir: 0, sakit: 0, izin: 0, alpha: 0, totalHari: 0 });
+  const [kaihCount, setKaihCount] = useState(0);
+  const [bukuCatatan, setBukuCatatan] = useState<any[]>([]);
+  const [avgNilai, setAvgNilai] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -47,6 +51,7 @@ export default function DashboardOrangTuaPage() {
         }
 
         if (meta?.siswa_id) {
+          setSiswaId(meta.siswa_id);
           supabase
             .from('siswa')
             .select('*, kelas(nama_kelas)')
@@ -66,6 +71,75 @@ export default function DashboardOrangTuaPage() {
     });
   }, []);
 
+  // Fetch related backend data when siswaId is available
+  useEffect(() => {
+    if (!siswaId) return;
+
+    // Fetch Attendance this month
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const firstDay = new Date(currentYear, currentMonth, 1).toISOString();
+    const lastDay = new Date(currentYear, currentMonth + 1, 0).toISOString();
+
+    supabase
+      .from('kehadiran')
+      .select('status')
+      .eq('siswa_id', siswaId)
+      .gte('tanggal', firstDay)
+      .lte('tanggal', lastDay)
+      .then(({ data: kehadiranData }) => {
+        if (kehadiranData) {
+          const stats = { hadir: 0, sakit: 0, izin: 0, alpha: 0, totalHari: kehadiranData.length };
+          kehadiranData.forEach(k => {
+            if (k.status === 'H') stats.hadir++;
+            else if (k.status === 'S') stats.sakit++;
+            else if (k.status === 'I') stats.izin++;
+            else if (k.status === 'A') stats.alpha++;
+          });
+          setAttendanceStats(stats);
+        }
+      });
+
+    // Fetch KAIH log today
+    const today = new Date().toISOString().split('T')[0];
+    supabase
+      .from('kaih_kegiatan')
+      .select('id, judul')
+      .eq('siswa_id', siswaId)
+      .eq('tipe', 'rumah')
+      .eq('tanggal', today)
+      .then(({ data: kaihData }) => {
+        if (kaihData) {
+          setKaihCount(kaihData.length);
+        }
+      });
+
+    // Fetch latest Buku Penghubung
+    supabase
+      .from('buku_penghubung')
+      .select('*, users_profile(nama, role)')
+      .eq('siswa_id', siswaId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data: bpData }) => {
+        if (bpData) {
+          setBukuCatatan(bpData);
+        }
+      });
+
+    // Fetch Average Nilai
+    supabase
+      .from('nilai')
+      .select('nilai')
+      .eq('siswa_id', siswaId)
+      .then(({ data: nilaiData }) => {
+        if (nilaiData && nilaiData.length > 0) {
+          const sum = nilaiData.reduce((acc, curr) => acc + Number(curr.nilai), 0);
+          setAvgNilai(sum / nilaiData.length);
+        }
+      });
+  }, [siswaId]);
+
   const handleLogout = async () => {
     const isConfirmed = await confirm({
       title: 'Keluar dari Akun?',
@@ -81,14 +155,6 @@ export default function DashboardOrangTuaPage() {
     setTimeout(() => {
       window.location.href = '/login?role=orangtua';
     }, 300);
-  };
-
-  // Kehadiran stats (WF-04)
-  const attendanceStats = {
-    hadir: 18,
-    sakit: 1,
-    izin: 0,
-    alpha: 1,
   };
 
   return (
@@ -125,13 +191,13 @@ export default function DashboardOrangTuaPage() {
 
           <div className="mt-3 pt-3 border-t border-[#F5F0E8] flex items-center justify-between text-xs">
             <span className="text-[#6B6B6B]">Memantau Ananda:</span>
-            <span className="font-bold text-[#922B21] bg-[#FDEDEC] px-2.5 py-0.5 rounded-full border border-[#F1948A]">
-              {studentName} · {studentClass}
+            <span className={`font-bold px-2.5 py-0.5 rounded-full border ${studentClass === '-' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-[#FDEDEC] text-[#922B21] border-[#F1948A]'}`}>
+              {studentName} {studentClass !== '-' && `· ${studentClass}`}
             </span>
           </div>
         </section>
 
-        {/* PWA INSTALL BANNER (Hanya tampil jika belum diinstal & belum ditutup) */}
+        {/* PWA INSTALL BANNER */}
         <PWAInstallBanner role="orangtua" />
 
         {/* KEHADIRAN BULAN INI (WF-04) */}
@@ -146,7 +212,7 @@ export default function DashboardOrangTuaPage() {
               </h2>
             </div>
             <span className="text-[11px] font-semibold text-[#6B6B6B]">
-              Total 20 Hari Efektif
+              Total {attendanceStats.totalHari} Hari Direkam
             </span>
           </div>
 
@@ -189,7 +255,7 @@ export default function DashboardOrangTuaPage() {
           </div>
         </section>
 
-        {/* KARAKTER KAIH ANANDA (7 Kebiasaan Anak Indonesia Hebat) */}
+        {/* KARAKTER KAIH ANANDA */}
         <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
             <div className="flex items-center gap-2">
@@ -219,12 +285,14 @@ export default function DashboardOrangTuaPage() {
                   Pembiasaan di Rumah Hari Ini:
                 </span>
                 <p className="text-xs font-bold text-[#1A1A1A] mt-0.5">
-                  2 Kegiatan Dicatat (Merapikan Kamar & Sarapan Sehat)
+                  {kaihCount > 0 ? `${kaihCount} Kegiatan Dicatat` : 'Belum ada kegiatan dicatat hari ini.'}
                 </p>
               </div>
-              <span className="shrink-0 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Sudah Direspon Guru 👍
-              </span>
+              {kaihCount > 0 && (
+                <span className="shrink-0 text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                  Menunggu Respon Guru
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-[#E8E0D0]">
@@ -245,7 +313,7 @@ export default function DashboardOrangTuaPage() {
           </div>
         </section>
 
-        {/* CAPAIAN NILAI & ASESMEN (Fitur Transparansi Nilai) */}
+        {/* CAPAIAN NILAI & ASESMEN */}
         <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
             <div className="flex items-center gap-2">
@@ -268,16 +336,20 @@ export default function DashboardOrangTuaPage() {
           <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-[11px] font-semibold text-[#666] block">
-                Rata-rata Capaian Belajar Semester Ini
+                Rata-rata Capaian Belajar (Semua Mapel)
               </span>
               <div className="flex items-center gap-2">
-                <span className="font-serif font-bold text-2xl text-emerald-700">88.5</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
-                  Sangat Baik · 9/9 Tuntas
+                <span className={`font-serif font-bold text-2xl ${avgNilai && avgNilai >= 75 ? 'text-emerald-700' : avgNilai ? 'text-red-600' : 'text-gray-400'}`}>
+                  {avgNilai ? avgNilai.toFixed(1) : '-'}
                 </span>
+                {avgNilai && (
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${avgNilai >= 75 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                    {avgNilai >= 75 ? 'TUNTAS KKM' : 'BELUM TUNTAS'}
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-[#666]">
-                Seluruh nilai mata pelajaran (Formatif & Sumatif) memenuhi standar KKM.
+                {avgNilai ? 'Rata-rata dari seluruh nilai ujian dan tugas yang telah diinput.' : 'Belum ada data nilai yang diinput oleh guru.'}
               </p>
             </div>
             <Link
@@ -289,7 +361,7 @@ export default function DashboardOrangTuaPage() {
           </div>
         </section>
 
-        {/* BUKU PENGHUBUNG DUA ARAH (WF-04 - Fitur Utama v2) */}
+        {/* BUKU PENGHUBUNG */}
         <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
             <div className="flex items-center gap-2">
@@ -310,27 +382,35 @@ export default function DashboardOrangTuaPage() {
           </div>
 
           <div className="space-y-2.5 text-xs">
-            {/* Entry from Guru */}
-            <div className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE]">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#922B21] text-white">
-                  [GURU] Bu Sari, S.Pd
-                </span>
-                <span className="text-[10px] text-[#6B6B6B]">Hari ini · 14.15</span>
+            {bukuCatatan.length > 0 ? (
+              bukuCatatan.map((catatan) => (
+                <div key={catatan.id} className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${catatan.author_role === 'guru' ? 'bg-[#922B21]' : 'bg-[#2980B9]'}`}>
+                      [{catatan.author_role.toUpperCase()}] {catatan.users_profile?.nama || 'Pengguna'}
+                    </span>
+                    <span className="text-[10px] text-[#6B6B6B]">
+                      {new Date(catatan.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#1A1A1A] leading-relaxed">
+                    &ldquo;{catatan.catatan}&rdquo;
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center border border-dashed border-[#DDD8CE] rounded-xl text-[#6B6B6B]">
+                Belum ada catatan penghubung.
               </div>
-              <p className="text-xs text-[#1A1A1A] leading-relaxed">
-                &ldquo;Ahmad mengerjakan PR Matematika dengan sangat baik hari ini dan aktif membantu temannya di kelompok. Terima kasih atas pendampingannya di rumah ya Pak.&rdquo;
-              </p>
-            </div>
+            )}
 
-            {/* Action Buttons */}
             <div className="pt-2 flex flex-col gap-2">
               <Link
                 href="/buku-penghubung?role=orangtua&tulis=true"
                 className="w-full py-2.5 px-4 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Tulis Catatan ke Guru</span>
+                <span>+ Tulis Catatan Baru</span>
               </Link>
             </div>
           </div>
@@ -360,11 +440,11 @@ export default function DashboardOrangTuaPage() {
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full bg-[#922B21]" />
               <h4 className="font-bold text-[#1A1A1A]">
-                Libur Nasional Maulid Nabi & Imbauan Belajar
+                Pemberitahuan Sistem
               </h4>
             </div>
             <p className="text-[11px] text-[#6B6B6B] pl-4">
-              Diberitahukan kepada seluruh wali murid bahwa pembelajaran mandiri di rumah dilaksanakan hari Senin mendatang.
+              Selamat datang di Portal Orang Tua LAPIS LADA v2. Saat ini Anda dapat memantau data secara real-time.
             </p>
           </div>
         </section>

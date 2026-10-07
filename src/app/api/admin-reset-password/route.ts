@@ -52,6 +52,7 @@ export async function POST(request: Request) {
             ...existingUser.user_metadata,
             role: role || existingUser.user_metadata?.role || 'orangtua',
             nama: nama || existingUser.user_metadata?.nama,
+            siswa_id: targetUserId || existingUser.user_metadata?.siswa_id,
           },
         }
       );
