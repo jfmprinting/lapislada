@@ -102,8 +102,8 @@ function KehadiranContent() {
   const [activeTab, setActiveTab] = useState<'harian' | 'rekap'>('harian');
 
   // Master Data State
-  const [kelasList, setKelasList] = useState<Kelas[]>(DEFAULT_CLASSES);
-  const [selectedKelasId, setSelectedKelasId] = useState<string>('k-4a');
+  const [kelasList, setKelasList] = useState<Kelas[]>([]);
+  const [selectedKelasId, setSelectedKelasId] = useState<string>('');
   const [loadingKelas, setLoadingKelas] = useState(false);
 
   // Daily Attendance States
@@ -167,9 +167,12 @@ function KehadiranContent() {
           // If a guru has no class, set an empty list
           setKelasList([]);
           setSelectedKelasId('');
+        } else {
+          setKelasList([]);
+          setSelectedKelasId('');
         }
       } catch (err) {
-        console.warn('Fallback to default classes', err);
+        console.warn('Error fetching classes', err);
       } finally {
         setLoadingKelas(false);
       }
@@ -184,6 +187,11 @@ function KehadiranContent() {
   // 3. Fetch Students & Daily Attendance whenever selectedKelasId or selectedDate changes
   useEffect(() => {
     const loadDailyAttendance = async () => {
+      if (!selectedKelasId) {
+        setDailyStudents([]);
+        return;
+      }
+      
       setLoadingAttendance(true);
       setSavedSuccess(false);
 
@@ -206,15 +214,7 @@ function KehadiranContent() {
             status: 'H',
           }));
         } else {
-          // Fallback students
-          const fallback = FALLBACK_STUDENTS[selectedKelasId] || FALLBACK_STUDENTS['default'];
-          studentsToUse = fallback.map((s) => ({
-            id: s.id,
-            nis: s.nis,
-            nama: s.nama,
-            jk: s.jk,
-            status: 'H',
-          }));
+          studentsToUse = [];
         }
 
         // Fetch existing attendance records for the selected date & class
