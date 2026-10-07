@@ -24,10 +24,10 @@ import { useNotification } from '@/components/ui/NotificationContext';
 
 export default function DashboardOrangTuaPage() {
   const { confirm, showToast } = useNotification();
-  const [parentName, setParentName] = useState('Pak Budi Santoso');
-  const [studentName, setStudentName] = useState('Ahmad Budi Santoso');
-  const [studentClass, setStudentClass] = useState('Kelas 4A');
-  const [avatarInitials, setAvatarInitials] = useState('AB');
+  const [parentName, setParentName] = useState('Memuat Profil...');
+  const [studentName, setStudentName] = useState('Memuat Data Siswa...');
+  const [studentClass, setStudentClass] = useState('...');
+  const [avatarInitials, setAvatarInitials] = useState('WM');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -56,6 +56,9 @@ export default function DashboardOrangTuaPage() {
               if (siswa) {
                 setStudentName(siswa.nama_lengkap);
                 setStudentClass(siswa.kelas?.nama_kelas || 'Belum Ada Kelas');
+              } else {
+                setStudentName('Data Siswa Tidak Ditemukan (Mungkin terhapus)');
+                setStudentClass('-');
               }
             });
         }
