@@ -21,6 +21,7 @@ import {
   Users,
   ShieldCheck,
   Calendar,
+  Plus,
 } from 'lucide-react';
 
 export default function DashboardGuruPage() {
@@ -45,19 +46,26 @@ export default function DashboardGuruPage() {
       
       if (profile) {
         setUserProfile(profile);
-        const { data: kelas } = await supabase
+
+        // Fetch classes to find assigned class
+        const { data: allKelas } = await supabase
           .from('kelas')
-          .select('*')
-          .eq('wali_kelas_id', profile.id)
-          .single();
+          .select('*, wali_kelas:wali_kelas_id(id, nama, email)');
+
+        const cleanEmail = (profile.email || session.user.email || '').toLowerCase().trim();
+        const kelas = allKelas?.find((k: any) => {
+          const idMatch = k.wali_kelas_id === profile.id || k.wali_kelas_id === session.user.id;
+          const emailMatch = cleanEmail && k.wali_kelas?.email?.toLowerCase() === cleanEmail;
+          return idMatch || emailMatch;
+        }) || null;
         
         if (kelas) {
           setUserKelas(kelas);
 
-          // 1. Fetch real student count for this class
-          const { count: sCount } = await supabase
+          // 1. Fetch real students for this class
+          const { data: classStudents, count: sCount } = await supabase
             .from('siswa')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact' })
             .eq('kelas_id', kelas.id);
           setTotalSiswa(sCount || 0);
 
@@ -89,24 +97,29 @@ export default function DashboardGuruPage() {
           }
 
           // 3. Fetch latest Buku Penghubung for this class
-          const { data: bpData } = await supabase
-            .from('buku_penghubung')
-            .select('*, users_profile(nama, role)')
-            .eq('kelas_id', kelas.id)
-            .order('created_at', { ascending: false })
-            .limit(2);
+          if (classStudents && classStudents.length > 0) {
+            const sIds = classStudents.map((s: { id: string }) => s.id);
+            const { data: bpData } = await supabase
+              .from('buku_penghubung')
+              .select('*, users_profile:author_id(nama, role)')
+              .in('siswa_id', sIds)
+              .order('created_at', { ascending: false })
+              .limit(2);
 
-          if (bpData && bpData.length > 0) {
-            setRecentBukuCatatan(bpData);
+            if (bpData && bpData.length > 0) {
+              setRecentBukuCatatan(bpData);
+            }
+
+            // 4. Fetch unread count for this class from parents
+            const { count: unread } = await supabase
+              .from('buku_penghubung')
+              .select('*', { count: 'exact', head: true })
+              .in('siswa_id', sIds)
+              .eq('author_role', 'orangtua')
+              .eq('is_read_by_guru', false);
+
+            setUnreadCount(unread || 0);
           }
-
-          // 4. Fetch unread count for this class
-          const { count: unread } = await supabase
-            .from('buku_penghubung')
-            .select('*', { count: 'exact', head: true })
-            .eq('kelas_id', kelas.id);
-
-          setUnreadCount(unread || 0);
         }
       }
     }
@@ -206,44 +219,66 @@ export default function DashboardGuruPage() {
               </div>
 
               <div className="space-y-3 text-xs">
-                {/* Unread from parent */}
-                <Link
-                  href="/buku-penghubung"
-                  className="block p-4 rounded-xl bg-[#FDEDEC]/70 border border-[#F1948A] hover:bg-[#FDEDEC] transition group"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#C0392B] animate-pulse" />
-                      <span className="font-bold text-[#922B21] text-[11px] uppercase tracking-wide">
-                        [ORANG TUA] Pak Budi (Wali Ahmad Budi)
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-[#6B6B6B]">2 jam lalu</span>
+                {recentBukuCatatan.length > 0 ? (
+                  recentBukuCatatan.map((item) => {
+                    const isOrtu = item.author_role === 'orangtua';
+                    return (
+                      <Link
+                        key={item.id}
+                        href="/buku-penghubung"
+                        className={`block p-4 rounded-xl border transition group ${
+                          isOrtu
+                            ? 'bg-[#FDEDEC]/70 border-[#F1948A] hover:bg-[#FDEDEC]'
+                            : 'bg-[#FAF8F2] border-[#DDD8CE] hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            {isOrtu && !item.is_read_by_guru && (
+                              <span className="w-2 h-2 rounded-full bg-[#C0392B] animate-pulse" />
+                            )}
+                            <span
+                              className={`font-bold text-[11px] uppercase tracking-wide ${
+                                isOrtu ? 'text-[#922B21]' : 'text-[#6B6B6B]'
+                              }`}
+                            >
+                              [{isOrtu ? 'ORANG TUA' : 'GURU'}]{' '}
+                              {item.users_profile?.nama || (isOrtu ? 'Wali Murid' : 'Guru')}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-[#6B6B6B]">
+                            {new Date(item.created_at).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#1A1A1A] leading-relaxed line-clamp-2">
+                          &ldquo;{item.catatan}&rdquo;
+                        </p>
+                        <div className="mt-2 text-[11px] font-bold text-[#C0392B] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                          <span>Buka Catatan di Buku Penghubung</span>
+                          <span>&rarr;</span>
+                        </div>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="p-6 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] text-center">
+                    <p className="text-xs text-[#6B6B6B] mb-2.5">
+                      Belum ada catatan buku penghubung baru untuk kelas ini.
+                    </p>
+                    <Link
+                      href="/buku-penghubung"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#922B21] text-white text-[11px] font-bold hover:bg-[#771F18] transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tulis Catatan Penghubung</span>
+                    </Link>
                   </div>
-                  <p className="text-xs text-[#1A1A1A] leading-relaxed">
-                    &ldquo;Ahmad tadi malam kurang tidur karena sakit perut ringan. Mohon dipantau ya Bu 🙏 Jika lemas mohon izinkan istirahat di UKS.&rdquo;
-                  </p>
-                  <div className="mt-2 text-[11px] font-bold text-[#C0392B] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-                    <span>Balas Catatan Sekarang</span>
-                    <span>&rarr;</span>
-                  </div>
-                </Link>
-
-                {/* Entry from teacher */}
-                <Link
-                  href="/buku-penghubung"
-                  className="block p-4 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] hover:bg-white transition"
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold text-[#6B6B6B] text-[11px]">
-                      [GURU] Bu Sari &rarr; Citra Lestari
-                    </span>
-                    <span className="text-[11px] text-[#6B6B6B]">Kemarin · 14.00</span>
-                  </div>
-                  <p className="text-xs text-[#3D3D3D] leading-relaxed">
-                    Ananda Citra hari ini berhasil meraih nilai 100 dalam kuis IPA mengenal rantai makanan. Terus dipertahankan ya!
-                  </p>
-                </Link>
+                )}
               </div>
             </section>
 

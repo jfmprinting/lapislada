@@ -76,3 +76,221 @@ export const INITIAL_KAIH_KEGIATAN: KaihKegiatan[] = [
     },
   },
 ];
+
+export interface BroadcastOptions {
+  namaSekolah?: string;
+  namaKelas?: string;
+  namaGuru?: string;
+  portalUrl?: string;
+}
+
+export function generateKaihWhatsAppBroadcast(
+  kegiatan: KaihKegiatan,
+  options?: BroadcastOptions
+): string {
+  const sekolah = options?.namaSekolah || 'SDN Latsari 2 Bancar';
+  const kelas = options?.namaKelas || 'Kelas I';
+  const guru = options?.namaGuru || kegiatan.creator_nama || 'Wali Kelas';
+  const url = options?.portalUrl || 'https://lapis-lada.sdnlatsari2.sch.id';
+
+  // Format tanggal Indonesia ramah
+  let formattedDate = kegiatan.tanggal;
+  try {
+    const d = new Date(kegiatan.tanggal);
+    if (!isNaN(d.getTime())) {
+      formattedDate = new Intl.DateTimeFormat('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(d);
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  const pilarId = Number(kegiatan.kategori_id);
+  const jam = kegiatan.jam || 'Pagi hari';
+  const judul = kegiatan.judul;
+  const deskripsi = kegiatan.deskripsi || 'Pembiasaan karakter anak hebat hari ini di sekolah.';
+
+  switch (pilarId) {
+    case 1:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Assalamu'alaikum Wr. Wb. / Selamat Pagi Bapak/Ibu Wali Murid yang kami hormati,
+
+Semoga Bapak/Ibu dan keluarga senantiasa dalam keadaan sehat dan penuh keberkahan.
+
+Hari ini, *${formattedDate}*, ananda ${kelas} membiasakan karakter positif:
+🌅 *Pilar 1: Bangun Pagi & Merapikan Tempat Tidur (Disiplin & Mandiri)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Mari bimbing ananda untuk konsisten bangun pagi secara mandiri tanpa dibangunkan berulang kali, serta merapikan tempat tidur dan perlengkapan sekolahnya sendiri. Kebiasaan kecil ini adalah pondasi rasa tanggung jawab masa depannya.
+
+📸 Foto dokumentasi & setor pembiasaan ananda di rumah dapat diakses di Aplikasi LAPIS LADA:
+👉 ${url}
+
+Terima kasih atas kerja sama dan pendampingan hebat Ayah/Bunda di rumah! 🙏✨
+
+Hormat kami,
+*${guru}*
+${sekolah}`;
+
+    case 2:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Assalamu'alaikum Wr. Wb. / Selamat Pagi Bapak/Ibu Wali Murid yang kami hormati,
+
+Alhamdulillah, puji syukur ke hadirat Tuhan Yang Maha Esa atas nikmat sehat dan kesempatan mendidik ananda tercinta.
+
+Hari ini, *${formattedDate}*, di sekolah kami membimbing ananda ${kelas} dalam kegiatan:
+🕌 *Pilar 2: Beribadah Tepat Waktu (Religius & Akhlak Mulia)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Menjaga sholat/ibadah tepat waktu melatih kelembutan hati dan ketaatan ananda. Mohon Ayah/Bunda berkenan mengingatkan serta mendampingi ananda menunaikan ibadah di rumah ketika adzan/waktunya tiba.
+
+📸 Dokumentasi kegiatan hari ini sudah diunggah di Portal LAPIS LADA:
+👉 ${url}
+
+Semoga ananda tumbuh menjadi insan yang berakhlak mulia dan berbakti. Aamiin. 🤲
+
+Salam hangat,
+*${guru}*
+${sekolah}`;
+
+    case 3:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Semangat Pagi Ayah dan Bunda Wali Murid ${kelas}! ☀️
+
+Di dalam tubuh yang sehat terdapat jiwa yang kuat! Hari ini, *${formattedDate}*, ananda mengikuti aktivitas kebugaran:
+🏃 *Pilar 3: Berolahraga & Aktivitas Fisik (Kebugaran Jasmani)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Di sela-sela waktu bermain di rumah, mari ajak ananda melakukan gerak badan aktif atau olahraga ringan minimal 15–30 menit, serta kurangi waktu screen time (gadget). Tubuh bugar membuat konsentrasi belajar makin prima!
+
+📸 Dokumentasi keceriaan ananda berolahraga dapat dilihat di Aplikasi LAPIS LADA:
+👉 ${url}
+
+Salam sehat dan bugar,
+*${guru}*
+${sekolah}`;
+
+    case 4:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Assalamu'alaikum Wr. Wb. / Salam Sejahtera Bapak/Ibu Wali Murid yang kami banggakan,
+
+Membaca adalah jendela dunia dan kunci kecerdasan akal. Hari ini, *${formattedDate}*, ananda ${kelas} telah melaksanakan kegiatan literasi:
+📚 *Pilar 4: Gemar Belajar & Membaca Buku (Literasi & Bernalar Kritis)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Mari sediakan waktu 15 menit setiap malam untuk membaca buku cerita/pengetahuan bersama ananda di rumah. Jadikan membaca sebagai kebiasaan yang menyenangkan, bukan beban.
+
+📸 Catatan literasi & materi belajar ananda dapat dipantau di Aplikasi LAPIS LADA:
+👉 ${url}
+
+Mari bersama kita tumbuhkan generasi cinta ilmu dan gemar membaca! 📖✨
+
+Hormat kami,
+*${guru}*
+${sekolah}`;
+
+    case 5:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Selamat Siang Ayah & Bunda Hebat ${kelas}! 🌿
+
+Pertumbuhan optimal berawal dari asupan yang baik. Pada hari *${formattedDate}*, kami membiasakan ananda dalam program:
+🥗 *Pilar 5: Makan Makanan Bergizi Seimbang (Gizi Sehat)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Dukungan Ayah/Bunda dalam membawakan bekal sehat (sayur, buah, protein) serta membiasakan ananda minum air putih yang cukup dan membatasi jajan sembarangan sangat menentukan tumbuh kembang dan daya tahan tubuh ananda.
+
+📸 Cek dokumentasi makan sehat bersama di Portal LAPIS LADA:
+👉 ${url}
+
+Terima kasih atas cinta dan asupan gizi terbaik yang selalu Ayah/Bunda siapkan untuk ananda! 🥦🍎🥛
+
+Salam hangat,
+*${guru}*
+${sekolah}`;
+
+    case 6:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Assalamu'alaikum Wr. Wb. / Salam Kebajikan Bapak/Ibu Wali Murid yang kami hormati,
+
+Mendidik anak tidak hanya soal nilai akademis, melainkan budi pekerti dan kepedulian sosial. Hari ini, *${formattedDate}*, ananda ${kelas} belajar mempraktikkan:
+🤝 *Pilar 6: Bermasyarakat & Membantu Orang Tua (Gotong Royong & Empati)*
+📌 *Kegiatan:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Di rumah, mohon beri kesempatan ananda untuk membantu tugas-tugas ringan (merapikan meja makan, menyapu, melipat pakaian, atau menyapa tetangga dengan ramah). Pembiasaan ini melatih empati dan rasa tanggung jawab sosial sejak dini.
+
+📸 Dokumentasi aksi baik ananda hari ini dapat dilihat di Aplikasi LAPIS LADA:
+👉 ${url}
+
+Bersama kita wujudkan putra-putri berkarakter luhur! 🤝❤️
+
+Hormat kami,
+*${guru}*
+${sekolah}`;
+
+    case 7:
+    default:
+      return `✨ *LAPORAN KEGIATAN KAIH (7 KEBIASAAN ANAK INDONESIA HEBAT)* ✨
+🏛️ *${sekolah} — ${kelas}*
+
+Selamat Sore/Malam Bapak/Ibu Wali Murid ${kelas} yang berbahagia,
+
+Setelah seharian ananda beraktivitas dan menimba ilmu di sekolah pada hari *${formattedDate}*, kami mengingatkan pentingnya:
+🌙 *Pilar 7: Tidur Cepat & Tepat Waktu (Kesehatan & Pemulihan)*
+📌 *Kegiatan/Edukasi Kelas:* ${judul}
+⏰ *Waktu:* ${jam}
+📝 *Catatan Guru:* 
+"${deskripsi}"
+
+💡 *Pesan Kolaborasi untuk Ayah/Bunda di Rumah:*
+Mohon dampingi ananda untuk menyelesaikan tugas sekolah lebih awal dan tidur malam sebelum pukul 21.00 WIB. Tidur cukup 8–9 jam sangat krusial bagi regenerasi sel tubuh, daya ingat, dan keceriaan ananda saat bangun esok pagi.
+
+📸 Info & pencatatan jam tidur ananda dapat dilaporkan melalui Portal LAPIS LADA:
+👉 ${url}
+
+Selamat beristirahat bersama keluarga tercinta. Sampai jumpa di sekolah esok pagi! 🌙✨
+
+Salam takzim,
+*${guru}*
+${sekolah}`;
+  }
+}

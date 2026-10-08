@@ -48,14 +48,24 @@ export type ProfilSekolah = {
   updated_at?: string;
 };
 
+export type UserRole = 'admin' | 'guru' | 'orangtua' | 'kepala_sekolah';
+
 export type UserProfile = {
   id: string;
   nama: string;
-  role: 'admin' | 'guru' | 'orangtua';
+  role: UserRole;
+  jabatan?: string | null;
   email?: string | null;
   telepon?: string | null;
   created_at?: string;
 };
+
+export function isKepalaSekolah(user: any, profile?: any): boolean {
+  if (!user && !profile) return false;
+  const role = user?.user_metadata?.role || profile?.role;
+  const jabatan = user?.user_metadata?.jabatan || profile?.jabatan;
+  return role === 'kepala_sekolah' || jabatan === 'kepala_sekolah';
+}
 
 export type BukuPenghubungItem = {
   id: string;

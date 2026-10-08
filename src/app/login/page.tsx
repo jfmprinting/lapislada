@@ -30,8 +30,11 @@ function LoginForm() {
       });
 
       if (!error && data?.user) {
-        const userRole = data.user?.user_metadata?.role || role;
-        if (userRole === 'orangtua') {
+        const userRole = data.user?.user_metadata?.role;
+        const userJabatan = data.user?.user_metadata?.jabatan;
+        if (userRole === 'kepala_sekolah' || userJabatan === 'kepala_sekolah') {
+          router.push('/dashboard/kepala-sekolah');
+        } else if (userRole === 'orangtua' || role === 'orangtua') {
           router.push('/dashboard/orangtua');
         } else {
           router.push('/dashboard');
@@ -51,7 +54,9 @@ function LoginForm() {
               email: fallbackEmail,
               password: 'demo123',
             });
-            if (entry.role === 'orangtua') {
+            if (entry.role === 'kepala_sekolah' || entry.jabatan === 'kepala_sekolah') {
+              router.push('/dashboard/kepala-sekolah');
+            } else if (entry.role === 'orangtua') {
               router.push('/dashboard/orangtua');
             } else {
               router.push('/dashboard');
@@ -74,7 +79,7 @@ function LoginForm() {
   };
 
   // Demo shortcut for effortless testing
-  const fillDemo = (type: 'guru' | 'orangtua' | 'admin') => {
+  const fillDemo = (type: 'guru' | 'orangtua' | 'admin' | 'kepsek') => {
     if (type === 'guru') {
       setRole('guru');
       setEmail('guru@demo.com');
@@ -82,6 +87,10 @@ function LoginForm() {
     } else if (type === 'orangtua') {
       setRole('orangtua');
       setEmail('ortu@guru.com');
+      setPassword('demo123');
+    } else if (type === 'kepsek') {
+      setRole('guru');
+      setEmail('kepsek@demo.com');
       setPassword('demo123');
     } else {
       setRole('guru');
@@ -220,27 +229,34 @@ function LoginForm() {
             <Sparkles className="w-3.5 h-3.5 text-[#C0392B]" />
             <span>Mode Uji Coba Cepat (Demo):</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               type="button"
               onClick={() => fillDemo('guru')}
-              className="py-1.5 px-2 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition"
+              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
             >
-              Demo Guru
+              Guru
             </button>
             <button
               type="button"
               onClick={() => fillDemo('orangtua')}
-              className="py-1.5 px-2 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition"
+              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
             >
-              Demo Ortu
+              Ortu
             </button>
             <button
               type="button"
               onClick={() => fillDemo('admin')}
-              className="py-1.5 px-2 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition"
+              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
             >
-              Demo Admin
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => fillDemo('kepsek')}
+              className="py-1.5 px-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-md text-[10px] font-bold border border-amber-300 transition text-center"
+            >
+              Kepsek
             </button>
           </div>
         </div>

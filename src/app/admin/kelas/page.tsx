@@ -17,6 +17,8 @@ import {
   X,
   Sparkles,
   Calendar,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 
 interface KelasWithDetails extends Kelas {
@@ -29,6 +31,27 @@ export default function MasterKelasPage() {
   const [guruList, setGuruList] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('lapislada_kelas_view_mode');
+      if (savedMode === 'list' || savedMode === 'grid') {
+        setViewMode(savedMode);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleToggleViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('lapislada_kelas_view_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -263,11 +286,39 @@ export default function MasterKelasPage() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#F5F0E8] p-1 rounded-xl border border-[#DDD8CE]">
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-[#C0392B] shadow-xs'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                }`}
+                title="Tampilan Grid (Kartu)"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-white text-[#C0392B] shadow-xs'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                }`}
+                title="Tampilan List (Tabel)"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
             {kelasList.length < 6 && (
               <button
                 onClick={handleSeedDefaultClasses}
-                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] font-medium text-sm rounded-xl transition-colors border border-[#DDD8CE]"
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] font-medium text-sm rounded-xl transition-colors border border-[#DDD8CE] cursor-pointer"
                 title="Buat Kelas 1 s.d. 6 secara otomatis"
               >
                 <Sparkles className="w-4 h-4 text-[#C0392B]" />
@@ -277,7 +328,7 @@ export default function MasterKelasPage() {
 
             <button
               onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#C0392B] hover:bg-[#922B21] text-white font-medium text-sm rounded-xl transition-colors shadow-xs"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#C0392B] hover:bg-[#922B21] text-white font-medium text-sm rounded-xl transition-colors shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Kelas Baru</span>
@@ -285,7 +336,7 @@ export default function MasterKelasPage() {
           </div>
         </div>
 
-        {/* Class Cards Grid */}
+        {/* Class Content */}
         {loading ? (
           <div className="bg-white p-12 text-center rounded-2xl border border-[#DDD8CE] text-[#6B6B6B]">
             Memuat data rombel kelas...
@@ -299,12 +350,12 @@ export default function MasterKelasPage() {
             </p>
             <button
               onClick={handleOpenAddModal}
-              className="px-4 py-2 bg-[#C0392B] text-white rounded-xl text-sm font-medium hover:bg-[#922B21]"
+              className="px-4 py-2 bg-[#C0392B] text-white rounded-xl text-sm font-medium hover:bg-[#922B21] cursor-pointer"
             >
               Tambah Rombel Pertama
             </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredKelas.map((item) => (
               <div
@@ -376,6 +427,85 @@ export default function MasterKelasPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          /* List View (Table) */
+          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F5F0E8]/70 border-b border-[#DDD8CE] text-[#6B6B6B] font-semibold text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5">No</th>
+                    <th className="px-5 py-3.5">Nama Rombel / Kelas</th>
+                    <th className="px-5 py-3.5">Tahun Ajaran</th>
+                    <th className="px-5 py-3.5">Guru Wali Kelas</th>
+                    <th className="px-5 py-3.5 text-center">Jumlah Siswa</th>
+                    <th className="px-5 py-3.5 text-center">Status</th>
+                    <th className="px-5 py-3.5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#DDD8CE]/60">
+                  {filteredKelas.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-[#F5F0E8]/30 transition-colors">
+                      <td className="px-5 py-3.5 text-[#6B6B6B]">{idx + 1}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-bold flex items-center justify-center text-xs shrink-0">
+                            {item.nama_kelas.replace(/kelas\s*/i, '').slice(0, 3) || 'K'}
+                          </div>
+                          <span className="font-bold text-[#1A1A1A]">{item.nama_kelas}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[#6B6B6B] bg-[#F5F0E8] px-2.5 py-1 rounded-lg border border-[#DDD8CE]">
+                          <Calendar className="w-3.5 h-3.5 text-[#C0392B]" />
+                          <span>{item.tahun_ajaran || '2025/2026'}</span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {item.wali_kelas?.nama ? (
+                          <div className="flex items-center gap-1.5 font-medium text-[#1A1A1A]">
+                            <UserCheck className="w-3.5 h-3.5 text-[#C0392B] shrink-0" />
+                            <span>{item.wali_kelas.nama}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-amber-700 italic">Belum ditugaskan</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className="inline-flex items-center gap-1 font-bold text-xs px-2.5 py-1 rounded-full bg-[#FAF8F2] border border-[#DDD8CE] text-[#1A1A1A]">
+                          <Users className="w-3.5 h-3.5 text-[#C0392B]" />
+                          <span>{item.siswa_count ?? 0}</span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px]">
+                          Aktif
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
+                            title="Edit Rombel"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id, item.nama_kelas)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Kelas"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

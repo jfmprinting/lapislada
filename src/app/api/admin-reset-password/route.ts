@@ -51,6 +51,7 @@ export async function POST(request: Request) {
           user_metadata: {
             ...existingUser.user_metadata,
             role: role || existingUser.user_metadata?.role || 'orangtua',
+            jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : existingUser.user_metadata?.jabatan,
             nama: nama || existingUser.user_metadata?.nama,
             siswa_id: targetUserId || existingUser.user_metadata?.siswa_id,
           },
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: {
           role: role || 'orangtua',
+          jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : undefined,
           nama: nama,
           siswa_id: targetUserId,
         },
@@ -77,19 +79,35 @@ export async function POST(request: Request) {
       authUserId = createData.user?.id;
     }
 
-    // 3. Keep users_profile in sync
+    // 3. Keep users_profile in sync (with graceful fallback if DB constraint hasn't been altered)
     if (authUserId) {
-      await supabaseAdmin.from('users_profile').upsert({
-        id: authUserId,
-        nama: nama,
-        email: cleanEmail,
-        role: role || 'orangtua',
-        telepon: phone || null,
-        updated_at: new Date().toISOString(),
-      });
+      try {
+        await supabaseAdmin.from('users_profile').upsert({
+          id: authUserId,
+          nama: nama,
+          email: cleanEmail,
+          role: role || 'orangtua',
+          telepon: phone || null,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (upsertErr) {
+        if (role === 'kepala_sekolah') {
+          // Fallback to role 'admin' in users_profile if PostgreSQL check constraint users_profile_role_check restricts it
+          await supabaseAdmin.from('users_profile').upsert({
+            id: authUserId,
+            nama: nama,
+            email: cleanEmail,
+            role: 'admin',
+            telepon: phone || null,
+            updated_at: new Date().toISOString(),
+          });
+        } else {
+          throw upsertErr;
+        }
+      }
     }
 
-    // 4. Update student record and link wali_murid_id
+    // 4. Update student record or teacher record
     if (targetUserId) {
       if (role === 'orangtua') {
         await supabaseAdmin
@@ -100,10 +118,23 @@ export async function POST(request: Request) {
           })
           .eq('id', targetUserId);
       } else {
-        await supabaseAdmin
-          .from('users_profile')
-          .update({ ...(phone ? { telepon: phone } : {}) })
-          .eq('id', targetUserId);
+        // For Guru / Admin: migrate assigned kelas to the new authUserId if ID differed
+        if (authUserId && targetUserId !== authUserId) {
+          await supabaseAdmin
+            .from('kelas')
+            .update({ wali_kelas_id: authUserId })
+            .eq('wali_kelas_id', targetUserId);
+
+          await supabaseAdmin
+            .from('users_profile')
+            .delete()
+            .eq('id', targetUserId);
+        } else {
+          await supabaseAdmin
+            .from('users_profile')
+            .update({ ...(phone ? { telepon: phone } : {}) })
+            .eq('id', targetUserId);
+        }
       }
     }
 

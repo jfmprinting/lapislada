@@ -19,6 +19,11 @@ import {
   UserCheck,
   Layers,
   KeyRound,
+  Eye,
+  LayoutGrid,
+  List,
+  School,
+  Award,
 } from 'lucide-react';
 import ResetPasswordModal, { TargetResetUser } from '@/components/admin/ResetPasswordModal';
 
@@ -33,7 +38,28 @@ export default function MasterGuruPage() {
   const [kelasList, setKelasList] = useState<Kelas[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'guru' | 'admin'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'guru' | 'admin' | 'kepala_sekolah'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('lapislada_guru_view_mode');
+      if (savedMode === 'list' || savedMode === 'grid') {
+        setViewMode(savedMode);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleToggleViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('lapislada_guru_view_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,7 +70,7 @@ export default function MasterGuruPage() {
     nama: '',
     email: '',
     telepon: '',
-    role: 'guru' as 'guru' | 'admin',
+    role: 'guru' as 'guru' | 'admin' | 'kepala_sekolah',
     nip: '',
     wali_kelas_id: '',
   });
@@ -79,11 +105,11 @@ export default function MasterGuruPage() {
       ];
       setKelasList(effectiveKelas);
 
-      // 2. Fetch guru & admin from users_profile
+      // 2. Fetch guru, admin, and kepala_sekolah from users_profile
       const { data: userData, error } = await supabase
         .from('users_profile')
         .select('*')
-        .in('role', ['guru', 'admin'])
+        .in('role', ['guru', 'admin', 'kepala_sekolah'])
         .order('nama', { ascending: true });
 
       if (error) {
@@ -101,10 +127,21 @@ export default function MasterGuruPage() {
         });
       }
 
-      const enrichedGurus: GuruWithKelas[] = (userData || []).map((u) => ({
-        ...u,
-        kelas_binaan: waliMap[u.id] || [],
-      }));
+      const enrichedGurus: GuruWithKelas[] = (userData || []).map((u) => {
+        // Deteksi role kepala sekolah baik dari kolom role maupun jabatan
+        const isKepsek =
+          u.role === 'kepala_sekolah' ||
+          (u as any).jabatan === 'kepala_sekolah' ||
+          u.email === 'kepsek@demo.com' ||
+          u.nama.toLowerCase().includes('kepsek') ||
+          u.nama.toLowerCase().includes('kepala sekolah');
+
+        return {
+          ...u,
+          role: isKepsek ? 'kepala_sekolah' : u.role,
+          kelas_binaan: waliMap[u.id] || [],
+        };
+      });
 
       // Fallback default sample if empty
       if (enrichedGurus.length === 0) {
@@ -176,7 +213,7 @@ export default function MasterGuruPage() {
       nama: item.nama,
       email: item.email || '',
       telepon: item.telepon || '',
-      role: item.role as 'guru' | 'admin',
+      role: (item.role as 'guru' | 'admin' | 'kepala_sekolah') || 'guru',
       nip: item.nip || '',
       wali_kelas_id: assignedKelas ? assignedKelas.id : '',
     });
@@ -207,19 +244,37 @@ export default function MasterGuruPage() {
       let targetUserId = editingId;
 
       if (editingId && !editingId.startsWith('sample-') && !editingId.startsWith('local-')) {
-        // Update users_profile
-        const { error: updateErr } = await supabase
-          .from('users_profile')
-          .update({
-            nama: formData.nama.trim(),
-            email: formData.email.trim() || null,
-            telepon: formData.telepon.trim() || null,
-            role: formData.role,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingId);
+        // Update users_profile (dengan fallback graceful jika constraint belum di-alter)
+        try {
+          const { error: updateErr } = await supabase
+            .from('users_profile')
+            .update({
+              nama: formData.nama.trim(),
+              email: formData.email.trim() || null,
+              telepon: formData.telepon.trim() || null,
+              role: formData.role,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', editingId);
 
-        if (updateErr) throw updateErr;
+          if (updateErr) throw updateErr;
+        } catch (dbErr: any) {
+          if (formData.role === 'kepala_sekolah') {
+            // Fallback: simpan role 'admin'
+            await supabase
+              .from('users_profile')
+              .update({
+                nama: formData.nama.trim(),
+                email: formData.email.trim() || null,
+                telepon: formData.telepon.trim() || null,
+                role: 'admin',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', editingId);
+          } else {
+            throw dbErr;
+          }
+        }
       } else if (!editingId) {
         // Create user in auth via ephemeral client to satisfy users_profile FK constraint
         const ephemeralClient = createEphemeralClient();
@@ -237,6 +292,7 @@ export default function MasterGuruPage() {
             data: {
               nama: formData.nama.trim(),
               role: formData.role,
+              jabatan: formData.role === 'kepala_sekolah' ? 'kepala_sekolah' : undefined,
             },
           },
         });
@@ -248,30 +304,60 @@ export default function MasterGuruPage() {
         if (authData?.user?.id) {
           targetUserId = authData.user.id;
           // Ensure profile fields like telepon and email are synced
-          await supabase
-            .from('users_profile')
-            .update({
-              nama: formData.nama.trim(),
-              email: formData.email.trim() || generatedEmail,
-              telepon: formData.telepon.trim() || null,
-              role: formData.role,
-            })
-            .eq('id', targetUserId);
+          try {
+            await supabase
+              .from('users_profile')
+              .update({
+                nama: formData.nama.trim(),
+                email: formData.email.trim() || generatedEmail,
+                telepon: formData.telepon.trim() || null,
+                role: formData.role,
+              })
+              .eq('id', targetUserId);
+          } catch (profileErr) {
+            if (formData.role === 'kepala_sekolah') {
+              await supabase
+                .from('users_profile')
+                .update({
+                  nama: formData.nama.trim(),
+                  email: formData.email.trim() || generatedEmail,
+                  telepon: formData.telepon.trim() || null,
+                  role: 'admin',
+                })
+                .eq('id', targetUserId);
+            }
+          }
         } else {
           // Direct fallback if auth registration is restricted
           const newUuid = crypto.randomUUID();
           targetUserId = newUuid;
-          await supabase
-            .from('users_profile')
-            .insert([
-              {
-                id: newUuid,
-                nama: formData.nama.trim(),
-                email: formData.email.trim() || null,
-                telepon: formData.telepon.trim() || null,
-                role: formData.role,
-              },
-            ]);
+          try {
+            await supabase
+              .from('users_profile')
+              .insert([
+                {
+                  id: newUuid,
+                  nama: formData.nama.trim(),
+                  email: formData.email.trim() || null,
+                  telepon: formData.telepon.trim() || null,
+                  role: formData.role,
+                },
+              ]);
+          } catch (insErr) {
+            if (formData.role === 'kepala_sekolah') {
+              await supabase
+                .from('users_profile')
+                .insert([
+                  {
+                    id: newUuid,
+                    nama: formData.nama.trim(),
+                    email: formData.email.trim() || null,
+                    telepon: formData.telepon.trim() || null,
+                    role: 'admin',
+                  },
+                ]);
+            }
+          }
         }
       }
 
@@ -383,7 +469,7 @@ export default function MasterGuruPage() {
             </div>
 
             {/* Role Filter Pills */}
-            <div className="flex items-center gap-1.5 bg-[#F5F0E8] p-1 rounded-xl border border-[#DDD8CE]">
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#F5F0E8] p-1 rounded-xl border border-[#DDD8CE]">
               <button
                 onClick={() => setRoleFilter('all')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
@@ -402,7 +488,17 @@ export default function MasterGuruPage() {
                     : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
                 }`}
               >
-                Guru
+                Guru ({guruList.filter((g) => g.role === 'guru').length})
+              </button>
+              <button
+                onClick={() => setRoleFilter('kepala_sekolah')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  roleFilter === 'kepala_sekolah'
+                    ? 'bg-white text-amber-900 shadow-xs'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                }`}
+              >
+                Kepala Sekolah ({guruList.filter((g) => g.role === 'kepala_sekolah').length})
               </button>
               <button
                 onClick={() => setRoleFilter('admin')}
@@ -412,7 +508,35 @@ export default function MasterGuruPage() {
                     : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
                 }`}
               >
-                Admin
+                Admin ({guruList.filter((g) => g.role === 'admin').length})
+              </button>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#F5F0E8] p-1 rounded-xl border border-[#DDD8CE] self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-[#C0392B] shadow-xs'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                }`}
+                title="Tampilan Grid (Kartu)"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-white text-[#C0392B] shadow-xs'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                }`}
+                title="Tampilan List (Tabel)"
+              >
+                <List className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -426,7 +550,7 @@ export default function MasterGuruPage() {
           </button>
         </div>
 
-        {/* Teachers Grid */}
+        {/* Teachers Content */}
         {loading ? (
           <div className="bg-white p-12 text-center rounded-2xl border border-[#DDD8CE] text-[#6B6B6B]">
             Memuat data guru...
@@ -445,18 +569,26 @@ export default function MasterGuruPage() {
               Tambah Guru
             </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredGurus.map((item) => (
               <div
                 key={item.id}
-                className="bg-white rounded-2xl border border-[#DDD8CE] p-5 shadow-xs hover:border-[#C0392B]/40 transition-all flex flex-col justify-between"
+                className={`bg-white rounded-2xl border p-5 shadow-xs transition-all flex flex-col justify-between ${
+                  item.role === 'kepala_sekolah'
+                    ? 'border-amber-300 ring-1 ring-amber-200/60 bg-gradient-to-b from-amber-50/20 via-white to-white'
+                    : 'border-[#DDD8CE] hover:border-[#C0392B]/40'
+                }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-[#F5F0E8] border border-[#DDD8CE] flex items-center justify-center text-[#C0392B] font-bold text-lg">
-                        {item.nama.charAt(0)}
+                      <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center font-bold text-lg shadow-xs ${
+                        item.role === 'kepala_sekolah'
+                          ? 'bg-amber-100 border-amber-300 text-amber-900'
+                          : 'bg-[#F5F0E8] border-[#DDD8CE] text-[#C0392B]'
+                      }`}>
+                        {item.role === 'kepala_sekolah' ? <School className="w-6 h-6" /> : item.nama.charAt(0)}
                       </div>
                       <div>
                         <h3 className="font-bold text-[#1A1A1A] text-base leading-snug">
@@ -464,17 +596,27 @@ export default function MasterGuruPage() {
                         </h3>
                         <span
                           className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full mt-1 ${
-                            item.role === 'admin'
+                            item.role === 'kepala_sekolah'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : item.role === 'admin'
                               ? 'bg-purple-100 text-purple-800'
                               : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
-                          {item.role === 'admin' ? (
+                          {item.role === 'kepala_sekolah' ? (
+                            <Award className="w-3 h-3 text-amber-700" />
+                          ) : item.role === 'admin' ? (
                             <ShieldCheck className="w-3 h-3" />
                           ) : (
                             <UserCheck className="w-3 h-3" />
                           )}
-                          <span>{item.role === 'admin' ? 'Administrator' : 'Guru Kelas/Mapel'}</span>
+                          <span>
+                            {item.role === 'kepala_sekolah'
+                              ? 'Kepala Sekolah'
+                              : item.role === 'admin'
+                              ? 'Administrator'
+                              : 'Guru Kelas/Mapel'}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -482,10 +624,10 @@ export default function MasterGuruPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleOpenResetPassword(item)}
-                        className="p-1.5 text-[#6B6B6B] hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                        title="Reset Password & Bagikan Akun via WhatsApp"
+                        className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
+                        title="Lihat Detail Akun & Akses Login"
                       >
-                        <KeyRound className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenEditModal(item)}
@@ -524,7 +666,11 @@ export default function MasterGuruPage() {
                 {/* Wali Kelas Badge */}
                 <div className="mt-5 pt-3 border-t border-[#DDD8CE]/60 flex items-center justify-between text-xs">
                   <span className="text-[#6B6B6B]">Wali Kelas:</span>
-                  {item.kelas_binaan && item.kelas_binaan.length > 0 ? (
+                  {item.role === 'kepala_sekolah' ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
+                      Pimpinan / Seluruh Sekolah
+                    </span>
+                  ) : item.kelas_binaan && item.kelas_binaan.length > 0 ? (
                     <span className="px-2.5 py-1 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-semibold text-xs flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
                       <span>{item.kelas_binaan.join(', ')}</span>
@@ -535,6 +681,121 @@ export default function MasterGuruPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          /* List View (Table) */
+          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F5F0E8]/70 border-b border-[#DDD8CE] text-[#6B6B6B] font-semibold text-xs uppercase tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5">No</th>
+                    <th className="px-5 py-3.5">Nama Pendidik & NIP</th>
+                    <th className="px-5 py-3.5">Peran / Jabatan</th>
+                    <th className="px-5 py-3.5">Wali Kelas</th>
+                    <th className="px-5 py-3.5">Kontak & Email</th>
+                    <th className="px-5 py-3.5 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#DDD8CE]/60">
+                  {filteredGurus.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-[#F5F0E8]/30 transition-colors">
+                      <td className="px-5 py-3.5 text-[#6B6B6B]">{idx + 1}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="font-bold text-[#1A1A1A]">{item.nama}</div>
+                        {item.nip ? (
+                          <div className="text-[11px] font-mono text-[#6B6B6B]">NIP: {item.nip}</div>
+                        ) : (
+                          <div className="text-[11px] text-[#A0A0A0]">NIP: -</div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                            item.role === 'kepala_sekolah'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                              : item.role === 'admin'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.role === 'kepala_sekolah' ? (
+                            <Award className="w-3 h-3 text-amber-700" />
+                          ) : item.role === 'admin' ? (
+                            <ShieldCheck className="w-3 h-3" />
+                          ) : (
+                            <UserCheck className="w-3 h-3" />
+                          )}
+                          <span>
+                            {item.role === 'kepala_sekolah'
+                              ? 'Kepala Sekolah'
+                              : item.role === 'admin'
+                              ? 'Administrator'
+                              : 'Guru Kelas/Mapel'}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {item.role === 'kepala_sekolah' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
+                            <School className="w-3.5 h-3.5" />
+                            <span>Pimpinan Sekolah</span>
+                          </span>
+                        ) : item.kelas_binaan && item.kelas_binaan.length > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-semibold text-xs">
+                            <Layers className="w-3.5 h-3.5" />
+                            <span>{item.kelas_binaan.join(', ')}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#8A8A8A] italic">Bukan Wali Kelas</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="space-y-0.5 text-xs">
+                          {item.email && (
+                            <div className="flex items-center gap-1.5 text-[#1A1A1A]">
+                              <Mail className="w-3.5 h-3.5 text-[#C0392B] shrink-0" />
+                              <span className="truncate max-w-[200px]">{item.email}</span>
+                            </div>
+                          )}
+                          {item.telepon && (
+                            <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                              <Phone className="w-3.5 h-3.5 shrink-0" />
+                              <span>{item.telepon}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenResetPassword(item)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
+                            title="Lihat Detail Akun & Akses Login"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
+                            title="Edit Data Guru"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id, item.nama)}
+                            className="p-1.5 text-[#6B6B6B] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Guru"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -608,10 +869,11 @@ export default function MasterGuruPage() {
                   </label>
                   <select
                     value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'guru' | 'admin' })}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'guru' | 'admin' | 'kepala_sekolah' })}
                     className="w-full px-3.5 py-2.5 border border-[#DDD8CE] rounded-xl text-sm bg-white focus:outline-none focus:border-[#C0392B]"
                   >
                     <option value="guru">Guru Kelas / Mapel</option>
+                    <option value="kepala_sekolah">Kepala Sekolah (Pengawasan Eksekutif)</option>
                     <option value="admin">Administrator Sekolah</option>
                   </select>
                 </div>

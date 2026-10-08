@@ -15,6 +15,7 @@ import {
   EyeOff,
   ExternalLink,
   X,
+  Lock,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -24,7 +25,7 @@ export interface TargetResetUser {
   nama: string;
   email?: string | null;
   telepon?: string | null;
-  role: 'guru' | 'admin' | 'orangtua';
+  role: 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah';
   rombel?: string | null;
   nisn?: string | null;
   nama_wali?: string | null;
@@ -54,6 +55,10 @@ export function generateUniqueSchoolPassword(user: TargetResetUser): string {
     return `Lada${rawClass}-${capitalized || 'Siswa'}${num}${char}`;
   }
 
+  if (user.role === 'kepala_sekolah') {
+    return `KepsekLada-${capitalized || 'Pimpinan'}${num}${char}`;
+  }
+
   // For Guru / Admin
   return `GuruLada-${capitalized || 'Pendidik'}${num}${char}`;
 }
@@ -70,21 +75,59 @@ export default function ResetPasswordModal({
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
+  const [copiedExistingPass, setCopiedExistingPass] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Mode: false = melihat detail akun (default), true = mode reset password baru
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [existingPassword, setExistingPassword] = useState<string | null>(null);
+  const [showExistingPassword, setShowExistingPassword] = useState(false);
 
   useEffect(() => {
     if (targetUser && isOpen) {
       const generated = generateUniqueSchoolPassword(targetUser);
       setPassword(generated);
       setPhone(targetUser.telepon || '');
-      setEmail(targetUser.email || (targetUser.role === 'orangtua' ? 'ortu@guru.com' : ''));
+      const userEmail = targetUser.email || (targetUser.role === 'orangtua' ? `${targetUser.nisn || 'ortu'}@sdnlatsari.sch.id` : '');
+      setEmail(userEmail);
       setCopiedPass(false);
+      setCopiedExistingPass(false);
+      setCopiedEmail(false);
       setCopiedMsg(false);
+      setIsResetMode(false);
+      setShowExistingPassword(false);
+      setShowPassword(false);
+
+      // Cek apakah ada password aktif di cache/registry
+      try {
+        const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
+        if (storedRegistry && userEmail) {
+          const registry = JSON.parse(storedRegistry);
+          const entry = registry[userEmail.toLowerCase().trim()];
+          if (entry?.password) {
+            setExistingPassword(entry.password);
+          } else {
+            setExistingPassword(null);
+          }
+        } else {
+          setExistingPassword(null);
+        }
+      } catch {
+        setExistingPassword(null);
+      }
     }
   }, [targetUser, isOpen]);
 
   if (!isOpen || !targetUser) return null;
+
+  const handleStartReset = () => {
+    const newPass = generateUniqueSchoolPassword(targetUser);
+    setPassword(newPass);
+    setIsResetMode(true);
+    setShowPassword(true);
+  };
 
   const handleRegenerate = () => {
     const newPass = generateUniqueSchoolPassword(targetUser);
@@ -104,14 +147,50 @@ export default function ResetPasswordModal({
     }
   };
 
+  const handleCopyExistingPassword = async () => {
+    if (!existingPassword) return;
+    try {
+      await navigator.clipboard.writeText(existingPassword);
+      setCopiedExistingPass(true);
+      showToast({ type: 'success', message: 'Password aktif berhasil disalin.' });
+      setTimeout(() => setCopiedExistingPass(false), 2500);
+    } catch {
+      showToast({ type: 'error', message: 'Gagal menyalin password.' });
+    }
+  };
+
+  const handleCopyEmail = async () => {
+    if (!email) return;
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedEmail(true);
+      showToast({ type: 'success', message: 'Username/Email berhasil disalin.' });
+      setTimeout(() => setCopiedEmail(false), 2500);
+    } catch {
+      showToast({ type: 'error', message: 'Gagal menyalin email.' });
+    }
+  };
+
   // Compose formatted WhatsApp message
+  const activePasswordForWA = isResetMode ? password : (existingPassword || '(Gunakan password yang telah dibagikan)');
+
   const generateWAMessage = () => {
-    const roleLabel = targetUser.role === 'orangtua' ? 'Wali Murid' : 'Pendidik / Staf Guru';
+    const roleLabel =
+      targetUser.role === 'orangtua'
+        ? 'Wali Murid'
+        : targetUser.role === 'kepala_sekolah'
+        ? 'Kepala Sekolah'
+        : targetUser.role === 'admin'
+        ? 'Administrator'
+        : 'Pendidik / Staf Guru';
+
     const recipientHeader =
       targetUser.role === 'orangtua'
         ? `Yth. Bapak/Ibu Wali Murid dari *${targetUser.nama}*${
             targetUser.rombel ? ` (${targetUser.rombel})` : ''
           }`
+        : targetUser.role === 'kepala_sekolah'
+        ? `Yth. Bapak/Ibu Kepala Sekolah *${targetUser.nama}*`
         : `Yth. Bapak/Ibu Guru *${targetUser.nama}*`;
 
     return `Assalamualaikum Wr. Wb. / Salam Sejahtera.
@@ -123,11 +202,11 @@ Berikut adalah informasi akun resmi Anda untuk mengakses portal aplikasi *LAPIS 
 
 🌐 *Link Portal:* https://lapislada.pages.dev/login
 👤 *Username / Email:* ${email || '-'}
-🔑 *Password Baru:* ${password}
+🔑 *Kata Sandi (Password):* ${activePasswordForWA}
 🏷️ *Peran Akun:* ${roleLabel}
 
 *Catatan:*
-Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, dan Nilai Siswa. Jika ada kendala, hubungi pihak sekolah. Terima kasih.`;
+Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan Nilai Siswa. Jika ada kendala, hubungi pihak sekolah. Terima kasih.`;
   };
 
   const handleCopyWAMessage = async () => {
@@ -215,13 +294,14 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
           updatedAt: new Date().toISOString(),
         };
         localStorage.setItem('lapislada_credentials_registry', JSON.stringify(registry));
+        setExistingPassword(password.trim());
       } catch (err) {
         console.warn('LocalStorage error:', err);
       }
 
       // 4. Update phone number in database if changed
       if (phone !== targetUser.telepon) {
-        if (targetUser.role === 'guru' || targetUser.role === 'admin') {
+        if (targetUser.role === 'guru' || targetUser.role === 'admin' || targetUser.role === 'kepala_sekolah') {
           await supabase
             .from('users_profile')
             .update({ telepon: phone, updated_at: new Date().toISOString() })
@@ -236,8 +316,10 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
       showToast({
         type: 'success',
-        message: `Password untuk ${targetUser.nama} berhasil direset & akun aktif!`,
+        message: `Password untuk ${targetUser.nama} berhasil diperbarui & disimpan!`,
       });
+
+      setIsResetMode(false);
 
       if (onSuccess) {
         onSuccess(password.trim());
@@ -254,25 +336,25 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#DDD8CE] overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#DDD8CE] overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#DDD8CE] bg-gradient-to-r from-[#FDEDEC]/70 via-white to-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#DDD8CE] bg-gradient-to-r from-[#FDEDEC]/60 via-white to-white">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21]">
-              <KeyRound className="w-5 h-5" />
+              <Eye className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-bold text-base text-[#1A1A1A]">
-                Reset Password Akun
+                Detail Akun & Hak Akses
               </h3>
               <p className="text-xs text-[#666]">
-                Generator otomatis 1-klik & pengiriman akses via WhatsApp
+                Lihat informasi akun, nomor WhatsApp, serta kelola kata sandi
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#666] hover:bg-[#F5F0E8] transition-colors"
+            className="p-1.5 rounded-lg text-[#666] hover:bg-[#F5F0E8] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -281,22 +363,41 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
         {/* Content Body */}
         <div className="p-6 space-y-5 overflow-y-auto">
           {/* Target Profile Card */}
-          <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white border border-[#DDD8CE] flex items-center justify-center font-bold text-[#922B21]">
+          <div className="p-4 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE]">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-white border border-[#DDD8CE] flex items-center justify-center font-bold text-base text-[#922B21] shadow-xs shrink-0">
                 {targetUser.nama.charAt(0)}
               </div>
-              <div>
-                <h4 className="font-bold text-sm text-[#1A1A1A] leading-tight">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-sm text-[#1A1A1A] leading-tight truncate">
                   {targetUser.nama}
                 </h4>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] font-semibold text-[#922B21] bg-[#FDEDEC] px-2 py-0.5 rounded-full">
-                    {targetUser.role === 'orangtua' ? 'Wali Murid' : 'Pendidik / Guru'}
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                    targetUser.role === 'kepala_sekolah'
+                      ? 'text-amber-900 bg-amber-100 border border-amber-300'
+                      : targetUser.role === 'admin'
+                      ? 'text-purple-800 bg-purple-100'
+                      : targetUser.role === 'orangtua'
+                      ? 'text-[#922B21] bg-[#FDEDEC]'
+                      : 'text-emerald-800 bg-emerald-100'
+                  }`}>
+                    {targetUser.role === 'orangtua'
+                      ? 'Wali Murid'
+                      : targetUser.role === 'kepala_sekolah'
+                      ? 'Kepala Sekolah'
+                      : targetUser.role === 'admin'
+                      ? 'Administrator'
+                      : 'Guru / Pendidik'}
                   </span>
                   {targetUser.rombel && (
-                    <span className="text-[11px] text-[#666]">
+                    <span className="text-[11px] text-[#666] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
                       Rombel: {targetUser.rombel}
+                    </span>
+                  )}
+                  {targetUser.nisn && (
+                    <span className="text-[11px] font-mono text-[#666] bg-white px-2 py-0.5 rounded-md border border-[#DDD8CE]">
+                      NISN: {targetUser.nisn}
                     </span>
                   )}
                 </div>
@@ -304,61 +405,11 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
             </div>
           </div>
 
-          {/* Generator Section */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-[#3D3D3D] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Password Baru (Generator Unik Otomatis)</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                className="text-xs font-semibold text-[#922B21] hover:underline inline-flex items-center gap-1 cursor-pointer"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span>Acak Ulang</span>
-              </button>
-            </div>
-
-            <div className="relative flex items-center">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-3.5 pr-20 py-2.5 bg-white border border-[#DDD8CE] rounded-xl text-sm font-mono font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
-              />
-              <div className="absolute right-2 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="p-1.5 text-[#7A7A7A] hover:text-[#1A1A1A] rounded-lg transition-colors cursor-pointer"
-                  title={showPassword ? 'Sembunyikan' : 'Lihat password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyPassword}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    copiedPass ? 'text-emerald-700 bg-emerald-50' : 'text-[#7A7A7A] hover:text-[#1A1A1A]'
-                  }`}
-                  title="Salin Password"
-                >
-                  {copiedPass ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-            <p className="text-[11px] text-[#7A7A7A] mt-1">
-              Format unik otomatis mudah dihafal guru & wali murid namun tetap aman.
-            </p>
-          </div>
-
-          {/* Email / Username */}
+          {/* Section: Email & No. WhatsApp */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-[#3D3D3D] mb-1">
-                Email / Username Login
+                Username / Email Login
               </label>
               <div className="relative">
                 <Mail className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7A7A]" />
@@ -367,8 +418,16 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="email@sdnlatsari.sch.id"
-                  className="w-full pl-8 pr-3 py-2 bg-white border border-[#DDD8CE] rounded-xl text-xs text-[#1A1A1A]"
+                  className="w-full pl-8 pr-8 py-2 bg-white border border-[#DDD8CE] rounded-xl text-xs text-[#1A1A1A] font-mono"
                 />
+                <button
+                  type="button"
+                  onClick={handleCopyEmail}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#7A7A7A] hover:text-[#1A1A1A] cursor-pointer"
+                  title="Salin Email/Username"
+                >
+                  {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
               </div>
             </div>
 
@@ -389,6 +448,145 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
             </div>
           </div>
 
+          {/* Section: Password & Keamanan Akun */}
+          <div className="rounded-xl border border-[#DDD8CE] bg-white p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#1A1A1A] flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-[#922B21]" />
+                <span>Kata Sandi / Kredensial Akses</span>
+              </span>
+              {!isResetMode && (
+                <button
+                  type="button"
+                  onClick={handleStartReset}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-[#922B21] bg-[#FDEDEC] hover:bg-[#FADBD8] rounded-lg transition-colors cursor-pointer"
+                >
+                  <KeyRound className="w-3 h-3" />
+                  <span>Reset Password Baru</span>
+                </button>
+              )}
+            </div>
+
+            {/* View Mode: Informasi Password Aktif Saat Ini */}
+            {!isResetMode ? (
+              <div className="space-y-2.5">
+                {existingPassword ? (
+                  <div className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-medium text-[#666]">
+                        Password Aktif Tersimpan:
+                      </div>
+                      <div className="font-mono text-sm font-bold text-[#1A1A1A] mt-0.5">
+                        {showExistingPassword ? existingPassword : '••••••••••••••••'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowExistingPassword(!showExistingPassword)}
+                        className="p-1.5 text-[#7A7A7A] hover:text-[#1A1A1A] rounded-lg transition-colors cursor-pointer"
+                        title={showExistingPassword ? 'Sembunyikan' : 'Lihat password'}
+                      >
+                        {showExistingPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyExistingPassword}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          copiedExistingPass ? 'text-emerald-700 bg-emerald-50' : 'text-[#7A7A7A] hover:text-[#1A1A1A]'
+                        }`}
+                        title="Salin Password"
+                      >
+                        {copiedExistingPass ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE] text-xs text-[#666] leading-relaxed">
+                    <p className="font-medium text-[#1A1A1A] mb-1">
+                      🔒 Password terenkripsi aman di sistem
+                    </p>
+                    <p className="text-[11px] text-[#7A7A7A]">
+                      Untuk alasan keamanan, kata sandi lama tidak ditampilkan secara teks terbuka. Jika pengguna lupa kata sandi atau ingin kredensial baru, klik tombol <strong>&ldquo;Reset Password Baru&rdquo;</strong> di kanan atas.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Mode Reset: Form Generator Password Baru */
+              <div className="pt-2 border-t border-[#DDD8CE]/60 space-y-3 animate-in fade-in duration-150">
+                <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 leading-snug">
+                  Anda sedang dalam menu <strong>Reset Kata Sandi</strong>. Masukkan password baru atau gunakan generator otomatis di bawah ini.
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-[#3D3D3D] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Password Baru (Generator Otomatis)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRegenerate}
+                      className="text-xs font-semibold text-[#922B21] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Acak Ulang</span>
+                    </button>
+                  </div>
+
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-3.5 pr-20 py-2.5 bg-white border border-[#DDD8CE] rounded-xl text-sm font-mono font-bold text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
+                    />
+                    <div className="absolute right-2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="p-1.5 text-[#7A7A7A] hover:text-[#1A1A1A] rounded-lg transition-colors cursor-pointer"
+                        title={showPassword ? 'Sembunyikan' : 'Lihat password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyPassword}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          copiedPass ? 'text-emerald-700 bg-emerald-50' : 'text-[#7A7A7A] hover:text-[#1A1A1A]'
+                        }`}
+                        title="Salin Password"
+                      >
+                        {copiedPass ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetMode(false)}
+                    className="px-3 py-1.5 text-xs font-semibold text-[#666] hover:text-[#1A1A1A] rounded-lg border border-[#DDD8CE] bg-white transition-colors cursor-pointer"
+                  >
+                    Batal Reset
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={handleSaveAndReset}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>{submitting ? 'Menyimpan...' : 'Terapkan & Simpan Password'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* WhatsApp Direct Share Box */}
           <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200">
             <div className="flex items-center justify-between mb-2">
@@ -406,7 +604,7 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
               </button>
             </div>
             <p className="text-[11px] text-emerald-800 leading-relaxed mb-3">
-              Pesan siap kirim berisi tautan portal login, username, dan password baru yang telah diformat ramah dan sopan.
+              Pesan siap kirim berisi tautan portal login, username, dan info kata sandi yang telah diformat ramah dan sopan.
             </p>
             <button
               type="button"
@@ -422,25 +620,21 @@ Harap simpan password ini dengan baik untuk memantau Buku Penghubung, Presensi, 
 
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-[#FAF8F2] border-t border-[#DDD8CE] flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-[#666] hover:text-[#1A1A1A] rounded-xl border border-[#DDD8CE] bg-white transition-colors cursor-pointer"
-          >
-            Tutup
-          </button>
+          <div className="text-[11px] text-[#7A7A7A]">
+            Portal: <span className="font-semibold text-[#1A1A1A]">lapislada.pages.dev/login</span>
+          </div>
 
           <button
             type="button"
-            disabled={submitting}
-            onClick={handleSaveAndReset}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            onClick={onClose}
+            className="px-5 py-2 text-xs font-semibold text-[#666] hover:text-[#1A1A1A] rounded-xl border border-[#DDD8CE] bg-white transition-colors cursor-pointer"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>{submitting ? 'Menyimpan...' : 'Terapkan & Simpan Password'}</span>
+            Tutup
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+export { ResetPasswordModal as AccountDetailModal };

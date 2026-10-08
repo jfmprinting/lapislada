@@ -96,9 +96,9 @@ function KehadiranContent() {
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
-  const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
+  const [role, setRole] = useState<'guru' | 'admin' | 'orangtua' | 'kepala_sekolah'>('guru');
 
-  // Navigation Tab for Guru/Admin
+  // Navigation Tab for Guru/Admin/Kepsek
   const [activeTab, setActiveTab] = useState<'harian' | 'rekap'>('harian');
 
   // Master Data State
@@ -125,7 +125,9 @@ function KehadiranContent() {
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   const isOrangTua = role === 'orangtua';
+  const isKepalaSekolah = role === 'kepala_sekolah';
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   // Parent View States
   const [parentSiswa, setParentSiswa] = useState<any>(null);
@@ -138,12 +140,28 @@ function KehadiranContent() {
       const user = session?.user ?? null;
       if (user) {
         setUserId(user.id);
+        setUserEmail(user.email || '');
       }
-      const detectedRole =
-        (queryRole as 'guru' | 'admin' | 'orangtua') ||
-        (user?.user_metadata?.role as 'guru' | 'admin' | 'orangtua') ||
-        'guru';
-      setRole(detectedRole);
+
+      const metaRole = user?.user_metadata?.role;
+      const metaJabatan = user?.user_metadata?.jabatan;
+      const email = user?.email?.toLowerCase().trim();
+
+      const isKepsekDetected =
+        queryRole === 'kepala_sekolah' ||
+        metaRole === 'kepala_sekolah' ||
+        metaJabatan === 'kepala_sekolah' ||
+        email === 'kepsek@demo.com';
+
+      if (isKepsekDetected) {
+        setRole('kepala_sekolah');
+      } else {
+        const detectedRole =
+          (queryRole as 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah') ||
+          (metaRole as 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah') ||
+          'guru';
+        setRole(detectedRole);
+      }
     });
   }, [queryRole]);
 
@@ -212,26 +230,33 @@ function KehadiranContent() {
     const fetchKelas = async () => {
       setLoadingKelas(true);
       try {
-        let query = supabase
+        const { data: allKelas, error } = await supabase
           .from('kelas')
-          .select('id, nama_kelas, tahun_ajaran, wali_kelas_id, wali_kelas:wali_kelas_id(id, nama)')
+          .select('id, nama_kelas, tahun_ajaran, wali_kelas_id, wali_kelas:wali_kelas_id(id, nama, email)')
           .order('nama_kelas', { ascending: true });
-        
-        // Filter classes for guru: only show the class they are wali kelas for
-        if (role === 'guru' && userId) {
-          query = query.eq('wali_kelas_id', userId);
-        }
 
-        const { data, error } = await query;
+        if (!error && allKelas && allKelas.length > 0) {
+          if (role === 'guru') {
+            const cleanEmail = (userEmail || '').toLowerCase().trim();
+            // Filter classes for guru: match by wali_kelas_id or wali_kelas email
+            const myClasses = allKelas.filter((k: any) => {
+              const idMatch = userId && k.wali_kelas_id === userId;
+              const emailMatch = cleanEmail && k.wali_kelas?.email?.toLowerCase() === cleanEmail;
+              return idMatch || emailMatch;
+            });
 
-        if (!error && data && data.length > 0) {
-          setKelasList(data as unknown as Kelas[]);
-          // Default to first class available to them
-          setSelectedKelasId(data[0].id);
-        } else if (role === 'guru') {
-          // If a guru has no class, set an empty list
-          setKelasList([]);
-          setSelectedKelasId('');
+            if (myClasses.length > 0) {
+              setKelasList(myClasses as unknown as Kelas[]);
+              setSelectedKelasId(myClasses[0].id);
+            } else {
+              setKelasList([]);
+              setSelectedKelasId('');
+            }
+          } else {
+            // Admin: gets all classes
+            setKelasList(allKelas as unknown as Kelas[]);
+            setSelectedKelasId(allKelas[0].id);
+          }
         } else {
           setKelasList([]);
           setSelectedKelasId('');
@@ -243,11 +268,11 @@ function KehadiranContent() {
       }
     };
     
-    // Only fetch if role is determined and (for guru) userId is available
-    if (role === 'admin' || (role === 'guru' && userId)) {
+    // Only fetch if role is determined and (for guru) userId or userEmail is available
+    if (role === 'admin' || (role === 'guru' && (userId || userEmail))) {
       fetchKelas();
     }
-  }, [role, userId]);
+  }, [role, userId, userEmail]);
 
   // 3. Fetch Students & Daily Attendance whenever selectedKelasId or selectedDate changes
   useEffect(() => {
@@ -693,6 +718,21 @@ function KehadiranContent() {
           </div>
         )}
 
+        {/* Banner Khusus Kepala Sekolah */}
+        {isKepalaSekolah && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 shadow-xs animate-in fade-in duration-200">
+            <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-xs">Mode Pengawasan Presensi Kepala Sekolah</h4>
+              <p className="text-[11px] text-amber-800 leading-snug">
+                Anda dapat memantau presensi harian dan rekap bulanan seluruh rombel kelas tanpa batasan wali kelas (mode pemantauan eksekutif).
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* ORANG TUA VIEW (100% REAL DATABASE DATA) */}
         {isOrangTua ? (
           <div className="space-y-6">
@@ -906,12 +946,14 @@ function KehadiranContent() {
                   <Users className="w-4 h-4 text-[#C0392B]" />
                   <span>Daftar Siswa {currentKelasObj.nama_kelas} ({dailyStudents.length} Siswa)</span>
                 </span>
-                <button
-                  onClick={markAllHadir}
-                  className="text-xs font-bold text-[#922B21] hover:underline cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-[#DDD8CE] shadow-xs active:scale-95"
-                >
-                  ✓ Tandai Semua Hadir
-                </button>
+                {!isKepalaSekolah && (
+                  <button
+                    onClick={markAllHadir}
+                    className="text-xs font-bold text-[#922B21] hover:underline cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-[#DDD8CE] shadow-xs active:scale-95"
+                  >
+                    ✓ Tandai Semua Hadir
+                  </button>
+                )}
               </div>
 
               <div className="divide-y divide-[#F5F0E8]">
@@ -955,8 +997,11 @@ function KehadiranContent() {
                         return (
                           <button
                             key={st}
+                            disabled={isKepalaSekolah}
                             onClick={() => handleDailyStatusChange(student.id, st)}
-                            className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer active:scale-95 ${colorMap[st]}`}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition active:scale-95 ${colorMap[st]} ${
+                              isKepalaSekolah ? 'cursor-default opacity-85' : 'cursor-pointer'
+                            }`}
                             title={
                               st === 'H'
                                 ? 'Hadir'
@@ -986,14 +1031,21 @@ function KehadiranContent() {
                 <span className="font-bold text-[#922B21]">A = Alpha</span>
               </p>
 
-              <button
-                onClick={handleSaveDaily}
-                disabled={savingDaily}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 shrink-0"
-              >
-                <Save className="w-4 h-4" />
-                <span>{savingDaily ? 'Menyimpan Absensi...' : `Simpan Absensi ${selectedDate} →`}</span>
-              </button>
+              {isKepalaSekolah ? (
+                <span className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-semibold shadow-xs">
+                  <Award className="w-4 h-4 text-amber-700" />
+                  <span>Mode Pengawasan Kepala Sekolah (Read-Only)</span>
+                </span>
+              ) : (
+                <button
+                  onClick={handleSaveDaily}
+                  disabled={savingDaily}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 shrink-0"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{savingDaily ? 'Menyimpan Absensi...' : `Simpan Absensi ${selectedDate} →`}</span>
+                </button>
+              )}
             </div>
           </div>
         ) : (

@@ -22,6 +22,7 @@ import {
   ArrowUpDown,
   Check,
   KeyRound,
+  Eye,
 } from 'lucide-react';
 import ResetPasswordModal, { TargetResetUser } from '@/components/admin/ResetPasswordModal';
 
@@ -644,10 +645,10 @@ export default function MasterSiswaPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleOpenResetPassword(item)}
-                            className="p-1.5 text-[#6B6B6B] hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                            title="Reset Password & Bagikan Akun ke Wali Murid via WA"
+                            className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition-colors cursor-pointer"
+                            title="Lihat Detail Akun & Akses Login"
                           >
-                            <KeyRound className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(item)}

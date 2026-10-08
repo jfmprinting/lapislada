@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, BookOpen, Bell, CalendarCheck, GraduationCap, FolderLock, Menu, Award, HeartHandshake } from 'lucide-react';
 
 interface BottomNavProps {
-  role?: 'guru' | 'orangtua' | 'admin';
+  role?: 'guru' | 'orangtua' | 'admin' | 'kepala_sekolah';
   onMenuClick?: () => void;
 }
 
@@ -27,6 +27,15 @@ export default function BottomNav({ role = 'guru', onMenuClick }: BottomNavProps
         { label: 'Buku', href: '/buku-penghubung?role=orangtua', icon: BookOpen },
         { label: 'Nilai', href: '/nilai?role=orangtua', icon: Award },
         { label: 'Kehadiran', href: '/kehadiran?role=orangtua', icon: CalendarCheck },
+      ];
+    }
+
+    if (role === 'kepala_sekolah') {
+      return [
+        { label: 'Eksekutif', href: '/dashboard/kepala-sekolah', icon: Home },
+        { label: 'Presensi', href: '/kehadiran', icon: CalendarCheck },
+        { label: 'Nilai', href: '/nilai', icon: Award },
+        { label: 'Menu', icon: Menu, isMenuTrigger: true },
       ];
     }
 

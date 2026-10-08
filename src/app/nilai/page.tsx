@@ -93,6 +93,7 @@ function NilaiContent() {
 
   // Wali Kelas restriction: detected from kelas.wali_kelas_id = currentUser.id
   const [isWaliKelas, setIsWaliKelas] = useState<boolean>(false);
+  const [isKepalaSekolah, setIsKepalaSekolah] = useState<boolean>(false);
   const [waliKelasNama, setWaliKelasNama] = useState<string>('');
   const [allowedKelasList, setAllowedKelasList] = useState<Kelas[]>([]);
 
@@ -150,10 +151,17 @@ function NilaiContent() {
       try {
         // Get current session user
         const { data: sessionData } = await supabase.auth.getSession();
-        const currentUserId = sessionData?.session?.user?.id;
+        const currentUser = sessionData?.session?.user;
+        const currentUserId = currentUser?.id;
+        const currentUserEmail = currentUser?.email?.toLowerCase().trim();
+        const metaRole = currentUser?.user_metadata?.role;
+        const metaJabatan = currentUser?.user_metadata?.jabatan;
 
-        // Fetch all kelas
-        const { data: kData } = await supabase.from('kelas').select('*').order('nama_kelas');
+        // Fetch all kelas with wali_kelas joined
+        const { data: kData } = await supabase
+          .from('kelas')
+          .select('*, wali_kelas:wali_kelas_id(id, nama, email)')
+          .order('nama_kelas');
         const fetchedKelas: Kelas[] = kData && kData.length > 0 ? kData : [
           { id: 'k-1', nama_kelas: 'Kelas 1', tahun_ajaran: '2026/2027' },
           { id: 'k-2', nama_kelas: 'Kelas 2', tahun_ajaran: '2026/2027' },
@@ -165,44 +173,53 @@ function NilaiContent() {
         ];
         setKelasList(fetchedKelas);
 
-        // Detect Wali Kelas: find a class where wali_kelas_id matches current user
-        if (currentUserId) {
-          const myKelas = kData?.find((k: any) => k.wali_kelas_id === currentUserId);
+        // Deteksi Kepala Sekolah
+        let detectedKepsek =
+          roleParam === 'kepala_sekolah' ||
+          metaRole === 'kepala_sekolah' ||
+          metaJabatan === 'kepala_sekolah' ||
+          currentUserEmail === 'kepsek@demo.com';
+
+        if (!detectedKepsek && currentUserId) {
+          const { data: prof } = await supabase
+            .from('users_profile')
+            .select('role, jabatan')
+            .eq('id', currentUserId)
+            .maybeSingle();
+          if (prof && (prof.role === 'kepala_sekolah' || (prof as any).jabatan === 'kepala_sekolah')) {
+            detectedKepsek = true;
+          }
+        }
+
+        setIsKepalaSekolah(detectedKepsek);
+
+        if (detectedKepsek) {
+          // Kepala Sekolah: Akses pengawasan seluruh rombel & bisa buka Leger seluruh rombel
+          setIsWaliKelas(false);
+          setAllowedKelasList(fetchedKelas);
+          if (fetchedKelas.length > 0) {
+            setSelectedKelasId(fetchedKelas[0].id);
+          }
+        } else {
+          // Detect Wali Kelas: match either by wali_kelas_id or by email
+          const myKelas = kData?.find((k: any) => {
+            const idMatch = currentUserId && k.wali_kelas_id === currentUserId;
+            const emailMatch = currentUserEmail && k.wali_kelas?.email?.toLowerCase() === currentUserEmail;
+            return idMatch || emailMatch;
+          });
+
           if (myKelas) {
             setIsWaliKelas(true);
             setWaliKelasNama(myKelas.nama_kelas);
             setAllowedKelasList([myKelas]);
             setSelectedKelasId(myKelas.id);
           } else {
-            // Guru murni / Admin: akses ke semua kelas
+            // Guru murni / Guru Mapel / Admin: akses ke semua kelas
             setIsWaliKelas(false);
             setAllowedKelasList(fetchedKelas);
-          }
-        } else {
-          // Fallback: check localStorage credential registry
-          try {
-            const credRaw = localStorage.getItem('lapislada_credentials');
-            if (credRaw) {
-              const creds = JSON.parse(credRaw);
-              const guruCred = Object.values(creds).find((c: any) => c.role === 'guru') as any;
-              if (guruCred?.userId) {
-                const myKelas = kData?.find((k: any) => k.wali_kelas_id === guruCred.userId);
-                if (myKelas) {
-                  setIsWaliKelas(true);
-                  setWaliKelasNama(myKelas.nama_kelas);
-                  setAllowedKelasList([myKelas]);
-                  setSelectedKelasId(myKelas.id);
-                } else {
-                  setAllowedKelasList(fetchedKelas);
-                }
-              } else {
-                setAllowedKelasList(fetchedKelas);
-              }
-            } else {
-              setAllowedKelasList(fetchedKelas);
+            if (fetchedKelas.length > 0) {
+              setSelectedKelasId(fetchedKelas[0].id);
             }
-          } catch {
-            setAllowedKelasList(fetchedKelas);
           }
         }
 
@@ -224,9 +241,10 @@ function NilaiContent() {
     loadData();
   }, []);
 
-  // Filtered students based on selected class
+  // Filtered students based strictly on selected class (never include students with null kelas_id)
   const currentStudents = useMemo(() => {
-    return siswaList.filter((s) => s.kelas_id === selectedKelasId || !s.kelas_id || selectedKelasId === 'k-4a');
+    if (!selectedKelasId) return [];
+    return siswaList.filter((s) => s.kelas_id === selectedKelasId);
   }, [siswaList, selectedKelasId]);
 
   // Current selected mapel metadata
@@ -238,7 +256,12 @@ function NilaiContent() {
 
   // Statistics calculation for the current grid
   const stats = useMemo(() => {
-    const scores = currentStudents.map((s) => gridScores[s.id]?.nilai || 0).filter((v) => v > 0);
+    const scores = currentStudents
+      .map((s) => {
+        const val = gridScores[s.id]?.nilai;
+        return typeof val === 'number' ? val : (val ? parseInt(String(val), 10) : 0);
+      })
+      .filter((v) => v > 0);
     if (scores.length === 0) return { avg: 0, highest: 0, lowest: 0, passRate: 0 };
     const sum = scores.reduce((a, b) => a + b, 0);
     const avg = Math.round((sum / scores.length) * 10) / 10;
@@ -249,9 +272,20 @@ function NilaiContent() {
     return { avg, highest, lowest, passRate };
   }, [currentStudents, gridScores, kkm]);
 
-  // Handler: Update score for a single student
-  const handleScoreChange = (studentId: string, value: number) => {
-    const clamped = Math.max(0, Math.min(100, isNaN(value) ? 0 : value));
+  // Handler: Update score for a single student (supports blank typing, no sticky 0)
+  const handleScoreChange = (studentId: string, rawVal: string) => {
+    if (rawVal === '') {
+      setGridScores((prev) => ({
+        ...prev,
+        [studentId]: {
+          nilai: '' as unknown as number,
+          catatan: prev[studentId]?.catatan || '',
+        },
+      }));
+      return;
+    }
+    const num = parseInt(rawVal, 10);
+    const clamped = isNaN(num) ? 0 : Math.max(0, Math.min(100, num));
     setGridScores((prev) => ({
       ...prev,
       [studentId]: {
@@ -266,7 +300,7 @@ function NilaiContent() {
     setGridScores((prev) => ({
       ...prev,
       [studentId]: {
-        nilai: prev[studentId]?.nilai || 0,
+        nilai: prev[studentId]?.nilai !== undefined ? prev[studentId]?.nilai : 0,
         catatan,
       },
     }));
@@ -277,16 +311,20 @@ function NilaiContent() {
     setSaving(true);
     try {
       // Upsert to Supabase 'nilai' table
-      const upsertRows = currentStudents.map((s) => ({
-        siswa_id: s.id.startsWith('s-') ? null : s.id,
-        mapel_id: currentMapel.id.startsWith('m-') ? null : currentMapel.id,
-        jenis_ujian: selectedJenisAsesmen,
-        nilai: gridScores[s.id]?.nilai || 0,
-        semester,
-        tahun_ajaran: tahunAjaran,
-        catatan: gridScores[s.id]?.catatan || null,
-        created_at: new Date().toISOString(),
-      })).filter((r) => r.siswa_id && r.mapel_id);
+      const upsertRows = currentStudents.map((s) => {
+        const raw = gridScores[s.id]?.nilai;
+        const num = typeof raw === 'number' ? raw : (raw ? parseInt(String(raw), 10) : 0);
+        return {
+          siswa_id: s.id.startsWith('s-') ? null : s.id,
+          mapel_id: currentMapel.id.startsWith('m-') ? null : currentMapel.id,
+          jenis_ujian: selectedJenisAsesmen,
+          nilai: num,
+          semester,
+          tahun_ajaran: tahunAjaran,
+          catatan: gridScores[s.id]?.catatan || null,
+          created_at: new Date().toISOString(),
+        };
+      }).filter((r) => r.siswa_id && r.mapel_id);
 
       if (upsertRows.length > 0) {
         await supabase.from('nilai').upsert(upsertRows);
@@ -521,19 +559,38 @@ function NilaiContent() {
   }
 
   // =========================================================================
-  // VIEW 2: GURU & WALI KELAS VIEW
+  // VIEW 2: GURU, WALI KELAS & KEPALA SEKOLAH VIEW
   // =========================================================================
   return (
     <AppShell
-      role="guru"
-      pageTitle="Nilai & Asesmen Siswa"
-      pageSubtitle="Alur input nilai guru mata pelajaran dan buku leger rekapitulasi wali kelas"
+      role={isKepalaSekolah ? 'kepala_sekolah' : 'guru'}
+      pageTitle={isKepalaSekolah ? 'Monitoring Nilai & Asesmen Sekolah' : 'Nilai & Asesmen Siswa'}
+      pageSubtitle={
+        isKepalaSekolah
+          ? 'Pemantauan komprehensif capaian nilai siswa dan buku leger seluruh kelas'
+          : 'Alur input nilai guru mata pelajaran dan buku leger rekapitulasi wali kelas'
+      }
     >
       <div className="space-y-6">
+        {/* Banner Khusus Kepala Sekolah */}
+        {isKepalaSekolah && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 shadow-xs animate-in fade-in duration-200">
+            <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-xs">Mode Pengawasan Eksekutif Kepala Sekolah</h4>
+              <p className="text-[11px] text-amber-800 leading-snug">
+                Anda memiliki akses pemantauan ke seluruh rombel kelas (Kelas 1–6) dan buku leger lengkap tanpa batasan wali kelas (mode read-only).
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* TOP TAB TOGGLE: Input Asesmen Mapel VS Buku Leger Rombel */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-[#DDD8CE] shadow-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className={`grid gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 ${isWaliKelas ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 ${isWaliKelas || isKepalaSekolah ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <button
                 onClick={() => setActiveTab('input')}
                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -543,11 +600,11 @@ function NilaiContent() {
                 }`}
               >
                 <Award className="w-4 h-4" />
-                <span>Input Nilai</span>
+                <span>Input / Cek Nilai</span>
               </button>
 
-              {/* Buku Leger Tab: only visible for Wali Kelas */}
-              {isWaliKelas && (
+              {/* Buku Leger Tab: visible for Wali Kelas OR Kepala Sekolah */}
+              {(isWaliKelas || isKepalaSekolah) && (
                 <button
                   onClick={() => setActiveTab('leger')}
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -562,13 +619,18 @@ function NilaiContent() {
               )}
             </div>
 
-            {/* Wali Kelas badge */}
-            {isWaliKelas && (
+            {/* Wali Kelas / Kepala Sekolah badge */}
+            {isKepalaSekolah ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-[11px] font-bold text-amber-900">
+                <Award className="w-3.5 h-3.5 text-amber-700" />
+                <span>Pengawasan Pimpinan</span>
+              </div>
+            ) : isWaliKelas ? (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Wali Kelas {waliKelasNama}</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 px-2 text-xs text-[#666]">
@@ -707,15 +769,22 @@ function NilaiContent() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleSaveAll}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Menyimpan...' : 'Simpan Semua Nilai'}</span>
-                </button>
+                {isKepalaSekolah ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-semibold shadow-xs">
+                    <Shield className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Mode Read-Only Kepala Sekolah</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handleSaveAll}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{saving ? 'Menyimpan...' : 'Simpan Semua Nilai'}</span>
+                  </button>
+                )}
               </div>
 
               <div className="overflow-x-auto">
@@ -731,9 +800,10 @@ function NilaiContent() {
                   </thead>
                   <tbody className="divide-y divide-[#DDD8CE]/60">
                     {currentStudents.map((s, idx) => {
-                      const currentScore = gridScores[s.id]?.nilai ?? 0;
+                      const rawScore = gridScores[s.id]?.nilai;
+                      const numericScore = typeof rawScore === 'number' ? rawScore : (rawScore ? parseInt(String(rawScore), 10) : 0);
                       const currentNote = gridScores[s.id]?.catatan || '';
-                      const isPassed = currentScore >= kkm;
+                      const isPassed = numericScore >= kkm;
 
                       return (
                         <tr key={s.id} className="hover:bg-[#FAF8F2]/60 transition-colors">
@@ -749,13 +819,16 @@ function NilaiContent() {
                               type="number"
                               min="0"
                               max="100"
-                              value={currentScore}
-                              onChange={(e) => handleScoreChange(s.id, parseInt(e.target.value, 10))}
+                              disabled={isKepalaSekolah}
+                              value={rawScore !== undefined ? rawScore : 0}
+                              placeholder="0"
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => handleScoreChange(s.id, e.target.value)}
                               className={`w-20 px-2.5 py-1.5 rounded-xl border text-center font-bold text-sm font-mono focus:outline-none transition-all ${
                                 isPassed
                                   ? 'border-emerald-300 bg-emerald-50/50 text-emerald-800 focus:ring-2 focus:ring-emerald-500'
                                   : 'border-[#F1948A] bg-[#FDEDEC]/50 text-[#922B21] focus:ring-2 focus:ring-[#922B21]'
-                              }`}
+                              } ${isKepalaSekolah ? 'cursor-not-allowed opacity-80 bg-gray-50' : ''}`}
                             />
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -770,12 +843,15 @@ function NilaiContent() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <input
-                              type="text"
+                            <textarea
+                              rows={1}
+                              disabled={isKepalaSekolah}
                               value={currentNote}
                               placeholder="Ketik catatan kemajuan belajar atau tindak lanjut..."
                               onChange={(e) => handleNoteChange(s.id, e.target.value)}
-                              className="w-full px-3 py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
+                              className={`w-full px-3 py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21] resize-y min-h-[38px] leading-relaxed transition-all ${
+                                isKepalaSekolah ? 'cursor-not-allowed opacity-80 bg-gray-50' : ''
+                              }`}
                             />
                           </td>
                         </tr>

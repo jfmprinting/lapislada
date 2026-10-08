@@ -33,7 +33,7 @@ import PWAInstallSidebarButton from '@/components/pwa/PWAInstallSidebarButton';
 
 interface AppShellProps {
   children: React.ReactNode;
-  role?: 'guru' | 'admin' | 'orangtua';
+  role?: 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah';
   pageTitle?: string;
   pageSubtitle?: string;
   unreadCount?: number;
@@ -93,8 +93,12 @@ export default function AppShell({
   }).format(new Date());
 
   // Determine active role dynamically from user metadata or props
-  const activeRole: 'guru' | 'admin' | 'orangtua' =
-    (currentUser?.user_metadata?.role as 'guru' | 'admin' | 'orangtua') || role;
+  const rawRole =
+    (currentUser?.user_metadata?.role as string) ||
+    (currentUser?.user_metadata?.jabatan === 'kepala_sekolah' ? 'kepala_sekolah' : undefined) ||
+    role;
+  const activeRole: 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah' =
+    rawRole === 'kepala_sekolah' ? 'kepala_sekolah' : (rawRole as any) || 'guru';
 
   // Build role-aware navigation groups
   const getNavGroups = () => {
@@ -134,6 +138,82 @@ export default function AppShell({
         {
           title: 'Informasi',
           items: [
+            {
+              label: 'Halaman Publik',
+              href: '/',
+              icon: ExternalLink,
+            },
+          ],
+        },
+      ];
+    }
+
+    if (activeRole === 'kepala_sekolah') {
+      return [
+        {
+          title: 'Menu Utama',
+          items: [
+            {
+              label: 'Dashboard Eksekutif',
+              href: '/dashboard/kepala-sekolah',
+              icon: Home,
+            },
+            {
+              label: 'Buku Penghubung',
+              href: '/buku-penghubung',
+              icon: BookOpen,
+              badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
+            },
+            {
+              label: 'Pengumuman Sekolah',
+              href: '/pengumuman',
+              icon: Bell,
+            },
+          ],
+        },
+        {
+          title: 'Monitoring Akademik',
+          items: [
+            {
+              label: 'Presensi Seluruh Kelas',
+              href: '/kehadiran',
+              icon: CalendarCheck,
+            },
+            {
+              label: 'Nilai & Leger Sekolah',
+              href: '/nilai',
+              icon: Award,
+            },
+            {
+              label: 'Materi Pelajaran',
+              href: '/materi',
+              icon: FolderOpen,
+            },
+            {
+              label: 'Monitoring 7 KAIH',
+              href: '/kaih',
+              icon: HeartHandshake,
+            },
+          ],
+        },
+        {
+          title: 'Administrasi & Laporan',
+          items: [
+            {
+              label: 'Dokumen BOS',
+              href: '/dokumen-bos',
+              icon: FolderLock,
+            },
+            {
+              label: 'Galeri Sekolah',
+              href: '/galeri',
+              icon: Camera,
+            },
+            {
+              label: 'Profil Sekolah',
+              href: '/admin/profil-sekolah',
+              icon: School,
+            },
             {
               label: 'Halaman Publik',
               href: '/',
@@ -372,19 +452,23 @@ export default function AppShell({
             <div className="px-4 py-3 bg-[#FAF8F2] border-b border-[#E8E0D0] flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-[#FDEDEC] border border-[#F1948A] text-[#922B21] flex items-center justify-center font-bold text-xs shrink-0">
-                  {activeRole === 'admin' ? 'AD' : activeRole === 'guru' ? 'BS' : 'WM'}
+                  {activeRole === 'kepala_sekolah' ? 'KS' : activeRole === 'admin' ? 'AD' : activeRole === 'guru' ? 'BS' : 'WM'}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-[#1A1A1A] truncate">
                     {currentUser?.user_metadata?.nama ||
-                      (activeRole === 'admin'
+                      (activeRole === 'kepala_sekolah'
+                        ? 'Santoso, S.Pd., M.Pd'
+                        : activeRole === 'admin'
                         ? 'Administrator'
                         : activeRole === 'guru'
                         ? 'Guru'
                         : 'Pak Budi')}
                   </div>
                   <div className="text-[10px] text-[#6B6B6B] truncate">
-                    {activeRole === 'admin'
+                    {activeRole === 'kepala_sekolah'
+                      ? 'Kepala Sekolah'
+                      : activeRole === 'admin'
                       ? 'Admin Sekolah'
                       : activeRole === 'guru'
                       ? 'Guru / Wali Kelas'
@@ -392,8 +476,12 @@ export default function AppShell({
                   </div>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]">
-                {activeRole}
+              <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                activeRole === 'kepala_sekolah'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                  : 'bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]'
+              }`}>
+                {activeRole === 'kepala_sekolah' ? 'Kepala Sekolah' : activeRole}
               </span>
             </div>
 
@@ -487,19 +575,23 @@ export default function AppShell({
         <div className="px-4 py-3 bg-[#FAF8F2] border-b border-[#E8E0D0] flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-[#FDEDEC] border border-[#F1948A] text-[#922B21] flex items-center justify-center font-bold text-xs shrink-0">
-              {activeRole === 'admin' ? 'AD' : activeRole === 'guru' ? 'BS' : 'WM'}
+              {activeRole === 'kepala_sekolah' ? 'KS' : activeRole === 'admin' ? 'AD' : activeRole === 'guru' ? 'BS' : 'WM'}
             </div>
             <div className="min-w-0">
               <div className="text-xs font-bold text-[#1A1A1A] truncate">
                 {currentUser?.user_metadata?.nama ||
-                  (activeRole === 'admin'
+                  (activeRole === 'kepala_sekolah'
+                    ? 'Santoso, S.Pd., M.Pd'
+                    : activeRole === 'admin'
                     ? 'Administrator'
                     : activeRole === 'guru'
                     ? 'Guru'
                     : 'Pak Budi')}
               </div>
               <div className="text-[10px] text-[#6B6B6B] truncate">
-                {activeRole === 'admin'
+                {activeRole === 'kepala_sekolah'
+                  ? 'Kepala Sekolah'
+                  : activeRole === 'admin'
                   ? 'Admin Sekolah'
                   : activeRole === 'guru'
                   ? 'Guru / Wali Kelas'
@@ -507,8 +599,12 @@ export default function AppShell({
               </div>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]">
-            {activeRole}
+          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+            activeRole === 'kepala_sekolah'
+              ? 'bg-amber-100 text-amber-900 border border-amber-300'
+              : 'bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]'
+          }`}>
+            {activeRole === 'kepala_sekolah' ? 'Kepala Sekolah' : activeRole}
           </span>
         </div>
 

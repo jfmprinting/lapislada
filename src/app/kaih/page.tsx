@@ -10,7 +10,7 @@ import {
   PilarKaih,
   compressImageFile,
 } from '@/lib/supabase';
-import { INITIAL_KAIH_KEGIATAN } from '@/lib/kaihData';
+import { INITIAL_KAIH_KEGIATAN, generateKaihWhatsAppBroadcast } from '@/lib/kaihData';
 import { useNotification } from '@/components/ui/NotificationContext';
 import {
   HeartHandshake,
@@ -33,6 +33,9 @@ import {
   ChevronRight,
   BookOpen,
   Info,
+  MessageCircle,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 function KaihContent() {
@@ -72,6 +75,11 @@ function KaihContent() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Modal State for WhatsApp Broadcast Preview
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waSelectedKegiatan, setWaSelectedKegiatan] = useState<KaihKegiatan | null>(null);
+  const [waBroadcastText, setWaBroadcastText] = useState('');
+
   // Sample student list for Kelas 4A
   const siswaKelasList = [
     { id: 's-1', nama: 'Ahmad Budi Santoso' },
@@ -88,22 +96,76 @@ function KaihContent() {
       setRole('orangtua');
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function initAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const meta = session.user.user_metadata;
         const detectedRole = (meta?.role as 'guru' | 'admin' | 'orangtua') || roleParam || 'guru';
         setRole(detectedRole);
 
+        // Fetch real profile
+        const { data: prof } = await supabase
+          .from('users_profile')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
         if (detectedRole === 'orangtua') {
-          const rawName = (meta?.nama || 'Wali Murid Ahmad').replace(/\s*\(Wali Murid\)/i, '').trim();
+          const rawName = (prof?.nama || meta?.nama || 'Wali Murid').replace(/\s*\(Wali Murid\)/i, '').trim();
           setStudentName(rawName || 'Ahmad Budi Santoso');
-          setCurrentUserName(`Wali Murid ${rawName || 'Ahmad'}`);
+          setCurrentUserName(`Wali Murid ${rawName}`);
         } else {
-          setCurrentUserName(meta?.nama || 'Bu Sari, S.Pd (Wali Kelas 4A)');
+          const guruName = prof?.nama || meta?.nama || 'Guru / Wali Kelas';
+          setCurrentUserName(guruName);
+
+          // Cek kelas yang diampu
+          const { data: kData } = await supabase
+            .from('kelas')
+            .select('*')
+            .or(`wali_kelas_id.eq.${session.user.id},wali_kelas_id.eq.${prof?.id}`);
+          if (kData && kData.length > 0) {
+            setStudentClass(kData[0].nama_kelas);
+          }
         }
       }
-    });
+    }
+    initAuth();
   }, [searchParams]);
+
+  // Handler: Open WhatsApp Broadcast Modal
+  const handleOpenWaModal = (item: KaihKegiatan) => {
+    setWaSelectedKegiatan(item);
+    const text = generateKaihWhatsAppBroadcast(item, {
+      namaSekolah: 'SDN Latsari 2 Bancar',
+      namaKelas: studentClass || 'Kelas I',
+      namaGuru: currentUserName,
+    });
+    setWaBroadcastText(text);
+    setWaModalOpen(true);
+  };
+
+  // Handler: Copy text to clipboard
+  const handleCopyWaText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast({
+        type: 'success',
+        title: 'Berhasil Disalin!',
+        message: 'Redaksi WhatsApp telah disalin ke clipboard. Siap dipaste ke grup WA kelas.',
+      });
+    } catch (err) {
+      showToast({
+        type: 'info',
+        message: 'Teks siap disalin.',
+      });
+    }
+  };
+
+  // Handler: Open WhatsApp directly
+  const handleOpenWhatsAppUrl = (text: string) => {
+    const encoded = encodeURIComponent(text);
+    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+  };
 
   // 2. Fetch Data from Supabase / localStorage fallback
   useEffect(() => {
@@ -790,15 +852,26 @@ function KaihContent() {
                         </div>
 
                         <div className="p-4 pt-2 border-t border-[#F5F0E8] flex items-center justify-between text-[11px] text-[#6B6B6B]">
-                          <span>{item.creator_nama}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteActivity(item.id)}
-                            className="p-1 text-[#C0392B] hover:bg-[#FDEDEC] rounded-md transition cursor-pointer"
-                            title="Hapus Kegiatan"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <span className="truncate max-w-[130px] font-medium">{item.creator_nama}</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenWaModal(item)}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center gap-1.5 border border-emerald-200 transition cursor-pointer active:scale-95 shadow-2xs"
+                              title="Format Pesan Siap Kirim ke Grup WA Paguyuban Kelas"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Redaksi WA</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteActivity(item.id)}
+                              className="p-1.5 text-[#C0392B] hover:bg-[#FDEDEC] rounded-md transition cursor-pointer"
+                              title="Hapus Kegiatan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1131,6 +1204,91 @@ function KaihContent() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODAL PRATINJAU & SALIN REDAKSI WHATSAPP GRUP KELAS */}
+        {/* ========================================================================= */}
+        {waModalOpen && waSelectedKegiatan && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl p-6 border border-[#DDD8CE] animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-[#E8E0D0]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                    <MessageCircle className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
+                      Redaksi Siap Kirim ke WhatsApp Grup Kelas
+                    </h3>
+                    <p className="text-[11px] text-[#6B6B6B]">
+                      Pilar {waSelectedKegiatan.kategori_id}: {waSelectedKegiatan.kategori_nama}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWaModalOpen(false)}
+                  className="p-1 rounded-lg text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Info banner */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 mb-3 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Redaksi ini otomatis dirangkai secara <strong>dinamis</strong> menyesuaikan nama sekolah, kelas, tanggal, judul kegiatan, dan pesan kolaborasi wali murid. Anda dapat mengedit teks di bawah sebelum disalin atau dikirim langsung.
+                </p>
+              </div>
+
+              {/* Textarea Preview & Edit */}
+              <div className="flex-1 overflow-y-auto mb-4">
+                <label className="block text-xs font-bold text-[#3D3D3D] mb-1.5">
+                  Isi Pesan Siaran (Bisa diedit langsung):
+                </label>
+                <textarea
+                  rows={13}
+                  value={waBroadcastText}
+                  onChange={(e) => setWaBroadcastText(e.target.value)}
+                  className="w-full p-3.5 rounded-xl border border-[#DDD8CE] bg-[#FAF8F2] font-sans text-xs text-[#1A1A1A] leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 whitespace-pre-wrap select-text resize-y"
+                />
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-3 border-t border-[#E8E0D0] flex flex-wrap items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setWaModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-white border border-[#DDD8CE] text-xs font-semibold text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] cursor-pointer"
+                >
+                  Tutup
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyWaText(waBroadcastText)}
+                    className="px-4 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 text-xs font-bold transition shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Salin Pesan WA</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWhatsAppUrl(waBroadcastText)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Buka WhatsApp</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
