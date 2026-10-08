@@ -63,7 +63,7 @@ export default function AppShell({
         const { count, error } = await supabase
           .from('buku_penghubung')
           .select('*', { count: 'exact', head: true })
-          .eq('dibaca', false);
+          .eq('is_read_by_guru', false);
         if (!error && typeof count === 'number') {
           setRealUnreadCount(count);
         } else {
@@ -692,8 +692,7 @@ export default function AppShell({
         <Navbar
           schoolName={activeRole === 'orangtua' ? 'Portal Orang Tua' : 'LAPIS LADA'}
           showLoginCta={false}
-          showMenuButton={true}
-          onMenuClick={() => setMobileMenuOpen(true)}
+          showMenuButton={false}
         />
       </div>
 

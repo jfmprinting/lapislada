@@ -26,7 +26,9 @@ export default function BottomNav({ role = 'guru', onMenuClick }: BottomNavProps
         { label: 'KAIH', href: '/kaih?role=orangtua', icon: HeartHandshake },
         { label: 'Buku', href: '/buku-penghubung?role=orangtua', icon: BookOpen },
         { label: 'Nilai', href: '/nilai?role=orangtua', icon: Award },
-        { label: 'Kehadiran', href: '/kehadiran?role=orangtua', icon: CalendarCheck },
+        ...(onMenuClick
+          ? [{ label: 'Menu', icon: Menu, isMenuTrigger: true }]
+          : [{ label: 'Kehadiran', href: '/kehadiran?role=orangtua', icon: CalendarCheck }]),
       ];
     }
 
