@@ -128,23 +128,54 @@ function NilaiContent() {
     return `${selectedKelasId}_${selectedMapelId}_${selectedJenisAsesmen}_${semester}_${tahunAjaran}`;
   }, [selectedKelasId, selectedMapelId, selectedJenisAsesmen, semester, tahunAjaran]);
 
-  // Load Jenis Asesmen from localStorage (admin settings)
+  // Load Jenis Asesmen from Supabase Cloud (with localStorage cache fallback)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    async function loadJenisAsesmen() {
+      // 1. Ambil dari cache lokal terlebih dahulu agar dropdown siap seketika
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem(JENIS_ASESMEN_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const active = parsed.filter((j: any) => j.aktif !== false);
+            if (active.length > 0) {
+              setJenisAsesmenList(active);
+              setSelectedJenisAsesmen(active[0].nama);
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 2. Ambil data terbaru dari Cloud Supabase
       try {
-        const stored = localStorage.getItem(JENIS_ASESMEN_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          const active = parsed.filter((j: any) => j.aktif !== false);
+        const { data, error } = await supabase
+          .from('jenis_asesmen')
+          .select('*')
+          .order('urutan', { ascending: true });
+
+        if (data && data.length > 0 && !error) {
+          const active = data.filter((j: any) => j.aktif !== false);
           if (active.length > 0) {
             setJenisAsesmenList(active);
-            setSelectedJenisAsesmen(active[0].nama);
+            setSelectedJenisAsesmen((prev) => {
+              const stillExists = active.some((j: any) => j.nama === prev);
+              return stillExists ? prev : active[0].nama;
+            });
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(JENIS_ASESMEN_STORAGE_KEY, JSON.stringify(data));
+              } catch (e) {}
+            }
           }
         }
-      } catch (e) {
+      } catch (err) {
         // ignore
       }
     }
+
+    loadJenisAsesmen();
   }, []);
 
   // 1. Initial Load: Classes, Subjects, Teachers, Current User detection

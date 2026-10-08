@@ -16,7 +16,9 @@ import {
   RotateCcw,
   Save,
   X,
+  CloudUpload,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface JenisAsesmen {
   id: string;
@@ -58,24 +60,90 @@ export default function JenisAsesmenPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try { setList(JSON.parse(stored)); } catch { setList(DEFAULT_LIST); }
-      } else {
-        setList(DEFAULT_LIST);
+    async function loadData() {
+      setLoading(true);
+      try {
+        let currentList = DEFAULT_LIST;
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            try {
+              currentList = JSON.parse(stored);
+              setList(currentList);
+            } catch {
+              setList(DEFAULT_LIST);
+            }
+          }
+        }
+
+        const { data, error } = await supabase
+          .from('jenis_asesmen')
+          .select('*')
+          .order('urutan', { ascending: true });
+
+        if (data && data.length > 0 && !error) {
+          setList(data);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {}
+          }
+        } else if (!error && data && data.length === 0 && currentList.length > 0) {
+          // Jika tabel di database Supabase sudah ada namun masih kosong, auto-sync data saat ini
+          try {
+            await supabase.from('jenis_asesmen').upsert(currentList);
+          } catch (syncErr) {
+            console.info('Auto sync jenis_asesmen fallback');
+          }
+        }
+      } catch (err) {
+        console.warn('Using local fallback for jenis_asesmen');
+      } finally {
+        setLoading(false);
       }
     }
-    setLoading(false);
+    loadData();
   }, []);
 
-  const persist = (updated: JenisAsesmen[]) => {
+  const persist = async (updated: JenisAsesmen[]) => {
     const sorted = [...updated].sort((a, b) => a.urutan - b.urutan);
     setList(sorted);
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
+      } catch (e) {}
+    }
+    // Simpan ke Supabase Cloud
+    try {
+      const { error } = await supabase.from('jenis_asesmen').upsert(sorted);
+      if (error) console.warn('Supabase upsert warning:', error.message);
+    } catch (err) {
+      console.info('Database sync fallback');
+    }
+  };
+
+  const handleSyncToCloud = async () => {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.from('jenis_asesmen').upsert(list);
+      if (error) {
+        showToast({
+          type: 'error',
+          message: `Gagal sinkronkan: ${error.message}. Pastikan file supabase-jenis-asesmen.sql sudah dijalankan di Supabase.`,
+        });
+      } else {
+        showToast({
+          type: 'success',
+          message: 'Berhasil! Semua jenis asesmen telah tersimpan di cloud Supabase dan tersinkronisasi ke seluruh akun guru.',
+        });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal sinkronisasi data.' });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -111,16 +179,42 @@ export default function JenisAsesmenPage() {
   };
 
   const handleDelete = async (item: JenisAsesmen) => {
-    const confirmed = await confirm({ title: 'Hapus Jenis Asesmen?', message: `"${item.nama}" akan dihapus. Data nilai yang sudah tersimpan tidak terpengaruh.`, confirmText: 'Hapus', cancelText: 'Batal', isDanger: true });
+    const confirmed = await confirm({
+      title: 'Hapus Jenis Asesmen?',
+      message: `"${item.nama}" akan dihapus. Data nilai yang sudah tersimpan tidak terpengaruh.`,
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
     if (!confirmed) return;
+
+    try {
+      await supabase.from('jenis_asesmen').delete().eq('id', item.id);
+    } catch (err) {
+      console.info('Database delete fallback');
+    }
+
     const updated = list.filter((j) => j.id !== item.id).map((j, i) => ({ ...j, urutan: i + 1 }));
     persist(updated);
     showToast({ type: 'success', message: `"${item.nama}" berhasil dihapus.` });
   };
 
   const handleReset = async () => {
-    const confirmed = await confirm({ title: 'Reset ke Pengaturan Awal?', message: 'Seluruh kustomisasi akan dihapus dan diganti daftar bawaan sistem.', confirmText: 'Ya, Reset', cancelText: 'Batal', isDanger: true });
+    const confirmed = await confirm({
+      title: 'Reset ke Pengaturan Awal?',
+      message: 'Seluruh kustomisasi akan dihapus dan diganti daftar bawaan sistem.',
+      confirmText: 'Ya, Reset',
+      cancelText: 'Batal',
+      isDanger: true,
+    });
     if (!confirmed) return;
+
+    try {
+      await supabase.from('jenis_asesmen').upsert(DEFAULT_LIST);
+    } catch (err) {
+      console.info('Database reset fallback');
+    }
+
     persist(DEFAULT_LIST);
     showToast({ type: 'success', message: 'Berhasil direset ke pengaturan awal.' });
   };
@@ -165,7 +259,16 @@ export default function JenisAsesmenPage() {
               <p className="text-xs text-[#6B6B6B]">{list.length} jenis tersimpan &middot; {activeCount} aktif</p>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <button
+              onClick={handleSyncToCloud}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition cursor-pointer disabled:opacity-50"
+              title="Kirim dan simpan semua jenis asesmen saat ini ke cloud Supabase agar otomatis tampil di akun seluruh guru"
+            >
+              <CloudUpload className={`w-3.5 h-3.5 text-emerald-700 ${syncing ? 'animate-bounce' : ''}`} />
+              <span>{syncing ? 'Menyinkronkan...' : 'Sinkronkan ke Cloud'}</span>
+            </button>
             <button onClick={handleReset} className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-[#666] hover:text-[#922B21] border border-[#DDD8CE] hover:border-[#922B21]/40 bg-white transition cursor-pointer">
               <RotateCcw className="w-3.5 h-3.5" /><span>Reset Default</span>
             </button>
@@ -176,9 +279,11 @@ export default function JenisAsesmenPage() {
         </div>
 
         {/* Info Banner */}
-        <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-800">
-          <BookCheck className="w-4 h-4 shrink-0 mt-0.5" />
-          <p>Daftar ini tampil sebagai pilihan dropdown <strong>&ldquo;Jenis Asesmen / Ujian&rdquo;</strong> pada halaman Input Nilai. Nonaktifkan jenis yang tidak digunakan agar tidak membingungkan guru. Data disimpan di browser (localStorage).</p>
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+          <BookCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-700" />
+          <p>
+            Daftar ini tersimpan di <strong>Cloud Database Supabase</strong> dan tampil otomatis sebagai pilihan dropdown <strong>&ldquo;Jenis Asesmen / Ujian&rdquo;</strong> pada halaman Input Nilai untuk semua akun guru di berbagai perangkat. Nonaktifkan jenis yang tidak digunakan agar tidak membingungkan guru.
+          </p>
         </div>
 
         {loading ? (
