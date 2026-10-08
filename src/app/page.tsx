@@ -27,7 +27,7 @@ import {
   Target,
   Camera,
 } from 'lucide-react';
-import { supabase, ProfilSekolah } from '@/lib/supabase';
+import { supabase, ProfilSekolah, GaleriKegiatan } from '@/lib/supabase';
 import { INITIAL_GALERI } from '@/lib/galeriData';
 
 const DEFAULT_PROFIL: ProfilSekolah = {
@@ -88,6 +88,7 @@ export const TUJUAN_SEKOLAH_LIST = [
 
 export default function HomePage() {
   const [profil, setProfil] = useState<ProfilSekolah>(DEFAULT_PROFIL);
+  const [galeriItems, setGaleriItems] = useState<GaleriKegiatan[]>(INITIAL_GALERI);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profil' | 'visi' | 'galeri' | 'kontak'>('profil');
 
@@ -109,7 +110,47 @@ export default function HomePage() {
         setLoading(false);
       }
     }
+
+    async function loadGaleri() {
+      try {
+        // Cek cache lokal terlebih dahulu agar transisi instan
+        if (typeof window !== 'undefined') {
+          const local = localStorage.getItem('lapislada_galeri_items');
+          if (local) {
+            try {
+              const parsed = JSON.parse(local);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setGaleriItems(parsed);
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+
+        // Ambil data terbaru dari Supabase
+        const { data, error } = await supabase
+          .from('galeri_kegiatan')
+          .select('*')
+          .order('tanggal', { ascending: false });
+
+        if (data && data.length > 0 && !error) {
+          setGaleriItems(data);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('lapislada_galeri_items', JSON.stringify(data));
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } catch (err) {
+        console.info('Using default galeri data');
+      }
+    }
+
     loadProfil();
+    loadGaleri();
   }, []);
 
   const misiList = profil.misi
@@ -137,7 +178,7 @@ export default function HomePage() {
           {/* Background Image Container */}
           <div className="absolute inset-0 z-0">
             <img
-              src="/hero-upacara.jpg"
+              src={galeriItems.find((g) => g.id === 'g-1' || g.kategori === 'Upacara & Nasionalisme')?.foto_url || '/hero-upacara.jpg'}
               alt="Upacara Bendera UPT SD Negeri Latsari 2"
               className="w-full h-full object-cover object-center transform scale-105 filter brightness-75 transition-transform duration-1000"
             />
@@ -710,7 +751,7 @@ export default function HomePage() {
 
               {/* Grid 4 Kegiatan */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {INITIAL_GALERI.slice(0, 4).map((item) => (
+                {galeriItems.slice(0, 4).map((item) => (
                   <Link
                     key={item.id}
                     href="/galeri"

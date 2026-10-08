@@ -17,6 +17,9 @@ import {
   Sparkles,
   Save,
   CheckCircle2,
+  CloudUpload,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export default function MasterGaleriPage() {
@@ -37,16 +40,19 @@ export default function MasterGaleriPage() {
     deskripsi: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     async function fetchGaleri() {
       setLoading(true);
       try {
+        let loadedItems: GaleriKegiatan[] = INITIAL_GALERI;
         const local = localStorage.getItem('lapislada_galeri_items');
         if (local) {
           try {
             const parsed = JSON.parse(local);
             if (Array.isArray(parsed) && parsed.length > 0) {
+              loadedItems = parsed;
               setItems(parsed);
             }
           } catch (e) {
@@ -54,13 +60,25 @@ export default function MasterGaleriPage() {
           }
         }
 
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('galeri_kegiatan')
           .select('*')
           .order('tanggal', { ascending: false });
 
-        if (data && data.length > 0) {
+        if (data && data.length > 0 && !error) {
           setItems(data);
+          try {
+            localStorage.setItem('lapislada_galeri_items', JSON.stringify(data));
+          } catch (e) {
+            // ignore
+          }
+        } else if (!error && data && data.length === 0 && loadedItems.length > 0) {
+          // Jika tabel di database Supabase sudah ada namun masih kosong, bantu otomatis sinkronkan data saat ini
+          try {
+            await supabase.from('galeri_kegiatan').upsert(loadedItems);
+          } catch (syncErr) {
+            console.info('Auto sync fallback');
+          }
         }
       } catch (err) {
         console.warn('Using local fallback for galeri');
@@ -104,6 +122,70 @@ export default function MasterGaleriPage() {
     setIsModalOpen(true);
   };
 
+  const handleSyncToCloud = async () => {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.from('galeri_kegiatan').upsert(items);
+      if (error) {
+        showToast({
+          type: 'error',
+          message: `Gagal sinkronkan: ${error.message}. Pastikan file supabase-galeri.sql sudah dijalankan di SQL Editor Supabase.`,
+        });
+      } else {
+        showToast({
+          type: 'success',
+          message: 'Berhasil! Semua foto galeri telah disinkronkan ke cloud Supabase dan dapat dilihat seluruh publik.',
+        });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal sinkronisasi data.' });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast({ type: 'error', message: 'Hanya file gambar (JPG, PNG, WebP) yang diperbolehkan.' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Kompres gambar agar efisien disimpan di database
+        const maxDim = 1280;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          setFormData((prev) => ({ ...prev, foto_url: compressedDataUrl }));
+          showToast({ type: 'success', message: 'Foto berhasil dimuat & dioptimasi!' });
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.judul.trim()) {
@@ -118,18 +200,21 @@ export default function MasterGaleriPage() {
     setSubmitting(true);
     try {
       if (editingId) {
-        // Edit existing
+        // Edit existing with upsert
+        const record = {
+          id: editingId,
+          judul: formData.judul.trim(),
+          kategori: formData.kategori,
+          tanggal: formData.tanggal,
+          foto_url: formData.foto_url.trim(),
+          deskripsi: formData.deskripsi.trim() || null,
+        };
+
         try {
-          await supabase
+          const { error: dbErr } = await supabase
             .from('galeri_kegiatan')
-            .update({
-              judul: formData.judul.trim(),
-              kategori: formData.kategori,
-              tanggal: formData.tanggal,
-              foto_url: formData.foto_url.trim(),
-              deskripsi: formData.deskripsi.trim() || null,
-            })
-            .eq('id', editingId);
+            .upsert(record);
+          if (dbErr) console.warn('Supabase upsert warning:', dbErr.message);
         } catch (dbErr) {
           console.info('Database update fallback');
         }
@@ -152,7 +237,8 @@ export default function MasterGaleriPage() {
         };
 
         try {
-          await supabase.from('galeri_kegiatan').insert([newRecord]);
+          const { error: dbErr } = await supabase.from('galeri_kegiatan').upsert([newRecord]);
+          if (dbErr) console.warn('Supabase insert warning:', dbErr.message);
         } catch (dbErr) {
           console.info('Database insert fallback');
         }
@@ -237,7 +323,17 @@ export default function MasterGaleriPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button
+              onClick={handleSyncToCloud}
+              disabled={syncing}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+              title="Kirim dan simpan semua data galeri saat ini ke database Supabase agar dapat dilihat oleh pengunjung publik"
+            >
+              <CloudUpload className={`w-3.5 h-3.5 text-emerald-700 ${syncing ? 'animate-bounce' : ''}`} />
+              <span>{syncing ? 'Menyinkronkan...' : 'Sinkronkan ke Cloud'}</span>
+            </button>
+
             <a
               href="/galeri"
               target="_blank"
@@ -245,7 +341,7 @@ export default function MasterGaleriPage() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-[#DDD8CE] bg-white hover:bg-[#FAF8F2] text-xs font-bold text-[#1A1A1A] transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5 text-[#922B21]" />
-              <span>Lihat Tampilan Publik</span>
+              <span>Lihat Halaman Publik</span>
             </a>
 
             <button
@@ -388,9 +484,22 @@ export default function MasterGaleriPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#3D3D3D] mb-1">
-                  Tautan / Link URL Foto *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#3D3D3D]">
+                    Foto Kegiatan *
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-[11px] font-bold text-[#922B21] hover:underline cursor-pointer">
+                    <Upload className="w-3 h-3" />
+                    <span>Pilih dari Perangkat</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
                 <input
                   type="text"
                   required
@@ -400,8 +509,26 @@ export default function MasterGaleriPage() {
                   className="w-full px-3.5 py-2 border border-[#DDD8CE] rounded-xl text-xs text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
                 />
                 <span className="text-[10px] text-[#7A7A7A] mt-1 block">
-                  Foto lokal bawaan tersedia: <code>/hero-upacara.jpg</code>, <code>/galeri-pramuka.jpg</code>, <code>/galeri-keagamaan.jpg</code>, <code>/galeri-literasi.jpg</code>
+                  Bisa menggunakan file perangkat, URL web gambar, atau aset bawaan: <code>/hero-upacara.jpg</code>, <code>/galeri-pramuka.jpg</code>, <code>/galeri-keagamaan.jpg</code>, <code>/galeri-literasi.jpg</code>
                 </span>
+
+                {/* Pratinjau Foto Live */}
+                {formData.foto_url && (
+                  <div className="mt-2 relative aspect-video w-full rounded-xl overflow-hidden border border-[#DDD8CE] bg-black/5">
+                    <img
+                      src={formData.foto_url}
+                      alt="Pratinjau Foto"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-[10px] flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" />
+                      <span>Pratinjau Foto</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

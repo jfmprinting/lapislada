@@ -83,6 +83,11 @@ export default function GaleriPage() {
 
         if (data && data.length > 0 && !error) {
           setItems(data);
+          try {
+            localStorage.setItem('lapislada_galeri_items', JSON.stringify(data));
+          } catch (e) {
+            // ignore
+          }
         }
       } catch (err) {
         console.info('Using default/cached gallery data');
