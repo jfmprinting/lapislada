@@ -7,10 +7,8 @@ import {
   MessageSquare,
   CheckCircle,
   Clock,
-  Send,
   Printer,
   Copy,
-  ExternalLink,
   Search,
   Filter,
   Users,
@@ -18,10 +16,14 @@ import {
   BookOpen,
   Sparkles,
   Phone,
-  UserCheck,
   Calendar,
   X,
-  FileText
+  FileText,
+  Trash2,
+  Edit,
+  User,
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { supabase, BukuPenghubungItem } from '@/lib/supabase';
@@ -63,6 +65,7 @@ function parseCatatan(rawCatatan: string, createdAt: string) {
     month: 'short',
     year: 'numeric',
   });
+  let isoDate = createdAt ? new Date(createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
   if (rawCatatan.includes('*Masalah yang Disampaikan:*') && rawCatatan.includes('*Saran dan Kesimpulan:*')) {
     const parts = rawCatatan.split('*Saran dan Kesimpulan:*');
@@ -84,7 +87,7 @@ function parseCatatan(rawCatatan: string, createdAt: string) {
     saran = parts[1]?.trim() || '-';
   }
 
-  return { masalah, saran, tanggalStr };
+  return { masalah, saran, tanggalStr, isoDate };
 }
 
 // Helper untuk menyusun pesan WhatsApp resmi dengan domain https://lapislada.web.id
@@ -134,7 +137,6 @@ function BukuPenghubungContent() {
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
-  const autoTulis = searchParams.get('tulis') === 'true';
 
   // State user & role
   const [currentRole, setCurrentRole] = useState<'guru' | 'orangtua' | 'admin' | 'kepala_sekolah'>('guru');
@@ -151,6 +153,9 @@ function BukuPenghubungContent() {
   const [loadingSiswa, setLoadingSiswa] = useState(true);
   const [searchSiswa, setSearchSiswa] = useState('');
 
+  // Filter Siswa Tertentu di Format Resmi
+  const [filterSiswaId, setFilterSiswaId] = useState<string>('semua');
+
   // Entries
   const [entries, setEntries] = useState<BukuPenghubungItem[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
@@ -158,14 +163,20 @@ function BukuPenghubungContent() {
   // Tab: 'rekap-resmi' (Format Screenshot 5) | 'daftar-siswa' (List Siswa) | 'percakapan' (Feed)
   const [activeTab, setActiveTab] = useState<'rekap-resmi' | 'daftar-siswa' | 'percakapan'>('rekap-resmi');
 
-  // Modal Catat Kejadian
+  // Modal Catat / Edit Kejadian
   const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [modalSiswa, setModalSiswa] = useState<SiswaData | null>(null);
   const [formTanggal, setFormTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [formMasalah, setFormMasalah] = useState('');
   const [formSaran, setFormSaran] = useState('');
   const [formNoHpWali, setFormNoHpWali] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Modal Konfirmasi Hapus
+  const [entryToDelete, setEntryToDelete] = useState<BukuPenghubungItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Orang tua linked children
   const [myChildren, setMyChildren] = useState<SiswaData[]>([]);
@@ -233,7 +244,6 @@ function BukuPenghubungContent() {
               setKelasList(myClasses as unknown as KelasOption[]);
               setSelectedKelasId(myClasses[0].id);
             } else {
-              // Jika belum dipetakan, fallback ke kelas pertama
               setKelasList(allKelas as unknown as KelasOption[]);
               setSelectedKelasId(allKelas[0].id);
             }
@@ -265,7 +275,6 @@ function BukuPenghubungContent() {
       setLoadingSiswa(true);
       try {
         if (currentRole === 'orangtua') {
-          // Khusus orang tua, ambil ananda mereka
           const { data: sData } = await supabase
             .from('siswa')
             .select('id, nis, nisn, nama_lengkap, jenis_kelamin, nama_wali, no_hp_wali, kelas_id, kelas:kelas_id(id, nama_kelas)')
@@ -276,7 +285,6 @@ function BukuPenghubungContent() {
             setSiswaList(sData as any);
             setParentChildId(sData[0].id);
           } else {
-            // Fallback cari semua siswa untuk orang tua
             const { data: allS } = await supabase
               .from('siswa')
               .select('id, nis, nisn, nama_lengkap, jenis_kelamin, nama_wali, no_hp_wali, kelas_id, kelas:kelas_id(id, nama_kelas)')
@@ -358,27 +366,42 @@ function BukuPenghubungContent() {
     fetchEntries();
   }, []);
 
-  // Filter entries sesuai kelas aktif atau ananda (untuk orang tua)
   const currentKelasObj = useMemo(() => {
     return kelasList.find((k) => k.id === selectedKelasId) || null;
   }, [kelasList, selectedKelasId]);
 
+  // Filter entries sesuai kelas aktif & filter siswa tertentu
   const filteredEntries = useMemo(() => {
     if (currentRole === 'orangtua') {
       if (!parentChildId) return entries;
       return entries.filter((e) => e.siswa_id === parentChildId);
     }
 
-    // Untuk Guru / Admin / Kepala Sekolah: Filter catatan yang siswanya ada di kelas aktif
-    if (!selectedKelasId) return entries;
-    return entries.filter((e) => {
-      const siswaKelasId = (e.siswa as any)?.kelas?.id;
-      // Jika siswa di entry terhubung dengan kelas aktif atau berada di siswaList
-      return siswaKelasId === selectedKelasId || siswaList.some((s) => s.id === e.siswa_id);
-    });
-  }, [entries, selectedKelasId, currentRole, parentChildId, siswaList]);
+    let result = entries;
 
-  // Filter siswa berdasarkan pencarian
+    // Filter berdasarkan kelas aktif
+    if (selectedKelasId) {
+      result = result.filter((e) => {
+        const siswaKelasId = (e.siswa as any)?.kelas?.id;
+        return siswaKelasId === selectedKelasId || siswaList.some((s) => s.id === e.siswa_id);
+      });
+    }
+
+    // Filter berdasarkan siswa tertentu jika dipilih
+    if (filterSiswaId !== 'semua') {
+      result = result.filter((e) => e.siswa_id === filterSiswaId);
+    }
+
+    return result;
+  }, [entries, selectedKelasId, currentRole, parentChildId, siswaList, filterSiswaId]);
+
+  // Siswa terpilih untuk filter tertentu
+  const currentFilteredSiswaObj = useMemo(() => {
+    if (filterSiswaId === 'semua') return null;
+    return siswaList.find((s) => s.id === filterSiswaId) || null;
+  }, [siswaList, filterSiswaId]);
+
+  // Filter siswa untuk tab Daftar Siswa berdasarkan kata kunci
   const searchedSiswaList = useMemo(() => {
     if (!searchSiswa.trim()) return siswaList;
     const q = searchSiswa.toLowerCase();
@@ -390,8 +413,10 @@ function BukuPenghubungContent() {
     );
   }, [siswaList, searchSiswa]);
 
-  // Buka Modal Catat Kejadian untuk siswa tertentu
+  // Buka Modal Catat Baru
   const openCatatModal = (siswa: SiswaData) => {
+    setIsEditing(false);
+    setEditingEntryId(null);
     setModalSiswa(siswa);
     setFormTanggal(new Date().toISOString().split('T')[0]);
     setFormMasalah('');
@@ -400,7 +425,40 @@ function BukuPenghubungContent() {
     setShowModal(true);
   };
 
-  // Simpan Catatan Kejadian
+  // Buka Modal Edit Catatan
+  const openEditModal = (item: BukuPenghubungItem) => {
+    const s = item.siswa as any;
+    const foundSiswa = siswaList.find((x) => x.id === item.siswa_id) || {
+      id: item.siswa_id,
+      nis: s?.nis || null,
+      nisn: s?.nisn || null,
+      nama_lengkap: s?.nama_lengkap || 'Siswa',
+      jenis_kelamin: s?.jenis_kelamin || 'L',
+      nama_wali: s?.nama_wali || null,
+      no_hp_wali: s?.no_hp_wali || null,
+      kelas_id: selectedKelasId,
+      kelas: s?.kelas,
+    };
+
+    const { masalah, saran, isoDate } = parseCatatan(item.catatan, item.created_at);
+
+    setIsEditing(true);
+    setEditingEntryId(item.id);
+    setModalSiswa(foundSiswa);
+    setFormTanggal(isoDate);
+    setFormMasalah(masalah);
+    setFormSaran(saran === '-' ? '' : saran);
+    setFormNoHpWali(s?.no_hp_wali || foundSiswa.no_hp_wali || '');
+    setShowModal(true);
+  };
+
+  // Navigasi cepat filter catatan siswa tertentu
+  const handleFilterToSiswa = (siswaId: string) => {
+    setFilterSiswaId(siswaId);
+    setActiveTab('rekap-resmi');
+  };
+
+  // Simpan Catatan (Baru atau Edit)
   const handleSaveCatatan = async (e: React.FormEvent, directWhatsApp = false) => {
     e.preventDefault();
     if (!modalSiswa) return;
@@ -419,7 +477,6 @@ function BukuPenghubungContent() {
         return;
       }
 
-      // Format terstruktur: Masalah + Saran
       const formattedTanggal = new Date(formTanggal).toLocaleDateString('id-ID', {
         day: 'numeric',
         month: 'long',
@@ -428,67 +485,95 @@ function BukuPenghubungContent() {
 
       const structuredCatatan = `*Tanggal Kejadian:* ${formattedTanggal}\n\n*Masalah yang Disampaikan:*\n${formMasalah.trim()}\n\n*Saran dan Kesimpulan:*\n${formSaran.trim() || '-'}`;
 
-      // 1. Insert ke tabel buku_penghubung
-      const { data: newEntry, error: insertError } = await supabase
-        .from('buku_penghubung')
-        .insert({
-          siswa_id: modalSiswa.id,
-          author_id: user.id,
-          author_role: currentRole === 'orangtua' ? 'orangtua' : 'guru',
-          catatan: structuredCatatan,
-          is_read_by_guru: currentRole !== 'orangtua',
-        })
-        .select(`
-          id,
-          siswa_id,
-          author_id,
-          author_role,
-          catatan,
-          parent_entry_id,
-          is_read_by_guru,
-          created_at,
-          users_profile:author_id(nama),
-          siswa:siswa_id(
-            id,
-            nama_lengkap,
-            nis,
-            nisn,
-            jenis_kelamin,
-            nama_wali,
-            no_hp_wali,
-            kelas:kelas_id(id, nama_kelas)
-          )
-        `)
-        .single();
+      if (isEditing && editingEntryId) {
+        // Mode UPDATE / EDIT Catatan
+        const res = await fetch('/api/buku-penghubung', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingEntryId,
+            catatan: structuredCatatan,
+          }),
+        });
 
-      if (insertError) {
-        throw insertError;
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'Gagal memperbarui catatan');
+        }
+
+        setEntries((prev) =>
+          prev.map((item) =>
+            item.id === editingEntryId
+              ? { ...item, catatan: structuredCatatan }
+              : item
+          )
+        );
+
+        showToast({
+          type: 'success',
+          title: 'Catatan Diperbarui',
+          message: `Catatan ananda ${modalSiswa.nama_lengkap} berhasil diperbarui.`,
+        });
+      } else {
+        // Mode INSERT Catatan Baru
+        const { data: newEntry, error: insertError } = await supabase
+          .from('buku_penghubung')
+          .insert({
+            siswa_id: modalSiswa.id,
+            author_id: user.id,
+            author_role: currentRole === 'orangtua' ? 'orangtua' : 'guru',
+            catatan: structuredCatatan,
+            is_read_by_guru: currentRole !== 'orangtua',
+          })
+          .select(`
+            id,
+            siswa_id,
+            author_id,
+            author_role,
+            catatan,
+            parent_entry_id,
+            is_read_by_guru,
+            created_at,
+            users_profile:author_id(nama),
+            siswa:siswa_id(
+              id,
+              nama_lengkap,
+              nis,
+              nisn,
+              jenis_kelamin,
+              nama_wali,
+              no_hp_wali,
+              kelas:kelas_id(id, nama_kelas)
+            )
+          `)
+          .single();
+
+        if (insertError) throw insertError;
+
+        if (newEntry) {
+          setEntries((prev) => [newEntry as any, ...prev]);
+        }
+
+        showToast({
+          type: 'success',
+          title: 'Catatan Tersimpan',
+          message: `Catatan ananda ${modalSiswa.nama_lengkap} berhasil dibukukan!`,
+        });
       }
 
-      // 2. Jika no HP wali diupdate di form, simpan ke database siswa
+      // Update No HP Wali jika diisi
       if (formNoHpWali.trim() && formNoHpWali.trim() !== modalSiswa.no_hp_wali) {
         await supabase
           .from('siswa')
           .update({ no_hp_wali: formNoHpWali.trim() })
           .eq('id', modalSiswa.id);
 
-        // Update local siswa state
         setSiswaList((prev) =>
           prev.map((s) => (s.id === modalSiswa.id ? { ...s, no_hp_wali: formNoHpWali.trim() } : s))
         );
       }
 
-      if (newEntry) {
-        setEntries((prev) => [newEntry as any, ...prev]);
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Catatan Tersimpan',
-        message: `Catatan kejadian ananda ${modalSiswa.nama_lengkap} berhasil dibukukan!`,
-      });
-
-      // 3. Jika guru memilih opsi Simpan & Langsung Kirim WA
+      // Kirim WhatsApp jika dipilih
       if (directWhatsApp) {
         handleSendWhatsAppDirect(
           modalSiswa.nama_lengkap,
@@ -502,14 +587,51 @@ function BukuPenghubungContent() {
 
       setShowModal(false);
     } catch (err: any) {
-      console.error('Error insert buku_penghubung:', err);
+      console.error('Error simpan catatan:', err);
       showToast({
         type: 'error',
         title: 'Gagal Menyimpan',
-        message: err.message || 'Terjadi kesalahan saat menyimpan catatan.',
+        message: err.message || 'Terjadi kesalahan sistem saat menyimpan catatan.',
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Konfirmasi & Eksekusi Hapus Catatan
+  const confirmDeleteEntry = async () => {
+    if (!entryToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/buku-penghubung?id=${entryToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Gagal menghapus catatan dari server.');
+      }
+
+      // Update state realtime
+      setEntries((prev) => prev.filter((item) => item.id !== entryToDelete.id));
+
+      showToast({
+        type: 'success',
+        title: 'Catatan Dihapus',
+        message: 'Catatan buku penghubung berhasil dihapus.',
+      });
+
+      setEntryToDelete(null);
+    } catch (err: any) {
+      console.error('Error delete catatan:', err);
+      showToast({
+        type: 'error',
+        title: 'Gagal Menghapus',
+        message: err.message || 'Terjadi kendala saat menghapus catatan.',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -541,7 +663,6 @@ function BukuPenghubungContent() {
     });
 
     if (!cleanPhone || cleanPhone.length < 9) {
-      // Jika no hp tidak valid, salin pesan dan beri notif
       navigator.clipboard.writeText(messageText);
       showToast({
         type: 'warning',
@@ -580,7 +701,6 @@ function BukuPenghubungContent() {
     });
   };
 
-  // Cetak format resmi
   const handlePrint = () => {
     window.print();
   };
@@ -636,7 +756,10 @@ function BukuPenghubungContent() {
                 <span className="text-xs font-semibold text-[#6B6B6B]">Kelas:</span>
                 <select
                   value={selectedKelasId}
-                  onChange={(e) => setSelectedKelasId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedKelasId(e.target.value);
+                    setFilterSiswaId('semua');
+                  }}
                   className="bg-transparent text-xs font-bold text-[#922B21] focus:outline-none cursor-pointer"
                 >
                   {kelasList.map((k) => (
@@ -682,7 +805,8 @@ function BukuPenghubungContent() {
               <button
                 onClick={() => {
                   if (siswaList.length > 0) {
-                    openCatatModal(siswaList[0]);
+                    const defaultSiswa = filterSiswaId !== 'semua' && currentFilteredSiswaObj ? currentFilteredSiswaObj : siswaList[0];
+                    openCatatModal(defaultSiswa);
                   } else {
                     showToast({ type: 'warning', message: 'Belum ada data siswa di kelas ini.' });
                   }
@@ -742,6 +866,60 @@ function BukuPenghubungContent() {
         {/* ============================================================== */}
         {(activeTab === 'rekap-resmi' || isOrangTua) && (
           <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-6 print:p-0 print:border-none print:shadow-none">
+            {/* BAR FILTER SISWA SPESIFIK (HANYA MUNCUL DI TAMPILAN SCREEN, TIDAK DI CETAK) */}
+            {!isOrangTua && (
+              <div className="mb-6 p-3.5 bg-[#FAF8F2] rounded-2xl border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#1A1A1A]">
+                    <User className="w-4 h-4 text-[#922B21]" />
+                    <span>Filter Siswa Tertentu:</span>
+                  </div>
+
+                  <select
+                    value={filterSiswaId}
+                    onChange={(e) => setFilterSiswaId(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#922B21] focus:ring-1 focus:ring-[#922B21] cursor-pointer"
+                  >
+                    <option value="semua">
+                      Semua Siswa di Kelas ({entries.filter((e) => siswaList.some((s) => s.id === e.siswa_id)).length} Total Catatan)
+                    </option>
+                    {siswaList.map((s) => {
+                      const count = entries.filter((e) => e.siswa_id === s.id).length;
+                      return (
+                        <option key={s.id} value={s.id}>
+                          {s.nama_lengkap} ({count} Catatan)
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {filterSiswaId !== 'semua' && (
+                    <button
+                      onClick={() => setFilterSiswaId('semua')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 text-[#6B6B6B] border border-[#DDD8CE] text-xs font-semibold cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Filter</span>
+                    </button>
+                  )}
+                </div>
+
+                {currentFilteredSiswaObj && (
+                  <div className="text-xs bg-[#FDEDEC] text-[#922B21] px-3 py-1 rounded-xl border border-[#F1948A] flex items-center justify-between gap-2">
+                    <span>
+                      Menampilkan riwayat khusus: <strong>{currentFilteredSiswaObj.nama_lengkap}</strong>
+                    </span>
+                    <button
+                      onClick={() => openCatatModal(currentFilteredSiswaObj)}
+                      className="text-[11px] font-bold underline cursor-pointer hover:text-[#771F18]"
+                    >
+                      + Tambah Catatan
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* KOP RESMI CETAK */}
             <div className="text-center pb-5 mb-5 border-b border-black/10 print:border-b-2 print:border-black">
               <h1 className="font-serif font-black text-xl md:text-2xl tracking-wider uppercase text-[#1A1A1A] print:text-black">
@@ -752,6 +930,7 @@ function BukuPenghubungContent() {
               </p>
               <p className="text-[11px] text-[#6B6B6B] print:text-black">
                 {currentKelasObj?.nama_kelas ? `Kelas: ${currentKelasObj.nama_kelas}` : 'Kelas I'} • Tahun Ajaran 2025/2026
+                {currentFilteredSiswaObj && ` • Khusus Siswa: ${currentFilteredSiswaObj.nama_lengkap}`}
               </p>
             </div>
 
@@ -767,18 +946,25 @@ function BukuPenghubungContent() {
                   <FileText className="w-7 h-7 stroke-[1.5]" />
                 </div>
                 <h3 className="font-serif font-bold text-base text-[#1A1A1A] mb-1">
-                  Belum Ada Catatan Kejadian Khusus
+                  {currentFilteredSiswaObj
+                    ? `Belum Ada Catatan untuk ${currentFilteredSiswaObj.nama_lengkap}`
+                    : 'Belum Ada Catatan Kejadian Khusus'}
                 </h3>
                 <p className="text-xs text-[#6B6B6B] max-w-lg mx-auto mb-5 leading-relaxed">
-                  Buku penghubung ini bersifat <strong>kasuistik</strong> (hanya dicatat ketika ada kejadian atau perkembangan khusus pada siswa tertentu, tidak wajib diisi setiap hari untuk semua siswa).
+                  {currentFilteredSiswaObj
+                    ? `Ananda ${currentFilteredSiswaObj.nama_lengkap} belum memiliki catatan kejadian khusus. Catatan hanya dibuat jika terjadi peristiwa atau perkembangan tertentu.`
+                    : 'Buku penghubung ini bersifat kasuistik (hanya dicatat ketika ada kejadian atau perkembangan khusus pada siswa tertentu, tidak wajib diisi setiap hari untuk semua siswa).'}
                 </p>
-                {!isOrangTua && siswaList.length > 0 && (
+                {!isOrangTua && (
                   <button
-                    onClick={() => openCatatModal(siswaList[0])}
+                    onClick={() => {
+                      const target = currentFilteredSiswaObj || siswaList[0];
+                      if (target) openCatatModal(target);
+                    }}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold transition shadow-xs cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Catat Kejadian Siswa Sekarang</span>
+                    <span>Catat Kejadian Sekarang</span>
                   </button>
                 )}
               </div>
@@ -808,8 +994,8 @@ function BukuPenghubungContent() {
                       <th rowSpan={2} className="p-2 border border-black/30 print:border-black min-w-[120px]">
                         TANDA TANGAN / RESPON
                       </th>
-                      <th rowSpan={2} className="p-2 border border-black/30 print:border-black w-28 print:hidden">
-                        AKSI WHATSAPP
+                      <th rowSpan={2} className="p-2 border border-black/30 print:border-black w-36 print:hidden">
+                        AKSI & KELOLA
                       </th>
                     </tr>
                     <tr className="bg-[#FAF8F2] print:bg-gray-100 text-[#1A1A1A] font-bold text-center border-b border-black/30 print:border-black">
@@ -838,7 +1024,13 @@ function BukuPenghubungContent() {
                             {nis}
                           </td>
                           <td className="p-2 border border-black/30 print:border-black font-semibold text-[#1A1A1A]">
-                            {namaMurid}
+                            <button
+                              onClick={() => handleFilterToSiswa(item.siswa_id)}
+                              className="text-left hover:text-[#922B21] hover:underline cursor-pointer"
+                              title="Klik untuk memfilter catatan ananda ini"
+                            >
+                              {namaMurid}
+                            </button>
                           </td>
                           <td className="p-2 border border-black/30 print:border-black text-center font-bold">
                             {jk === 'L' ? '✓' : ''}
@@ -869,10 +1061,10 @@ function BukuPenghubungContent() {
                               <span className="text-[10px] text-[#6B6B6B] italic">Menunggu respon</span>
                             )}
                           </td>
-                          {/* Kolom Aksi WA (Disembunyikan saat Cetak) */}
+                          {/* Kolom Aksi WA, Edit, dan Hapus (Disembunyikan saat Cetak) */}
                           <td className="p-2 border border-black/30 print:hidden text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {/* Tombol Langsung Kirim WA */}
+                            <div className="flex items-center justify-center gap-1">
+                              {/* Tombol Kirim WA */}
                               <button
                                 onClick={() =>
                                   handleSendWhatsAppDirect(
@@ -894,7 +1086,7 @@ function BukuPenghubungContent() {
                                 <Phone className="w-3.5 h-3.5" />
                               </button>
 
-                              {/* Tombol Salin Redaksi Pesan WA */}
+                              {/* Tombol Salin Pesan WA */}
                               <button
                                 onClick={() =>
                                   handleCopyWhatsApp(
@@ -910,6 +1102,28 @@ function BukuPenghubungContent() {
                               >
                                 <Copy className="w-3.5 h-3.5" />
                               </button>
+
+                              {!isOrangTua && (
+                                <>
+                                  {/* Tombol Edit Catatan */}
+                                  <button
+                                    onClick={() => openEditModal(item)}
+                                    title="Edit Catatan Ini"
+                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 transition cursor-pointer"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Tombol Hapus Catatan */}
+                                  <button
+                                    onClick={() => setEntryToDelete(item)}
+                                    title="Hapus Catatan Ini"
+                                    className="p-1.5 rounded-lg bg-[#FDEDEC] hover:bg-[#FADBD8] border border-[#F5B7B1] text-[#C0392B] transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -965,7 +1179,7 @@ function BukuPenghubungContent() {
                   Daftar Siswa {currentKelasObj?.nama_kelas || 'Kelas I'}
                 </h3>
                 <p className="text-xs text-[#6B6B6B]">
-                  Pilih siswa untuk mencatat kejadian atau menghubungi orang tua via WhatsApp
+                  Pilih siswa untuk melihat riwayat atau mencatat kejadian khusus
                 </p>
               </div>
 
@@ -1008,7 +1222,6 @@ function BukuPenghubungContent() {
                   </thead>
                   <tbody className="divide-y divide-[#DDD8CE]/60">
                     {searchedSiswaList.map((siswa, idx) => {
-                      // Hitung berapa kali siswa ini pernah dicatat
                       const studentRecordCount = entries.filter((e) => e.siswa_id === siswa.id).length;
 
                       return (
@@ -1042,9 +1255,13 @@ function BukuPenghubungContent() {
                           </td>
                           <td className="py-3 px-3 text-center">
                             {studentRecordCount > 0 ? (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]">
-                                {studentRecordCount} Kejadian
-                              </span>
+                              <button
+                                onClick={() => handleFilterToSiswa(siswa.id)}
+                                className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#FDEDEC] text-[#922B21] border border-[#F1948A] hover:bg-[#FADBD8] transition cursor-pointer"
+                                title="Klik untuk membuka riwayat catatan siswa ini"
+                              >
+                                {studentRecordCount} Kejadian &rarr;
+                              </button>
                             ) : (
                               <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-[#6B6B6B]">
                                 Belum Ada
@@ -1052,13 +1269,26 @@ function BukuPenghubungContent() {
                             )}
                           </td>
                           <td className="py-3 px-3 text-right">
-                            <button
-                              onClick={() => openCatatModal(siswa)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-2xs transition active:scale-95 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Catat Kejadian</span>
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {studentRecordCount > 0 && (
+                                <button
+                                  onClick={() => handleFilterToSiswa(siswa.id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#FAF8F2] border border-[#DDD8CE] text-[#3D3D3D] font-bold text-xs shadow-2xs transition active:scale-95 cursor-pointer"
+                                  title="Lihat Rekapan Siswa Ini"
+                                >
+                                  <FileText className="w-3 h-3 text-[#922B21]" />
+                                  <span>Lihat ({studentRecordCount})</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => openCatatModal(siswa)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-2xs transition active:scale-95 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>+ Catat</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1134,6 +1364,23 @@ function BukuPenghubungContent() {
                         </div>
                       )}
                     </div>
+
+                    <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-end gap-2 text-xs">
+                      <button
+                        onClick={() => openEditModal(item)}
+                        className="inline-flex items-center gap-1 text-amber-700 hover:underline font-bold cursor-pointer"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => setEntryToDelete(item)}
+                        className="inline-flex items-center gap-1 text-[#C0392B] hover:underline font-bold cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Hapus</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })
@@ -1142,7 +1389,7 @@ function BukuPenghubungContent() {
         )}
 
         {/* ============================================================== */}
-        {/* MODAL: FORM CATAT KEJADIAN SISWA & INTEGRASI WHATSAPP          */}
+        {/* MODAL: FORM CATAT / EDIT KEJADIAN SISWA                        */}
         {/* ============================================================== */}
         {showModal && modalSiswa && (
           <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1154,7 +1401,7 @@ function BukuPenghubungContent() {
                   </div>
                   <div>
                     <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                      Catat Kejadian / Kasus Siswa
+                      {isEditing ? 'Edit Catatan Buku Penghubung' : 'Catat Kejadian / Kasus Siswa'}
                     </h3>
                     <p className="text-[11px] text-[#6B6B6B]">
                       Buku Penghubung Guru & Orang Tua (Format Resmi)
@@ -1330,7 +1577,7 @@ function BukuPenghubungContent() {
                     disabled={submitting || !formMasalah.trim()}
                     className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white hover:bg-[#FAF8F2] border border-[#DDD8CE] text-[#3D3D3D] font-bold shadow-2xs active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
-                    {submitting ? 'Menyimpan...' : 'Simpan di Buku'}
+                    {submitting ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Simpan di Buku'}
                   </button>
 
                   <button
@@ -1340,10 +1587,74 @@ function BukuPenghubungContent() {
                     className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20BA5C] text-white font-bold shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-1.5"
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    <span>Simpan & Kirim ke WhatsApp</span>
+                    <span>{isEditing ? 'Simpan & Kirim WA' : 'Simpan & Kirim ke WhatsApp'}</span>
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* MODAL DIALOG KONFIRMASI HAPUS                                  */}
+        {/* ============================================================== */}
+        {entryToDelete && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-[#DDD8CE] animate-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 text-[#C0392B] mb-3">
+                <div className="p-2.5 rounded-xl bg-[#FDEDEC] border border-[#F5B7B1]">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
+                    Hapus Catatan Buku Penghubung?
+                  </h3>
+                  <p className="text-xs text-[#6B6B6B]">
+                    Tindakan ini akan menghapus catatan ini secara permanen dari database.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#FAF8F2] p-3.5 rounded-xl border border-[#DDD8CE] my-4 text-xs space-y-1.5">
+                <p>
+                  <span className="text-[#6B6B6B]">Peserta Didik:</span>{' '}
+                  <strong className="text-[#1A1A1A]">
+                    {entryToDelete.siswa?.nama_lengkap || 'Siswa'}
+                  </strong>
+                </p>
+                <p>
+                  <span className="text-[#6B6B6B]">Tanggal Catatan:</span>{' '}
+                  <strong className="text-[#1A1A1A]">
+                    {new Date(entryToDelete.created_at).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </strong>
+                </p>
+                <div className="pt-1 text-[#3D3D3D] italic bg-white p-2 rounded border border-[#DDD8CE] max-h-24 overflow-y-auto">
+                  &ldquo;{parseCatatan(entryToDelete.catatan, entryToDelete.created_at).masalah}&rdquo;
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEntryToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl border border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#FAF8F2] font-semibold text-xs cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteEntry}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#922B21] text-white font-bold text-xs shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  {isDeleting ? 'Menghapus...' : 'Ya, Hapus Catatan'}
+                </button>
+              </div>
             </div>
           </div>
         )}
