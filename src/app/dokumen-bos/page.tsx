@@ -122,32 +122,52 @@ export default function DokumenBOSPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formLink.includes('drive.google.com')) {
-      setUrlError('URL harus berasal dari Google Drive (drive.google.com)');
+    if (!formLink.startsWith('http://') && !formLink.startsWith('https://')) {
+      setUrlError('URL harus diawali dengan http:// atau https://');
       return;
     }
+    setUrlError(null);
 
-    const payload: DokumenBOS = {
-      id: editingDoc ? editingDoc.id : `bos-${Date.now()}`,
-      judul: formJudul.trim(),
-      kategori: formKategori,
-      tahun_anggaran: parseInt(formTahun) || 2026,
-      triwulan: formTriwulan ? parseInt(formTriwulan) : null,
-      link_gdrive: formLink.trim(),
-      uploaded_by: 'Admin / Guru',
-      created_at: editingDoc ? editingDoc.created_at : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      if (editingDoc && !editingDoc.id.startsWith('bos-')) {
+        const { data, error } = await supabase
+          .from('dokumen_bos')
+          .update({
+            judul: formJudul.trim(),
+            kategori: formKategori,
+            tahun_anggaran: parseInt(formTahun) || 2026,
+            triwulan: formTriwulan ? parseInt(formTriwulan) : null,
+            link_gdrive: formLink.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingDoc.id)
+          .select()
+          .single();
 
-    if (editingDoc) {
-      setDocuments(documents.map((d) => (d.id === editingDoc.id ? payload : d)));
-      showToast({ type: 'success', message: 'Perubahan dokumen BOS berhasil disimpan!' });
-    } else {
-      setDocuments([payload, ...documents]);
-      showToast({ type: 'success', message: 'Dokumen BOS baru berhasil ditambahkan!' });
+        if (error) throw error;
+        setDocuments(documents.map((d) => (d.id === editingDoc.id ? { ...d, ...data } : d)));
+        showToast({ type: 'success', message: 'Perubahan dokumen BOS berhasil disimpan ke cloud database!' });
+      } else {
+        const { data, error } = await supabase
+          .from('dokumen_bos')
+          .insert({
+            judul: formJudul.trim(),
+            kategori: formKategori,
+            tahun_anggaran: parseInt(formTahun) || 2026,
+            triwulan: formTriwulan ? parseInt(formTriwulan) : null,
+            link_gdrive: formLink.trim(),
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setDocuments([data, ...documents.filter((d) => !d.id.startsWith('bos-'))]);
+        showToast({ type: 'success', message: 'Dokumen BOS baru berhasil disimpan ke cloud database!' });
+      }
+      setShowModal(false);
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal menyimpan dokumen.' });
     }
-
-    setShowModal(false);
   };
 
   const handleDelete = async (id: string, judul?: string) => {

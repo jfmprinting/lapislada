@@ -36,6 +36,7 @@ import {
   MessageCircle,
   Copy,
   ExternalLink,
+  CloudUpload,
 } from 'lucide-react';
 
 function KaihContent() {
@@ -73,6 +74,7 @@ function KaihContent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modal State for WhatsApp Broadcast Preview
@@ -172,11 +174,13 @@ function KaihContent() {
     async function loadData() {
       setLoading(true);
       try {
+        let currentItems: KaihKegiatan[] = INITIAL_KAIH_KEGIATAN;
         const local = localStorage.getItem('lapislada_kaih_kegiatan');
         if (local) {
           try {
             const parsed = JSON.parse(local);
             if (Array.isArray(parsed) && parsed.length > 0) {
+              currentItems = parsed;
               setKegiatanList(parsed);
             }
           } catch (e) {
@@ -192,7 +196,32 @@ function KaihContent() {
 
         if (data && data.length > 0 && !error) {
           setKegiatanList(data);
-          localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(data));
+          try {
+            localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(data));
+          } catch (e) {}
+        } else if (!error && data && data.length === 0 && currentItems.length > 0) {
+          // Jika tabel di database ada namun masih kosong, auto sync data awal ke Supabase
+          try {
+            const seedRows = currentItems.map((k) => ({
+              id: k.id,
+              tipe: k.tipe,
+              kelas_id: k.kelas_id,
+              siswa_id: k.siswa_id,
+              kategori_id: k.kategori_id,
+              kategori_nama: k.kategori_nama,
+              judul: k.judul,
+              deskripsi: k.deskripsi,
+              jam: k.jam,
+              tanggal: k.tanggal,
+              foto_url: k.foto_url,
+              creator_nama: k.creator_nama,
+              apresiasi_guru: k.apresiasi_guru || false,
+              catatan_guru: k.catatan_guru || null,
+            }));
+            await supabase.from('kaih_kegiatan').upsert(seedRows);
+          } catch (syncErr) {
+            console.info('Auto sync fallback');
+          }
         }
       } catch (err) {
         console.warn('Fallback to local KAIH data:', err);
@@ -209,6 +238,44 @@ function KaihContent() {
       localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(items));
     } catch (e) {
       console.warn('localStorage save failed:', e);
+    }
+  };
+
+  const handleSyncToCloud = async () => {
+    setSyncing(true);
+    try {
+      const records = kegiatanList.map((k) => ({
+        id: k.id,
+        tipe: k.tipe,
+        kelas_id: k.kelas_id,
+        siswa_id: k.siswa_id,
+        kategori_id: k.kategori_id,
+        kategori_nama: k.kategori_nama,
+        judul: k.judul,
+        deskripsi: k.deskripsi,
+        jam: k.jam,
+        tanggal: k.tanggal,
+        foto_url: k.foto_url,
+        creator_nama: k.creator_nama,
+        apresiasi_guru: k.apresiasi_guru || false,
+        catatan_guru: k.catatan_guru || null,
+      }));
+      const { error } = await supabase.from('kaih_kegiatan').upsert(records);
+      if (error) {
+        showToast({
+          type: 'error',
+          message: `Gagal sinkronkan: ${error.message}. Pastikan skrip supabase-full-cloud-migration.sql sudah dijalankan di Supabase.`,
+        });
+      } else {
+        showToast({
+          type: 'success',
+          message: 'Berhasil! Semua kegiatan KAIH tersimpan ke cloud Supabase dan tersinkronisasi ke seluruh akun guru & orang tua.',
+        });
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal sinkronisasi data.' });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -303,8 +370,8 @@ function KaihContent() {
     };
 
     try {
-      // Try save to Supabase
-      await supabase.from('kaih_kegiatan').insert([
+      // Save to Supabase Cloud
+      const { error: dbErr } = await supabase.from('kaih_kegiatan').upsert([
         {
           id: newRecord.id,
           tipe: newRecord.tipe,
@@ -318,8 +385,11 @@ function KaihContent() {
           tanggal: newRecord.tanggal,
           foto_url: newRecord.foto_url,
           creator_nama: newRecord.creator_nama,
+          apresiasi_guru: newRecord.apresiasi_guru || false,
+          catatan_guru: newRecord.catatan_guru || null,
         },
       ]);
+      if (dbErr) console.warn('Supabase upsert warning:', dbErr.message);
     } catch (dbErr) {
       console.info('Database insert fallback to local state');
     }
@@ -734,16 +804,29 @@ function KaihContent() {
               </div>
 
               {/* ACTION BUTTON */}
-              {activeTab === 'sekolah' && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleOpenAddModal('sekolah')}
-                  className="px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center gap-2 cursor-pointer shrink-0"
+                  onClick={handleSyncToCloud}
+                  disabled={syncing}
+                  className="px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Kirim dan simpan semua kegiatan KAIH ke database cloud Supabase"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Catat Kegiatan Sekolah Hari Ini</span>
+                  <CloudUpload className={`w-3.5 h-3.5 text-emerald-700 ${syncing ? 'animate-bounce' : ''}`} />
+                  <span>{syncing ? 'Menyinkronkan...' : 'Sinkronkan Cloud'}</span>
                 </button>
-              )}
+
+                {activeTab === 'sekolah' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddModal('sekolah')}
+                    className="px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Catat Kegiatan Sekolah Hari Ini</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* FILTER BAR (TANGGAL & SISWA) */}

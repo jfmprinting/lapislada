@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { Bell, Plus, Calendar, Pin } from 'lucide-react';
+import { Bell, Plus, Calendar, Pin, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 
@@ -45,20 +45,24 @@ const INITIAL_ANNOUNCEMENTS: Pengumuman[] = [
 ];
 
 function PengumumanContent() {
-  const { showToast } = useNotification();
+  const { showToast, confirm } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
   const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [announcements, setAnnouncements] = useState<Pengumuman[]>(INITIAL_ANNOUNCEMENTS);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formJudul, setFormJudul] = useState('');
   const [formKonten, setFormKonten] = useState('');
   const [formKategori, setFormKategori] = useState('Akademik');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const user = session?.user ?? null;
+      if (user) setCurrentUserId(user.id);
       const detectedRole =
         (queryRole as 'guru' | 'admin' | 'orangtua') ||
         (user?.user_metadata?.role as 'guru' | 'admin' | 'orangtua') ||
@@ -67,30 +71,106 @@ function PengumumanContent() {
     });
   }, [queryRole]);
 
+  useEffect(() => {
+    async function fetchPengumuman() {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('pengumuman')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (data && data.length > 0 && !error) {
+          const mapped: Pengumuman[] = data.map((d: any) => ({
+            id: d.id,
+            judul: d.judul,
+            konten: d.konten,
+            tanggal: new Date(d.created_at).toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            }),
+            isPinned: false,
+            kategori: 'Umum',
+          }));
+          setAnnouncements(mapped);
+        }
+      } catch (err) {
+        console.warn('Fallback to initial announcements:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPengumuman();
+  }, []);
+
   const isOrangTua = role === 'orangtua';
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formJudul.trim() || !formKonten.trim()) return;
 
-    const newP: Pengumuman = {
-      id: `p-${Date.now()}`,
-      judul: formJudul.trim(),
-      konten: formKonten.trim(),
-      tanggal: 'Hari ini',
-      isPinned: false,
-      kategori: formKategori,
-    };
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('pengumuman')
+        .insert([
+          {
+            judul: formJudul.trim(),
+            konten: formKonten.trim(),
+            target_role: 'semua',
+            created_by: currentUserId || null,
+          },
+        ])
+        .select()
+        .single();
 
-    setAnnouncements([newP, ...announcements]);
-    setFormJudul('');
-    setFormKonten('');
-    setShowModal(false);
-    showToast({
-      type: 'success',
-      title: 'Pengumuman Diterbitkan',
-      message: 'Pengumuman baru berhasil dipublikasikan ke seluruh wali murid & staf!',
+      if (error) throw error;
+
+      const newP: Pengumuman = {
+        id: data.id,
+        judul: data.judul,
+        konten: data.konten,
+        tanggal: 'Hari ini',
+        isPinned: false,
+        kategori: formKategori,
+      };
+
+      setAnnouncements((prev) => [newP, ...prev.filter((p) => !p.id.startsWith('p-'))]);
+      setFormJudul('');
+      setFormKonten('');
+      setShowModal(false);
+      showToast({
+        type: 'success',
+        title: 'Pengumuman Diterbitkan',
+        message: 'Pengumuman baru berhasil disimpan ke database cloud dan tampil ke seluruh wali murid & staf!',
+      });
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal menerbitkan pengumuman.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string, judul: string) => {
+    const isConfirmed = await confirm({
+      title: 'Hapus Pengumuman?',
+      message: `Apakah Anda yakin ingin menghapus pengumuman "${judul}"?`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      isDanger: true,
     });
+    if (!isConfirmed) return;
+
+    try {
+      if (!id.startsWith('p-')) {
+        await supabase.from('pengumuman').delete().eq('id', id);
+      }
+      setAnnouncements((prev) => prev.filter((p) => p.id !== id));
+      showToast({ type: 'success', message: 'Pengumuman berhasil dihapus.' });
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus pengumuman.' });
+    }
   };
 
   return (
@@ -165,6 +245,19 @@ function PengumumanContent() {
                   {p.konten}
                 </p>
               </div>
+
+              {!isOrangTua && (
+                <div className="pt-3 mt-3 border-t border-[#F5F0E8] flex justify-end">
+                  <button
+                    onClick={() => handleDelete(p.id, p.judul)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#999] hover:text-red-600 transition cursor-pointer"
+                    title="Hapus pengumuman ini"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus</span>
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
