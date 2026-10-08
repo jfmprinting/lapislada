@@ -1,17 +1,14 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, UserCheck, GraduationCap, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 function LoginForm() {
-  const searchParams = useSearchParams();
   const router = useRouter();
 
-  const initialRole = searchParams.get('role') === 'orangtua' ? 'orangtua' : 'guru';
-  const [role, setRole] = useState<'guru' | 'orangtua'>(initialRole);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,20 +20,56 @@ function LoginForm() {
     setLoading(true);
     setErrorMessage(null);
 
+    const cleanEmail = email.toLowerCase().trim();
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       });
 
       if (!error && data?.user) {
-        const userRole = data.user?.user_metadata?.role;
+        let userRole = data.user?.user_metadata?.role;
         const userJabatan = data.user?.user_metadata?.jabatan;
-        if (userRole === 'kepala_sekolah' || userJabatan === 'kepala_sekolah') {
+
+        // Fallback: check users_profile table if role is not in user_metadata
+        if (!userRole) {
+          const { data: prof } = await supabase
+            .from('users_profile')
+            .select('role, jabatan')
+            .eq('id', data.user.id)
+            .maybeSingle();
+          if (prof?.role) {
+            userRole = prof.role;
+          }
+          if ((prof as any)?.jabatan === 'kepala_sekolah') {
+            userRole = 'kepala_sekolah';
+          }
+        }
+
+        // Fallback: check if linked to a student as wali murid
+        if (!userRole) {
+          const { data: siswa } = await supabase
+            .from('siswa')
+            .select('id')
+            .eq('wali_murid_id', data.user.id)
+            .maybeSingle();
+          if (siswa) {
+            userRole = 'orangtua';
+          }
+        }
+
+        // Automatic smart redirection based on user's actual role
+        if (
+          userRole === 'kepala_sekolah' ||
+          userJabatan === 'kepala_sekolah' ||
+          cleanEmail === 'kepsek@demo.com'
+        ) {
           router.push('/dashboard/kepala-sekolah');
-        } else if (userRole === 'orangtua' || role === 'orangtua') {
+        } else if (userRole === 'orangtua') {
           router.push('/dashboard/orangtua');
         } else {
+          // Guru / Admin
           router.push('/dashboard');
         }
         return;
@@ -47,7 +80,7 @@ function LoginForm() {
         const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
         if (storedRegistry) {
           const registry = JSON.parse(storedRegistry);
-          const entry = registry[email.toLowerCase().trim()];
+          const entry = registry[cleanEmail];
           if (entry && entry.password === password.trim()) {
             const fallbackEmail = entry.role === 'orangtua' ? 'ortu@guru.com' : 'guru@demo.com';
             await supabase.auth.signInWithPassword({
@@ -72,12 +105,11 @@ function LoginForm() {
         throw error;
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Login gagal. Periksa kembali email dan password Anda.');
+      setErrorMessage(err.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F5F0E8] px-4 py-8">
@@ -98,40 +130,6 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* ROLE TOGGLE (WF-02) */}
-        <div className="mb-5">
-          <label className="block text-xs font-semibold text-[#6B6B6B] mb-2 text-center uppercase tracking-wider">
-            Masuk sebagai
-          </label>
-          <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]">
-            <button
-              type="button"
-              onClick={() => setRole('guru')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                role === 'guru'
-                  ? 'bg-[#922B21] text-white shadow-sm'
-                  : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
-              }`}
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span>Guru / Admin</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRole('orangtua')}
-              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                role === 'orangtua'
-                  ? 'bg-[#922B21] text-white shadow-sm'
-                  : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
-              }`}
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>Orang Tua</span>
-            </button>
-          </div>
-        </div>
-
         {/* ERROR MESSAGE */}
         {errorMessage && (
           <div className="mb-4 p-3 rounded-lg bg-[#FDEDEC] border border-[#F1948A] flex items-start gap-2 text-xs text-[#922B21]">
@@ -140,11 +138,11 @@ function LoginForm() {
           </div>
         )}
 
-        {/* FORM */}
+        {/* LOGIN FORM */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#3D3D3D] mb-1">
-              Email Pengguna
+              Email Akun
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-[#6B6B6B] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -153,8 +151,8 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={role === 'guru' ? 'guru@sekolah.sch.id' : 'email.orangtua@gmail.com'}
-                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] placeholder-[#6B6B6B] focus:outline-none focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition"
+                placeholder="nama@sdnlatsari.sch.id atau email Anda"
+                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition"
               />
             </div>
           </div>
@@ -171,12 +169,12 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] placeholder-[#6B6B6B] focus:outline-none focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition"
+                className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] placeholder-[#888] focus:outline-none focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#1A1A1A] focus:outline-none"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#1A1A1A] focus:outline-none cursor-pointer"
               >
                 {showPassword ? (
                   <EyeOff className="w-4 h-4" />
@@ -190,7 +188,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+            className="w-full py-2.5 px-4 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2"
           >
             {loading ? (
               <span>Memproses...</span>
@@ -203,8 +201,7 @@ function LoginForm() {
           </button>
         </form>
 
-
-        <div className="mt-5 text-center">
+        <div className="mt-6 text-center">
           <p className="text-[11px] text-[#6B6B6B]">
             Lupa password atau belum terdaftar?{' '}
             <span className="font-semibold text-[#922B21]">Hubungi Admin Sekolah</span>
