@@ -34,6 +34,27 @@ export default function AdminProfilSekolahPage() {
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const role = user?.user_metadata?.role;
+        const email = user?.email?.toLowerCase().trim();
+        const userIsAdmin = role === 'admin' || email === 'admin@demo.com';
+        setIsAdmin(userIsAdmin);
+      } catch (e) {
+        setIsAdmin(false);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
   useEffect(() => {
     async function fetchProfil() {
       const { data } = await supabase.from('profil_sekolah').select('*').limit(1).maybeSingle();
@@ -76,6 +97,40 @@ export default function AdminProfilSekolahPage() {
       setSaving(false);
     }
   };
+
+  if (!checkingAuth && !isAdmin) {
+    return (
+      <AppShell
+        role="guru"
+        pageTitle="Kelola Profil Sekolah"
+        pageSubtitle="Akses Terbatas: Hanya Administrator Sekolah yang berwenang mengubah profil resmi"
+      >
+        <div className="bg-white rounded-2xl p-8 border border-[#DDD8CE] text-center max-w-lg mx-auto my-12 space-y-4 shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto">
+            <School className="w-8 h-8" />
+          </div>
+          <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">Akses Khusus Administrator</h2>
+          <p className="text-xs text-[#666] leading-relaxed">
+            Pengelolaan identitas resmi sekolah, NPSN, nomor kontak, serta visi-misi publik hanya dapat dilakukan oleh Administrator Sekolah.
+          </p>
+          <div className="flex justify-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#DDD8CE] text-[#1A1A1A] text-xs font-bold hover:bg-[#F5F0E8] transition"
+            >
+              Lihat Halaman Publik
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#922B21] text-white text-xs font-bold hover:bg-[#771F18] transition shadow-xs"
+            >
+              Kembali ke Dashboard
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

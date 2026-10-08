@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, UserCheck, GraduationCap, Lock, Mail, AlertCircle, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, UserCheck, GraduationCap, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 function LoginForm() {
@@ -78,26 +78,6 @@ function LoginForm() {
     }
   };
 
-  // Demo shortcut for effortless testing
-  const fillDemo = (type: 'guru' | 'orangtua' | 'admin' | 'kepsek') => {
-    if (type === 'guru') {
-      setRole('guru');
-      setEmail('guru@demo.com');
-      setPassword('demo123');
-    } else if (type === 'orangtua') {
-      setRole('orangtua');
-      setEmail('ortu@guru.com');
-      setPassword('demo123');
-    } else if (type === 'kepsek') {
-      setRole('guru');
-      setEmail('kepsek@demo.com');
-      setPassword('demo123');
-    } else {
-      setRole('guru');
-      setEmail('admin@demo.com');
-      setPassword('demo123');
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F5F0E8] px-4 py-8">
@@ -223,43 +203,6 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* DEMO ACCOUNTS HELPER */}
-        <div className="mt-6 pt-5 border-t border-[#DDD8CE]">
-          <div className="flex items-center gap-1 text-[11px] font-semibold text-[#6B6B6B] mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#C0392B]" />
-            <span>Mode Uji Coba Cepat (Demo):</span>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            <button
-              type="button"
-              onClick={() => fillDemo('guru')}
-              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
-            >
-              Guru
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('orangtua')}
-              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
-            >
-              Ortu
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('admin')}
-              className="py-1.5 px-1 bg-[#F5F0E8] hover:bg-[#E8E0D0] text-[#1A1A1A] rounded-md text-[10px] font-semibold border border-[#DDD8CE] transition text-center"
-            >
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('kepsek')}
-              className="py-1.5 px-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-md text-[10px] font-bold border border-amber-300 transition text-center"
-            >
-              Kepsek
-            </button>
-          </div>
-        </div>
 
         <div className="mt-5 text-center">
           <p className="text-[11px] text-[#6B6B6B]">

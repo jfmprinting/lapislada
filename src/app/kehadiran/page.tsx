@@ -268,8 +268,8 @@ function KehadiranContent() {
       }
     };
     
-    // Only fetch if role is determined and (for guru) userId or userEmail is available
-    if (role === 'admin' || (role === 'guru' && (userId || userEmail))) {
+    // Fetch if role is admin or kepala_sekolah, or guru with user credentials
+    if (role === 'admin' || role === 'kepala_sekolah' || (role === 'guru' && (userId || userEmail))) {
       fetchKelas();
     }
   }, [role, userId, userEmail]);
@@ -858,7 +858,7 @@ function KehadiranContent() {
           /* TAB 1: ABSENSI HARIAN */
           <div className="space-y-6">
             {/* Warning if teacher has no class assigned */}
-            {!loadingKelas && kelasList.length === 0 && (
+            {!loadingKelas && kelasList.length === 0 && role === 'guru' && (
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs">
                 <p className="font-bold">Perhatian: Anda belum ditugaskan sebagai Wali Kelas</p>
                 <p className="mt-0.5 text-amber-800">

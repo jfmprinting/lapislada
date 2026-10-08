@@ -44,12 +44,37 @@ export default function AppShell({
   role = 'guru',
   pageTitle,
   pageSubtitle,
-  unreadCount = 1,
+  unreadCount = 0,
 }: AppShellProps) {
   const { confirm, showToast } = useNotification();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [realUnreadCount, setRealUnreadCount] = useState<number>(unreadCount);
+
+  // Dynamically load unread messages from buku_penghubung
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setRealUnreadCount(unreadCount);
+      return;
+    }
+    async function loadUnreadCount() {
+      try {
+        const { count, error } = await supabase
+          .from('buku_penghubung')
+          .select('*', { count: 'exact', head: true })
+          .eq('dibaca', false);
+        if (!error && typeof count === 'number') {
+          setRealUnreadCount(count);
+        } else {
+          setRealUnreadCount(0);
+        }
+      } catch (e) {
+        setRealUnreadCount(0);
+      }
+    }
+    loadUnreadCount();
+  }, [unreadCount, pathname]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -116,7 +141,7 @@ export default function AppShell({
               label: 'Buku Penghubung',
               href: '/buku-penghubung?role=orangtua',
               icon: BookOpen,
-              badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
+              badge: realUnreadCount > 0 ? `${realUnreadCount} Baru` : undefined,
             },
             {
               label: 'Karakter KAIH',
@@ -162,7 +187,7 @@ export default function AppShell({
               label: 'Buku Penghubung',
               href: '/buku-penghubung',
               icon: BookOpen,
-              badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
+              badge: realUnreadCount > 0 ? `${realUnreadCount} Baru` : undefined,
             },
             {
               label: 'Pengumuman Sekolah',
@@ -210,11 +235,6 @@ export default function AppShell({
               icon: Camera,
             },
             {
-              label: 'Profil Sekolah',
-              href: '/admin/profil-sekolah',
-              icon: School,
-            },
-            {
               label: 'Halaman Publik',
               href: '/',
               icon: ExternalLink,
@@ -238,7 +258,7 @@ export default function AppShell({
               label: 'Buku Penghubung',
               href: '/buku-penghubung',
               icon: BookOpen,
-              badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
+              badge: realUnreadCount > 0 ? `${realUnreadCount} Baru` : undefined,
             },
             {
               label: 'Pengumuman',
@@ -344,7 +364,7 @@ export default function AppShell({
             label: 'Buku Penghubung',
             href: '/buku-penghubung',
             icon: BookOpen,
-            badge: unreadCount > 0 ? `${unreadCount} Baru` : undefined,
+            badge: realUnreadCount > 0 ? `${realUnreadCount} Baru` : undefined,
           },
           {
             label: 'Pengumuman',
@@ -381,11 +401,6 @@ export default function AppShell({
       {
         title: 'Administrasi',
         items: [
-          {
-            label: 'Dokumen BOS',
-            href: '/dokumen-bos',
-            icon: FolderLock,
-          },
           {
             label: 'Galeri Sekolah',
             href: '/galeri',

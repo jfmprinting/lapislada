@@ -54,6 +54,33 @@ export default function DokumenBOSPage() {
   const [formTriwulan, setFormTriwulan] = useState<string>('1');
   const [formLink, setFormLink] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'kepala_sekolah' | 'guru'>('admin');
+  const [loadingRole, setLoadingRole] = useState(true);
+
+  useEffect(() => {
+    async function checkRole() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const role = user?.user_metadata?.role;
+        const jabatan = user?.user_metadata?.jabatan;
+        const email = user?.email?.toLowerCase().trim();
+
+        if (role === 'kepala_sekolah' || jabatan === 'kepala_sekolah' || email === 'kepsek@demo.com') {
+          setCurrentUserRole('kepala_sekolah');
+        } else if (role === 'admin' || email === 'admin@demo.com') {
+          setCurrentUserRole('admin');
+        } else {
+          setCurrentUserRole('guru');
+        }
+      } catch (e) {
+        setCurrentUserRole('admin');
+      } finally {
+        setLoadingRole(false);
+      }
+    }
+    checkRole();
+  }, []);
 
   useEffect(() => {
     async function loadDocs() {
@@ -150,11 +177,45 @@ export default function DokumenBOSPage() {
     return matchYear && matchKat;
   });
 
+  if (!loadingRole && currentUserRole === 'guru') {
+    return (
+      <AppShell
+        role="guru"
+        pageTitle="Dokumen BOS"
+        pageSubtitle="Akses Terbatas: Pengelolaan Dokumen BOS adalah tugas Administrator Sekolah"
+      >
+        <div className="bg-white rounded-2xl p-8 border border-[#DDD8CE] text-center max-w-lg mx-auto my-12 space-y-4 shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto">
+            <FolderLock className="w-8 h-8" />
+          </div>
+          <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">Akses Khusus Administrator</h2>
+          <p className="text-xs text-[#666] leading-relaxed">
+            Pengelolaan arsip SPJ, RKAS, dan Laporan Dana BOS merupakan tugas Administrator Sekolah dan pengawasan Kepala Sekolah. Bapak/Ibu Guru tidak ditugaskan untuk mengelola berkas administrasi ini.
+          </p>
+          <div>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#922B21] text-white text-xs font-bold hover:bg-[#771F18] transition shadow-xs"
+            >
+              Kembali ke Dashboard Guru
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const isKepsek = currentUserRole === 'kepala_sekolah';
+
   return (
     <AppShell
-      role="guru"
-      pageTitle="Dokumen BOS"
-      pageSubtitle="Penyimpanan terpusat link Google Drive SPJ, RKAS, dan Laporan Dana BOS"
+      role={isKepsek ? 'kepala_sekolah' : 'admin'}
+      pageTitle={isKepsek ? 'Monitoring Dokumen BOS Sekolah' : 'Dokumen BOS'}
+      pageSubtitle={
+        isKepsek
+          ? 'Pemantauan pengawasan link Google Drive SPJ, RKAS, dan Laporan Dana BOS (Mode Pengawasan Eksekutif)'
+          : 'Penyimpanan terpusat link Google Drive SPJ, RKAS, dan Laporan Dana BOS'
+      }
     >
       <div className="space-y-6">
         {/* TOP FILTER & ACTION BAR */}
@@ -168,7 +229,7 @@ export default function DokumenBOSPage() {
                 Arsip Dokumen BOS
               </h2>
               <p className="text-xs text-[#6B6B6B]">
-                Khusus Tim Pengelola BOS & Guru Sekolah
+                {isKepsek ? 'Mode Pengawasan Pimpinan Sekolah' : 'Khusus Tim Pengelola BOS & Administrator Sekolah'}
               </p>
             </div>
           </div>
@@ -199,13 +260,15 @@ export default function DokumenBOSPage() {
               </select>
             </div>
 
-            <button
-              onClick={openAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Tambah Dokumen</span>
-            </button>
+            {!isKepsek && (
+              <button
+                onClick={openAddModal}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Dokumen</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,22 +325,24 @@ export default function DokumenBOSPage() {
                     <span>Buka GDrive</span>
                   </a>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => openEditModal(doc)}
-                      title="Edit Dokumen"
-                      className="p-1.5 text-[#6B6B6B] hover:text-[#922B21] hover:bg-[#F5F0E8] rounded-lg transition"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id, doc.judul)}
-                      title="Hapus Dokumen"
-                      className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {!isKepsek && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(doc)}
+                        title="Edit Dokumen"
+                        className="p-1.5 text-[#6B6B6B] hover:text-[#922B21] hover:bg-[#F5F0E8] rounded-lg transition"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(doc.id, doc.judul)}
+                        title="Hapus Dokumen"
+                        className="p-1.5 text-[#6B6B6B] hover:text-[#C0392B] hover:bg-[#FDEDEC] rounded-lg transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))

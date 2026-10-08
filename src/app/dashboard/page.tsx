@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   Award,
   FolderOpen,
-  FolderLock,
+  Camera,
   HeartHandshake,
   ArrowRight,
   Clock,
@@ -329,12 +329,12 @@ export default function DashboardGuruPage() {
                 </Link>
 
                 <Link
-                  href="/dokumen-bos"
+                  href="/galeri"
                   className="flex flex-col items-center justify-center p-4 rounded-xl bg-[#F5F0E8] hover:bg-[#E8E0D0] border border-[#DDD8CE] transition active:scale-95 group text-center"
                 >
-                  <FolderLock className="w-7 h-7 text-[#922B21] mb-1.5 group-hover:scale-110 transition-transform" />
-                  <span className="font-bold text-xs text-[#1A1A1A]">Dokumen BOS</span>
-                  <span className="text-[10px] text-[#6B6B6B]">Arsip SPJ & RKAS</span>
+                  <Camera className="w-7 h-7 text-[#922B21] mb-1.5 group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-xs text-[#1A1A1A]">Galeri Sekolah</span>
+                  <span className="text-[10px] text-[#6B6B6B]">Foto & Agenda</span>
                 </Link>
 
                 <Link
