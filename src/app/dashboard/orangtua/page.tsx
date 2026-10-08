@@ -52,28 +52,47 @@ export default function DashboardOrangTuaPage() {
           setAvatarInitials(initials || 'WM');
         }
 
-        // Strategy: try siswa_id from metadata first, then fallback to wali_murid_id
+        // Strategy: try wali_murid_id first, then siswa_id from metadata, then match by NISN from email
         const fetchSiswaData = async () => {
           let siswa: any = null;
 
-          // Attempt 1: query by siswa_id from metadata
-          if (meta?.siswa_id) {
-            const { data } = await supabase
+          // Attempt 1: query by wali_murid_id = auth.uid()
+          const { data: byWali } = await supabase
+            .from('siswa')
+            .select('*, kelas:kelas_id(nama_kelas)')
+            .eq('wali_murid_id', user.id)
+            .maybeSingle();
+          siswa = byWali;
+
+          // Attempt 2: query by siswa_id from metadata
+          if (!siswa && meta?.siswa_id) {
+            const { data: byMetaId } = await supabase
               .from('siswa')
               .select('*, kelas:kelas_id(nama_kelas)')
               .eq('id', meta.siswa_id)
-              .single();
-            siswa = data;
+              .maybeSingle();
+            siswa = byMetaId;
           }
 
-          // Attempt 2: fallback — query by wali_murid_id = auth.uid()
-          if (!siswa) {
-            const { data } = await supabase
+          // Attempt 3: query by NISN extracted from login email
+          if (!siswa && user.email) {
+            const extractedNisn = user.email.split('@')[0].replace(/[^0-9]/g, '');
+            if (extractedNisn && extractedNisn.length >= 8) {
+              const { data: byNisn } = await supabase
+                .from('siswa')
+                .select('*, kelas:kelas_id(nama_kelas)')
+                .eq('nisn', extractedNisn)
+                .maybeSingle();
+              siswa = byNisn;
+            }
+          }
+
+          // Auto-link: if found but wali_murid_id is null, link it now
+          if (siswa && (!siswa.wali_murid_id || siswa.wali_murid_id !== user.id)) {
+            await supabase
               .from('siswa')
-              .select('*, kelas:kelas_id(nama_kelas)')
-              .eq('wali_murid_id', user.id)
-              .single();
-            siswa = data;
+              .update({ wali_murid_id: user.id })
+              .eq('id', siswa.id);
           }
 
           // Also check users_profile for parent name
@@ -81,7 +100,7 @@ export default function DashboardOrangTuaPage() {
             .from('users_profile')
             .select('nama')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
 
           if (siswa) {
             setSiswaId(siswa.id);
