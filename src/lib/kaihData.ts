@@ -91,7 +91,7 @@ export function generateKaihWhatsAppBroadcast(
   const sekolah = options?.namaSekolah || 'SDN Latsari 2 Bancar';
   const kelas = options?.namaKelas || 'Kelas I';
   const guru = options?.namaGuru || kegiatan.creator_nama || 'Wali Kelas';
-  const url = options?.portalUrl || 'https://lapis-lada.sdnlatsari2.sch.id';
+  const url = options?.portalUrl || 'https://lapislada.web.id';
 
   // Format tanggal Indonesia ramah
   let formattedDate = kegiatan.tanggal;

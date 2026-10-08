@@ -105,7 +105,7 @@ export default function GaleriPage() {
   }, [items, selectedKategori, searchTerm]);
 
   const handleShare = async (item: GaleriKegiatan) => {
-    const shareText = `${item.judul} - UPT SD Negeri Latsari 2 Bancar. Lihat dokumentasi di https://lapislada.pages.dev/galeri`;
+    const shareText = `${item.judul} - UPT SD Negeri Latsari 2 Bancar. Lihat dokumentasi di https://lapislada.web.id/galeri`;
     if (navigator.share) {
       try {
         await navigator.share({

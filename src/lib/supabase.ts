@@ -80,7 +80,17 @@ export type BukuPenghubungItem = {
     nama: string;
   };
   siswa?: {
+    id?: string;
     nama_lengkap: string;
+    nis?: string;
+    nisn?: string;
+    jenis_kelamin?: string;
+    nama_wali?: string;
+    no_hp_wali?: string;
+    kelas?: {
+      id?: string;
+      nama_kelas: string;
+    };
   };
 };
 

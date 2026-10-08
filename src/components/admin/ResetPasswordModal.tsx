@@ -200,7 +200,7 @@ UPT SD Negeri Latsari 2 Bancar
 
 Berikut adalah informasi akun resmi Anda untuk mengakses portal aplikasi *LAPIS LADA*:
 
-🌐 *Link Portal:* https://lapislada.pages.dev/login
+🌐 *Link Portal:* https://lapislada.web.id/login
 👤 *Username / Email:* ${email || '-'}
 🔑 *Kata Sandi (Password):* ${activePasswordForWA}
 🏷️ *Peran Akun:* ${roleLabel}
@@ -621,7 +621,7 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-[#FAF8F2] border-t border-[#DDD8CE] flex items-center justify-between gap-3">
           <div className="text-[11px] text-[#7A7A7A]">
-            Portal: <span className="font-semibold text-[#1A1A1A]">lapislada.pages.dev/login</span>
+            Portal: <span className="font-semibold text-[#1A1A1A]">lapislada.web.id/login</span>
           </div>
 
           <button
