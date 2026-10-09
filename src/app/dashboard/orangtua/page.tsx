@@ -15,6 +15,7 @@ import {
   Camera,
   Award,
   Plus,
+  FolderLock,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -509,6 +510,39 @@ export default function DashboardOrangTuaPage() {
             <p className="text-[11px] text-[#6B6B6B] pl-4">
               Selamat datang di Portal Orang Tua LAPIS LADA v2. Saat ini Anda dapat memantau data secara real-time.
             </p>
+          </div>
+        </section>
+
+        {/* LAPORAN DANA BOS */}
+        <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-[#FDEDEC] text-[#922B21]">
+                <FolderLock className="w-4 h-4" />
+              </div>
+              <h2 className="font-serif font-bold text-sm text-[#1A1A1A]">
+                Laporan Dana BOS
+              </h2>
+            </div>
+            <Link
+              href="/dokumen-bos?role=orangtua"
+              className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
+            >
+              <span>Lihat Arsip</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between gap-3">
+            <p className="text-[11px] text-[#666] leading-relaxed">
+              Transparansi penggunaan dana BOS sekolah. Bapak/Ibu dapat melihat arsip SPJ, RKAS, dan Laporan Dana BOS yang dipublikasikan sekolah.
+            </p>
+            <Link
+              href="/dokumen-bos?role=orangtua"
+              className="px-3.5 py-2 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+            >
+              Buka Laporan
+            </Link>
           </div>
         </section>
       </main>

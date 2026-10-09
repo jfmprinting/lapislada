@@ -54,7 +54,7 @@ export default function DokumenBOSPage() {
   const [formTriwulan, setFormTriwulan] = useState<string>('1');
   const [formLink, setFormLink] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'kepala_sekolah' | 'guru'>('admin');
+  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'kepala_sekolah' | 'guru' | 'orangtua'>('admin');
   const [loadingRole, setLoadingRole] = useState(true);
 
   useEffect(() => {
@@ -65,8 +65,11 @@ export default function DokumenBOSPage() {
         const role = user?.user_metadata?.role;
         const jabatan = user?.user_metadata?.jabatan;
         const email = user?.email?.toLowerCase().trim();
+        const queryRole = new URLSearchParams(window.location.search).get('role');
 
-        if (role === 'kepala_sekolah' || jabatan === 'kepala_sekolah' || email === 'kepsek@demo.com') {
+        if (queryRole === 'orangtua' || role === 'orangtua') {
+          setCurrentUserRole('orangtua');
+        } else if (role === 'kepala_sekolah' || jabatan === 'kepala_sekolah' || email === 'kepsek@demo.com') {
           setCurrentUserRole('kepala_sekolah');
         } else if (role === 'admin' || email === 'admin@demo.com') {
           setCurrentUserRole('admin');
@@ -226,18 +229,32 @@ export default function DokumenBOSPage() {
   }
 
   const isKepsek = currentUserRole === 'kepala_sekolah';
+  const isOrangtua = currentUserRole === 'orangtua';
 
   return (
     <AppShell
-      role={isKepsek ? 'kepala_sekolah' : 'admin'}
-      pageTitle={isKepsek ? 'Monitoring Dokumen BOS Sekolah' : 'Dokumen BOS'}
+      role={isOrangtua ? 'orangtua' : isKepsek ? 'kepala_sekolah' : 'admin'}
+      pageTitle={isOrangtua ? 'Laporan Dana BOS' : isKepsek ? 'Monitoring Dokumen BOS Sekolah' : 'Dokumen BOS'}
       pageSubtitle={
-        isKepsek
+        isOrangtua
+          ? 'Transparansi penggunaan dana BOS: SPJ, RKAS, dan Laporan yang dipublikasikan sekolah'
+          : isKepsek
           ? 'Pemantauan pengawasan link Google Drive SPJ, RKAS, dan Laporan Dana BOS (Mode Pengawasan Eksekutif)'
           : 'Penyimpanan terpusat link Google Drive SPJ, RKAS, dan Laporan Dana BOS'
       }
     >
       <div className="space-y-6">
+        {isOrangtua && (
+          <div className="bg-[#FAF8F2] rounded-2xl p-4 border border-[#DDD8CE] flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-[#FDEDEC] text-[#922B21] shrink-0">
+              <FolderLock className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-[#6B6B6B] leading-relaxed">
+              Berikut adalah arsip dokumen Dana BOS yang dipublikasikan pihak sekolah sebagai bentuk transparansi kepada wali murid. Bapak/Ibu dapat membuka dokumen melalui tautan Google Drive pada setiap kartu. Pengelolaan dokumen hanya dilakukan oleh Administrator Sekolah.
+            </p>
+          </div>
+        )}
+
         {/* TOP FILTER & ACTION BAR */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -249,7 +266,11 @@ export default function DokumenBOSPage() {
                 Arsip Dokumen BOS
               </h2>
               <p className="text-xs text-[#6B6B6B]">
-                {isKepsek ? 'Mode Pengawasan Pimpinan Sekolah' : 'Khusus Tim Pengelola BOS & Administrator Sekolah'}
+                {isOrangtua
+                  ? 'Mode Transparansi untuk Wali Murid'
+                  : isKepsek
+                  ? 'Mode Pengawasan Pimpinan Sekolah'
+                  : 'Khusus Tim Pengelola BOS & Administrator Sekolah'}
               </p>
             </div>
           </div>
@@ -280,7 +301,7 @@ export default function DokumenBOSPage() {
               </select>
             </div>
 
-            {!isKepsek && (
+            {!isKepsek && !isOrangtua && (
               <button
                 onClick={openAddModal}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer shrink-0"
@@ -345,7 +366,7 @@ export default function DokumenBOSPage() {
                     <span>Buka GDrive</span>
                   </a>
 
-                  {!isKepsek && (
+                  {!isKepsek && !isOrangtua && (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEditModal(doc)}

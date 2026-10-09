@@ -164,6 +164,11 @@ export default function AppShell({
           title: 'Informasi',
           items: [
             {
+              label: 'Laporan Dana BOS',
+              href: '/dokumen-bos?role=orangtua',
+              icon: FolderLock,
+            },
+            {
               label: 'Halaman Publik',
               href: '/',
               icon: ExternalLink,
