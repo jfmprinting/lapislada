@@ -38,7 +38,7 @@ interface KelasSummary {
 
 export default function DashboardKepalaSekolahPage() {
   const [loading, setLoading] = useState(true);
-  const [kepsekName, setKepsekName] = useState('Santoso, S.Pd., M.Pd');
+  const [kepsekName, setKepsekName] = useState('Santoso ,S.Pd.,M.Pd.');
   const [totalSiswaSekolah, setTotalSiswaSekolah] = useState(0);
   const [totalGuru, setTotalGuru] = useState(0);
   const [totalKehadiranSekolah, setTotalKehadiranSekolah] = useState({ hadir: 0, total: 0, pct: 0 });

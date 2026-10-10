@@ -118,7 +118,7 @@ Struktur tabel kedinasan diimplementasikan dengan tabel HTML standar tanpa depen
 | **AKSI & KELOLA** | Tombol WhatsApp (Kirim & Salin), Edit (Kuning), Hapus (Merah) - otomatis disembunyikan saat cetak (`print:hidden`) |
 
 Bagian bawah tabel dilengkapi kolom tanda tangan resmi:
-- Kiri: **Mengetahui Kepala Sekolah (SUKANDAR, S.Pd., M.Pd. • NIP. 19700101 199303 1 002)**
+- Kiri: **Mengetahui Kepala Sekolah (Santoso ,S.Pd.,M.Pd. • NIP. 19850612 201001 1 015)**
 - Kanan: **Guru Kelas (Santoso, S.Pd., M.Pd. • NIP. 19850612 201001 1 015)**
 
 ### D. Fitur Filterisasi Khusus Siswa Tertentu

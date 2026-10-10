@@ -53,6 +53,8 @@ interface KelasOption {
     id: string;
     nama: string;
     email: string;
+    telepon?: string | null;
+    nip?: string | null;
   } | null;
 }
 
@@ -199,9 +201,19 @@ function BukuPenghubungContent() {
             .eq('id', user.id)
             .single();
 
+          const cleanEmail = (user.email || '').toLowerCase().trim();
+          const isKepsekUser =
+            (profile?.role === 'kepala_sekolah') ||
+            (user?.user_metadata?.role === 'kepala_sekolah') ||
+            (user?.user_metadata?.jabatan === 'kepala_sekolah') ||
+            cleanEmail === 'kepsek@demo.com' ||
+            cleanEmail === 'santoso.7404@admin.sd.belajar.id' ||
+            cleanEmail.startsWith('santoso') ||
+            (profile?.nama && profile.nama.toLowerCase().includes('santoso'));
+
           const detectedRole =
             (queryRole as any) ||
-            (profile?.role as any) ||
+            (isKepsekUser ? 'kepala_sekolah' : (profile?.role as any)) ||
             (user?.user_metadata?.role as any) ||
             'guru';
 
@@ -209,7 +221,7 @@ function BukuPenghubungContent() {
           setCurrentUserName(
             profile?.nama ||
             user.user_metadata?.nama ||
-            (detectedRole === 'orangtua' ? 'Wali Murid' : detectedRole === 'kepala_sekolah' ? 'Kepala Sekolah' : 'Guru / Wali Kelas')
+            (detectedRole === 'orangtua' ? 'Wali Murid' : detectedRole === 'kepala_sekolah' ? 'Santoso ,S.Pd.,M.Pd.' : 'Guru / Wali Kelas')
           );
         }
       } catch (err) {
@@ -822,41 +834,41 @@ function BukuPenghubungContent() {
 
         {/* TAB NAVIGASI KHUSUS GURU & ADMIN */}
         {!isOrangTua && (
-          <div className="flex items-center gap-2 border-b border-[#DDD8CE] pb-3 print:hidden">
+          <div className="flex items-center gap-2 border-b border-[#DDD8CE] pb-3 overflow-x-auto no-scrollbar flex-nowrap print:hidden">
             <button
               onClick={() => setActiveTab('rekap-resmi')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                 activeTab === 'rekap-resmi'
                   ? 'bg-[#922B21] text-white shadow-xs'
                   : 'bg-white text-[#6B6B6B] hover:text-[#1A1A1A] border border-[#DDD8CE]'
               }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Format Resmi Buku Penghubung ({filteredEntries.length})</span>
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Format Resmi Buku ({filteredEntries.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('daftar-siswa')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                 activeTab === 'daftar-siswa'
                   ? 'bg-[#922B21] text-white shadow-xs'
                   : 'bg-white text-[#6B6B6B] hover:text-[#1A1A1A] border border-[#DDD8CE]'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span>Daftar Siswa Kelas {currentKelasObj?.nama_kelas || ''} ({siswaList.length})</span>
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Daftar Siswa {currentKelasObj?.nama_kelas ? `Kelas ${currentKelasObj.nama_kelas}` : ''} ({siswaList.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('percakapan')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
                 activeTab === 'percakapan'
                   ? 'bg-[#922B21] text-white shadow-xs'
                   : 'bg-white text-[#6B6B6B] hover:text-[#1A1A1A] border border-[#DDD8CE]'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              <span>Feed Percakapan Dua Arah</span>
+              <MessageSquare className="w-4 h-4 shrink-0" />
+              <span>Feed Percakapan</span>
             </button>
           </div>
         )}
@@ -865,55 +877,57 @@ function BukuPenghubungContent() {
         {/* VIEW 1: FORMAT RESMI BUKU PENGHUBUNG (SESUAI SCREENSHOT 5)      */}
         {/* ============================================================== */}
         {(activeTab === 'rekap-resmi' || isOrangTua) && (
-          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-6 print:p-0 print:border-none print:shadow-none">
+          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-3.5 sm:p-6 print:p-0 print:border-none print:shadow-none">
             {/* BAR FILTER SISWA SPESIFIK (HANYA MUNCUL DI TAMPILAN SCREEN, TIDAK DI CETAK) */}
             {!isOrangTua && (
-              <div className="mb-6 p-3.5 bg-[#FAF8F2] rounded-2xl border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#1A1A1A]">
+              <div className="mb-5 p-3 sm:p-3.5 bg-[#FAF8F2] rounded-2xl border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#1A1A1A] shrink-0">
                     <User className="w-4 h-4 text-[#922B21]" />
-                    <span>Filter Siswa Tertentu:</span>
+                    <span>Filter Siswa:</span>
                   </div>
 
-                  <select
-                    value={filterSiswaId}
-                    onChange={(e) => setFilterSiswaId(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#922B21] focus:ring-1 focus:ring-[#922B21] cursor-pointer"
-                  >
-                    <option value="semua">
-                      Semua Siswa di Kelas ({entries.filter((e) => siswaList.some((s) => s.id === e.siswa_id)).length} Total Catatan)
-                    </option>
-                    {siswaList.map((s) => {
-                      const count = entries.filter((e) => e.siswa_id === s.id).length;
-                      return (
-                        <option key={s.id} value={s.id}>
-                          {s.nama_lengkap} ({count} Catatan)
-                        </option>
-                      );
-                    })}
-                  </select>
-
-                  {filterSiswaId !== 'semua' && (
-                    <button
-                      onClick={() => setFilterSiswaId('semua')}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-gray-100 text-[#6B6B6B] border border-[#DDD8CE] text-xs font-semibold cursor-pointer"
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-1 min-w-0">
+                    <select
+                      value={filterSiswaId}
+                      onChange={(e) => setFilterSiswaId(e.target.value)}
+                      className="w-full sm:max-w-xs md:max-w-md px-3 py-2 sm:py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#922B21] focus:ring-1 focus:ring-[#922B21] cursor-pointer truncate max-w-full"
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset Filter</span>
-                    </button>
-                  )}
+                      <option value="semua">
+                        Semua Siswa di Kelas ({entries.filter((e) => siswaList.some((s) => s.id === e.siswa_id)).length} Total Catatan)
+                      </option>
+                      {siswaList.map((s) => {
+                        const count = entries.filter((e) => e.siswa_id === s.id).length;
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.nama_lengkap} ({count} Catatan)
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    {filterSiswaId !== 'semua' && (
+                      <button
+                        onClick={() => setFilterSiswaId('semua')}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-gray-100 text-[#6B6B6B] border border-[#DDD8CE] text-xs font-semibold cursor-pointer active:scale-95 transition"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {currentFilteredSiswaObj && (
-                  <div className="text-xs bg-[#FDEDEC] text-[#922B21] px-3 py-1 rounded-xl border border-[#F1948A] flex items-center justify-between gap-2">
-                    <span>
-                      Menampilkan riwayat khusus: <strong>{currentFilteredSiswaObj.nama_lengkap}</strong>
+                  <div className="text-xs bg-[#FDEDEC] text-[#922B21] px-3 py-1.5 rounded-xl border border-[#F1948A] flex items-center justify-between gap-2 shrink-0">
+                    <span className="truncate">
+                      Riwayat khusus: <strong>{currentFilteredSiswaObj.nama_lengkap}</strong>
                     </span>
                     <button
                       onClick={() => openCatatModal(currentFilteredSiswaObj)}
-                      className="text-[11px] font-bold underline cursor-pointer hover:text-[#771F18]"
+                      className="text-[11px] font-bold underline cursor-pointer hover:text-[#771F18] shrink-0"
                     >
-                      + Tambah Catatan
+                      + Tambah
                     </button>
                   </div>
                 )}
@@ -969,8 +983,15 @@ function BukuPenghubungContent() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse border border-black/30 print:border-black">
+              <div>
+                {/* Petunjuk Geser di Layar Mobile */}
+                <div className="flex items-center justify-between text-[11px] text-[#6B6B6B] mb-2.5 md:hidden bg-[#FAF8F2] px-3 py-1.5 rounded-xl border border-[#DDD8CE]">
+                  <span className="font-semibold text-[#1A1A1A]">Format Buku Kedinasan</span>
+                  <span className="text-[#922B21] font-bold flex items-center gap-1">Geser tabel ke kanan →</span>
+                </div>
+
+                <div className="overflow-x-auto -mx-3.5 sm:mx-0 px-3.5 sm:px-0 pb-2">
+                  <table className="w-full min-w-[760px] text-left text-xs border-collapse border border-black/30 print:border-black">
                   <thead>
                     <tr className="bg-[#FAF8F2] print:bg-gray-100 text-[#1A1A1A] font-bold text-center border-b border-black/30 print:border-black">
                       <th colSpan={2} className="p-2 border border-black/30 print:border-black w-24">
@@ -1132,19 +1153,20 @@ function BukuPenghubungContent() {
                   </tbody>
                 </table>
               </div>
-            )}
+            </div>
+          )}
 
             {/* TANDA TANGAN RESMI KEDINASAN (PERSIS SCREENSHOT 5) */}
-            <div className="mt-12 pt-6 grid grid-cols-2 gap-8 text-xs text-[#1A1A1A] print:text-black">
+            <div className="mt-8 sm:mt-12 pt-4 sm:pt-6 grid grid-cols-2 gap-4 sm:gap-8 text-xs text-[#1A1A1A] print:text-black">
               <div className="text-left">
                 <p>Mengetahui,</p>
                 <p className="font-bold">Kepala Sekolah</p>
                 <div className="h-16 print:h-20" />
                 <p className="font-bold underline">
-                  SUKANDAR, S.Pd., M.Pd.
+                  Santoso ,S.Pd.,M.Pd.
                 </p>
                 <p className="text-[11px] text-[#6B6B6B] print:text-black">
-                  NIP. 19700101 199303 1 002
+                  NIP. 19850612 201001 1 015
                 </p>
               </div>
 
@@ -1157,10 +1179,14 @@ function BukuPenghubungContent() {
                 </p>
                 <div className="h-16 print:h-20" />
                 <p className="font-bold underline">
-                  {currentKelasObj?.wali_kelas?.nama || currentUserName || 'Santoso, S.Pd., M.Pd.'}
+                  {currentKelasObj?.wali_kelas?.nama && !currentKelasObj.wali_kelas.nama.toLowerCase().includes('santoso')
+                    ? currentKelasObj.wali_kelas.nama
+                    : (currentRole === 'guru' && currentUserName && !currentUserName.toLowerCase().includes('santoso')
+                        ? currentUserName
+                        : `Guru Kelas ${currentKelasObj?.nama_kelas || 'I'}`)}
                 </p>
                 <p className="text-[11px] text-[#6B6B6B] print:text-black">
-                  NIP. 19850612 201001 1 015
+                  {currentKelasObj?.wali_kelas?.telepon ? `Kontak: ${currentKelasObj.wali_kelas.telepon}` : 'NIP. -'}
                 </p>
               </div>
             </div>
@@ -1171,7 +1197,7 @@ function BukuPenghubungContent() {
         {/* VIEW 2: DAFTAR SISWA KELAS (AKSI CEPAT SEPERTI DI ABSENSI)      */}
         {/* ============================================================== */}
         {activeTab === 'daftar-siswa' && !isOrangTua && (
-          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-5">
+          <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-3.5 sm:p-5">
             {/* SEARCH & INFO BAR */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-[#DDD8CE]">
               <div>
@@ -1206,8 +1232,8 @@ function BukuPenghubungContent() {
                 Tidak ada siswa yang ditemukan di kelas ini.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto -mx-3.5 sm:mx-0 px-3.5 sm:px-0">
+                <table className="w-full min-w-[680px] text-left text-xs">
                   <thead>
                     <tr className="bg-[#FAF8F2] text-[#6B6B6B] border-b border-[#DDD8CE]">
                       <th className="py-2.5 px-3 font-bold w-12 text-center">No</th>

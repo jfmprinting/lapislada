@@ -63,7 +63,9 @@ function LoginForm() {
         if (
           userRole === 'kepala_sekolah' ||
           userJabatan === 'kepala_sekolah' ||
-          cleanEmail === 'kepsek@demo.com'
+          cleanEmail === 'kepsek@demo.com' ||
+          cleanEmail === 'santoso.7404@admin.sd.belajar.id' ||
+          cleanEmail.startsWith('santoso')
         ) {
           router.push('/dashboard/kepala-sekolah');
         } else if (userRole === 'orangtua') {

@@ -151,7 +151,9 @@ function KehadiranContent() {
         queryRole === 'kepala_sekolah' ||
         metaRole === 'kepala_sekolah' ||
         metaJabatan === 'kepala_sekolah' ||
-        email === 'kepsek@demo.com';
+        email === 'kepsek@demo.com' ||
+        email === 'santoso.7404@admin.sd.belajar.id' ||
+        (email && email.startsWith('santoso'));
 
       if (isKepsekDetected) {
         setRole('kepala_sekolah');
@@ -1534,17 +1536,19 @@ function KehadiranContent() {
                 <p>Mengetahui,</p>
                 <p className="font-bold">Kepala UPT SD Negeri Latsari 2 Bancar</p>
                 <div className="h-20"></div>
-                <p className="font-bold underline">H. MIZTERGOOD, M.Pd</p>
-                <p>NIP. 19780512 200312 1 005</p>
+                <p className="font-bold underline">Santoso ,S.Pd.,M.Pd.</p>
+                <p>NIP. 19850612 201001 1 015</p>
               </div>
               <div className="text-center">
                 <p>Bancar, {todayStr}</p>
                 <p className="font-bold">Wali Kelas {currentKelasObj.nama_kelas}</p>
                 <div className="h-20"></div>
                 <p className="font-bold underline">
-                  {currentKelasObj.wali_kelas?.nama || 'Wali Kelas'}
+                  {currentKelasObj.wali_kelas?.nama && !currentKelasObj.wali_kelas.nama.toLowerCase().includes('santoso')
+                    ? currentKelasObj.wali_kelas.nama
+                    : `Wali Kelas ${currentKelasObj.nama_kelas}`}
                 </p>
-                <p>NIP. 19850614 201101 2 018</p>
+                <p>{(currentKelasObj.wali_kelas as any)?.telepon ? `Kontak: ${(currentKelasObj.wali_kelas as any).telepon}` : 'NIP. -'}</p>
               </div>
             </div>
           </div>

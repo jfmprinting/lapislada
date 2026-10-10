@@ -40,7 +40,13 @@ export default function GaleriPage() {
           const role = user?.user_metadata?.role;
           const jabatan = user?.user_metadata?.jabatan;
           const email = user?.email?.toLowerCase().trim();
-          if (role === 'kepala_sekolah' || jabatan === 'kepala_sekolah' || email === 'kepsek@demo.com') {
+          if (
+            role === 'kepala_sekolah' ||
+            jabatan === 'kepala_sekolah' ||
+            email === 'kepsek@demo.com' ||
+            email === 'santoso.7404@admin.sd.belajar.id' ||
+            (email && email.startsWith('santoso'))
+          ) {
             setCurrentUserRole('kepala_sekolah');
           } else if (role === 'admin' || email === 'admin@demo.com') {
             setCurrentUserRole('admin');

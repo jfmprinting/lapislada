@@ -69,7 +69,13 @@ export default function DokumenBOSPage() {
 
         if (queryRole === 'orangtua' || role === 'orangtua') {
           setCurrentUserRole('orangtua');
-        } else if (role === 'kepala_sekolah' || jabatan === 'kepala_sekolah' || email === 'kepsek@demo.com') {
+        } else if (
+          role === 'kepala_sekolah' ||
+          jabatan === 'kepala_sekolah' ||
+          email === 'kepsek@demo.com' ||
+          email === 'santoso.7404@admin.sd.belajar.id' ||
+          (email && email.startsWith('santoso'))
+        ) {
           setCurrentUserRole('kepala_sekolah');
         } else if (role === 'admin' || email === 'admin@demo.com') {
           setCurrentUserRole('admin');

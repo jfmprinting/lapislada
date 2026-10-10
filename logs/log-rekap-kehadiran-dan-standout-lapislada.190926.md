@@ -67,7 +67,7 @@ Halaman `/kehadiran` kini memiliki navigasi tab terpadu:
   - Berisi kop sekolah, metadata kelas, header terstruktur, rincian siswa, dan ringkasan rata-rata kelas.
 - **Cetak Laporan / PDF (`window.print()`)**:
   - Format cetak standar dinas pendidikan lengkap dengan **Kop Surat Resmi UPT SD Negeri Latsari 2 Bancar**.
-  - Kolom tanda tangan resmi: **Kepala Sekolah** (*H. MIZTERGOOD, M.Pd*) di sebelah kiri dan **Wali Kelas** di sebelah kanan.
+  - Kolom tanda tangan resmi: **Kepala Sekolah** (*Santoso ,S.Pd.,M.Pd.*) di sebelah kiri dan **Wali Kelas** di sebelah kanan.
 
 ---
 

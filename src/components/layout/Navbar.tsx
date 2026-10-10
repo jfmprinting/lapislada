@@ -57,7 +57,7 @@ export default function Navbar({
   const dashboardHref = userRole === 'orangtua' ? '/dashboard/orangtua' : '/dashboard';
 
   return (
-    <header className="sticky top-0 z-50 bg-[#922B21] text-white shadow-md border-b border-[#771F18]">
+    <header className="sticky top-0 z-50 bg-[#922B21] text-white shadow-md border-b border-[#771F18] pt-[env(safe-area-inset-top,0px)]">
       <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-2.5">
           {showMenuButton && onMenuClick && (

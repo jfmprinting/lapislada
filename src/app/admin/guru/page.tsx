@@ -133,6 +133,8 @@ export default function MasterGuruPage() {
           u.role === 'kepala_sekolah' ||
           (u as any).jabatan === 'kepala_sekolah' ||
           u.email === 'kepsek@demo.com' ||
+          u.email === 'santoso.7404@admin.sd.belajar.id' ||
+          u.nama.toLowerCase().includes('santoso') ||
           u.nama.toLowerCase().includes('kepsek') ||
           u.nama.toLowerCase().includes('kepala sekolah');
 
@@ -175,11 +177,11 @@ export default function MasterGuruPage() {
           },
           {
             id: 'sample-admin',
-            nama: 'Samsul Arifin, S.Pd. (Kepsek & Admin)',
-            role: 'admin',
-            email: 'admin@demo.com',
+            nama: 'Santoso ,S.Pd.,M.Pd. (Kepala Sekolah)',
+            role: 'kepala_sekolah',
+            email: 'santoso.7404@admin.sd.belajar.id',
             telepon: '082230898376',
-            nip: '197506121998031003',
+            nip: '198506122010011015',
             kelas_binaan: [],
           },
         ]);

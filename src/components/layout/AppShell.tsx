@@ -478,7 +478,7 @@ export default function AppShell({
                   <div className="text-xs font-bold text-[#1A1A1A] truncate">
                     {currentUser?.user_metadata?.nama ||
                       (activeRole === 'kepala_sekolah'
-                        ? 'Santoso, S.Pd., M.Pd'
+                        ? 'Santoso ,S.Pd.,M.Pd.'
                         : activeRole === 'admin'
                         ? 'Administrator'
                         : activeRole === 'guru'
@@ -601,7 +601,7 @@ export default function AppShell({
               <div className="text-xs font-bold text-[#1A1A1A] truncate">
                 {currentUser?.user_metadata?.nama ||
                   (activeRole === 'kepala_sekolah'
-                    ? 'Santoso, S.Pd., M.Pd'
+                    ? 'Santoso ,S.Pd.,M.Pd.'
                     : activeRole === 'admin'
                     ? 'Administrator'
                     : activeRole === 'guru'
@@ -693,7 +693,7 @@ export default function AppShell({
       {/* ============================================================ */}
       {/* MOBILE TOP NAVBAR (Only on small screens < 768px) */}
       {/* ============================================================ */}
-      <div className="md:hidden sticky top-0 z-40">
+      <div className="md:hidden">
         <Navbar
           schoolName={activeRole === 'orangtua' ? 'Portal Orang Tua' : 'LAPIS LADA'}
           showLoginCta={false}
@@ -730,7 +730,7 @@ export default function AppShell({
         </header>
 
         {/* Page Content Container */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-12">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-12">
           {children}
         </main>
       </div>
