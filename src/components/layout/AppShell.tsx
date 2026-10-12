@@ -49,6 +49,7 @@ export default function AppShell({
   const { confirm, showToast } = useNotification();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [dbProfile, setDbProfile] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [realUnreadCount, setRealUnreadCount] = useState<number>(unreadCount);
 
@@ -77,12 +78,33 @@ export default function AppShell({
   }, [unreadCount, pathname]);
 
   useEffect(() => {
+    async function loadUserProfile(u: any) {
+      if (!u) {
+        setDbProfile(null);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('users_profile')
+          .select('*')
+          .eq('id', u.id)
+          .maybeSingle();
+        if (data) setDbProfile(data);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setCurrentUser(u);
+      loadUserProfile(u);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setCurrentUser(u);
+      loadUserProfile(u);
     });
 
     return () => subscription.unsubscribe();
@@ -117,13 +139,25 @@ export default function AppShell({
     year: 'numeric',
   }).format(new Date());
 
-  // Determine active role dynamically from user metadata or props
+  // Determine active role dynamically from database profile, user metadata or props
   const rawRole =
+    (dbProfile?.role as string) ||
     (currentUser?.user_metadata?.role as string) ||
     (currentUser?.user_metadata?.jabatan === 'kepala_sekolah' ? 'kepala_sekolah' : undefined) ||
     role;
   const activeRole: 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah' =
     rawRole === 'kepala_sekolah' ? 'kepala_sekolah' : (rawRole as any) || 'guru';
+
+  const displayedUserName =
+    dbProfile?.nama ||
+    currentUser?.user_metadata?.nama ||
+    (activeRole === 'kepala_sekolah'
+      ? 'Kepala Sekolah'
+      : activeRole === 'admin'
+      ? 'Administrator'
+      : activeRole === 'guru'
+      ? 'Guru'
+      : 'Pak Budi');
 
   // Build role-aware navigation groups
   const getNavGroups = () => {
@@ -476,14 +510,7 @@ export default function AppShell({
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-[#1A1A1A] truncate">
-                    {currentUser?.user_metadata?.nama ||
-                      (activeRole === 'kepala_sekolah'
-                        ? 'Santoso ,S.Pd.,M.Pd.'
-                        : activeRole === 'admin'
-                        ? 'Administrator'
-                        : activeRole === 'guru'
-                        ? 'Guru'
-                        : 'Pak Budi')}
+                    {displayedUserName}
                   </div>
                   <div className="text-[10px] text-[#6B6B6B] truncate">
                     {activeRole === 'kepala_sekolah'
@@ -599,14 +626,7 @@ export default function AppShell({
             </div>
             <div className="min-w-0">
               <div className="text-xs font-bold text-[#1A1A1A] truncate">
-                {currentUser?.user_metadata?.nama ||
-                  (activeRole === 'kepala_sekolah'
-                    ? 'Santoso ,S.Pd.,M.Pd.'
-                    : activeRole === 'admin'
-                    ? 'Administrator'
-                    : activeRole === 'guru'
-                    ? 'Guru'
-                    : 'Pak Budi')}
+                {displayedUserName}
               </div>
               <div className="text-[10px] text-[#6B6B6B] truncate">
                 {activeRole === 'kepala_sekolah'

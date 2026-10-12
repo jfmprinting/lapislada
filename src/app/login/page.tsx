@@ -30,20 +30,19 @@ function LoginForm() {
 
       if (!error && data?.user) {
         let userRole = data.user?.user_metadata?.role;
-        const userJabatan = data.user?.user_metadata?.jabatan;
+        let userJabatan = data.user?.user_metadata?.jabatan;
 
-        // Fallback: check users_profile table if role is not in user_metadata
-        if (!userRole) {
-          const { data: prof } = await supabase
-            .from('users_profile')
-            .select('role, jabatan')
-            .eq('id', data.user.id)
-            .maybeSingle();
-          if (prof?.role) {
-            userRole = prof.role;
-          }
-          if ((prof as any)?.jabatan === 'kepala_sekolah') {
-            userRole = 'kepala_sekolah';
+        // Fetch users_profile table for authoritative role
+        const { data: prof } = await supabase
+          .from('users_profile')
+          .select('role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (prof?.role) {
+          userRole = prof.role;
+          if (prof.role !== 'kepala_sekolah') {
+            userJabatan = undefined;
           }
         }
 
@@ -63,9 +62,7 @@ function LoginForm() {
         if (
           userRole === 'kepala_sekolah' ||
           userJabatan === 'kepala_sekolah' ||
-          cleanEmail === 'kepsek@demo.com' ||
-          cleanEmail === 'santoso.7404@admin.sd.belajar.id' ||
-          cleanEmail.startsWith('santoso')
+          cleanEmail === 'kepsek@demo.com'
         ) {
           router.push('/dashboard/kepala-sekolah');
         } else if (userRole === 'orangtua') {

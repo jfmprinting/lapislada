@@ -51,7 +51,7 @@ export async function POST(request: Request) {
           user_metadata: {
             ...existingUser.user_metadata,
             role: role || existingUser.user_metadata?.role || 'orangtua',
-            jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : existingUser.user_metadata?.jabatan,
+            jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : null,
             nama: nama || existingUser.user_metadata?.nama,
             siswa_id: targetUserId || existingUser.user_metadata?.siswa_id,
           },

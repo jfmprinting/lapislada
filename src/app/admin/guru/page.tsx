@@ -128,15 +128,11 @@ export default function MasterGuruPage() {
       }
 
       const enrichedGurus: GuruWithKelas[] = (userData || []).map((u) => {
-        // Deteksi role kepala sekolah baik dari kolom role maupun jabatan
+        // Deteksi role kepala sekolah murni dari kolom role atau jabatan
         const isKepsek =
           u.role === 'kepala_sekolah' ||
           (u as any).jabatan === 'kepala_sekolah' ||
-          u.email === 'kepsek@demo.com' ||
-          u.email === 'santoso.7404@admin.sd.belajar.id' ||
-          u.nama.toLowerCase().includes('santoso') ||
-          u.nama.toLowerCase().includes('kepsek') ||
-          u.nama.toLowerCase().includes('kepala sekolah');
+          u.email === 'kepsek@demo.com';
 
         return {
           ...u,
@@ -179,7 +175,7 @@ export default function MasterGuruPage() {
             id: 'sample-admin',
             nama: 'Santoso ,S.Pd.,M.Pd. (Kepala Sekolah)',
             role: 'kepala_sekolah',
-            email: 'santoso.7404@admin.sd.belajar.id',
+            email: 'kepsek@demo.com',
             telepon: '082230898376',
             nip: '198506122010011015',
             kelas_binaan: [],
@@ -246,35 +242,59 @@ export default function MasterGuruPage() {
       let targetUserId = editingId;
 
       if (editingId && !editingId.startsWith('sample-') && !editingId.startsWith('local-')) {
-        // Update users_profile (dengan fallback graceful jika constraint belum di-alter)
+        // Sync via API route to ensure both users_profile and auth user metadata are updated
+        let apiSuccess = false;
         try {
-          const { error: updateErr } = await supabase
-            .from('users_profile')
-            .update({
+          const res = await fetch('/api/admin-update-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: editingId,
               nama: formData.nama.trim(),
               email: formData.email.trim() || null,
               telepon: formData.telepon.trim() || null,
               role: formData.role,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', editingId);
+              wali_kelas_id: formData.wali_kelas_id,
+            }),
+          });
+          if (res.ok) {
+            apiSuccess = true;
+          }
+        } catch (apiErr) {
+          console.warn('API update notice:', apiErr);
+        }
 
-          if (updateErr) throw updateErr;
-        } catch (dbErr: any) {
-          if (formData.role === 'kepala_sekolah') {
-            // Fallback: simpan role 'admin'
-            await supabase
+        if (!apiSuccess) {
+          // Direct fallback update
+          try {
+            const { error: updateErr } = await supabase
               .from('users_profile')
               .update({
                 nama: formData.nama.trim(),
                 email: formData.email.trim() || null,
                 telepon: formData.telepon.trim() || null,
-                role: 'admin',
+                role: formData.role,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', editingId);
-          } else {
-            throw dbErr;
+
+            if (updateErr) throw updateErr;
+          } catch (dbErr: any) {
+            if (formData.role === 'kepala_sekolah') {
+              // Fallback: simpan role 'admin'
+              await supabase
+                .from('users_profile')
+                .update({
+                  nama: formData.nama.trim(),
+                  email: formData.email.trim() || null,
+                  telepon: formData.telepon.trim() || null,
+                  role: 'admin',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', editingId);
+            } else {
+              throw dbErr;
+            }
           }
         }
       } else if (!editingId) {
@@ -668,14 +688,14 @@ export default function MasterGuruPage() {
                 {/* Wali Kelas Badge */}
                 <div className="mt-5 pt-3 border-t border-[#DDD8CE]/60 flex items-center justify-between text-xs">
                   <span className="text-[#6B6B6B]">Wali Kelas:</span>
-                  {item.role === 'kepala_sekolah' ? (
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
-                      Pimpinan / Seluruh Sekolah
-                    </span>
-                  ) : item.kelas_binaan && item.kelas_binaan.length > 0 ? (
+                  {item.kelas_binaan && item.kelas_binaan.length > 0 ? (
                     <span className="px-2.5 py-1 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-semibold text-xs flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5" />
                       <span>{item.kelas_binaan.join(', ')}</span>
+                    </span>
+                  ) : item.role === 'kepala_sekolah' ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
+                      Pimpinan / Seluruh Sekolah
                     </span>
                   ) : (
                     <span className="text-[#6B6B6B] italic">Bukan Wali Kelas</span>
@@ -738,15 +758,15 @@ export default function MasterGuruPage() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        {item.role === 'kepala_sekolah' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
-                            <School className="w-3.5 h-3.5" />
-                            <span>Pimpinan Sekolah</span>
-                          </span>
-                        ) : item.kelas_binaan && item.kelas_binaan.length > 0 ? (
+                        {item.kelas_binaan && item.kelas_binaan.length > 0 ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FDEDEC] text-[#C0392B] font-semibold text-xs">
                             <Layers className="w-3.5 h-3.5" />
                             <span>{item.kelas_binaan.join(', ')}</span>
+                          </span>
+                        ) : item.role === 'kepala_sekolah' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-semibold text-xs border border-amber-200">
+                            <School className="w-3.5 h-3.5" />
+                            <span>Pimpinan Sekolah</span>
                           </span>
                         ) : (
                           <span className="text-xs text-[#8A8A8A] italic">Bukan Wali Kelas</span>

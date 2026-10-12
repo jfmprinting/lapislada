@@ -43,9 +43,7 @@ export default function GaleriPage() {
           if (
             role === 'kepala_sekolah' ||
             jabatan === 'kepala_sekolah' ||
-            email === 'kepsek@demo.com' ||
-            email === 'santoso.7404@admin.sd.belajar.id' ||
-            (email && email.startsWith('santoso'))
+            email === 'kepsek@demo.com'
           ) {
             setCurrentUserRole('kepala_sekolah');
           } else if (role === 'admin' || email === 'admin@demo.com') {

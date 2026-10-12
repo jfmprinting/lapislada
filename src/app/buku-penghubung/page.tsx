@@ -206,10 +206,7 @@ function BukuPenghubungContent() {
             (profile?.role === 'kepala_sekolah') ||
             (user?.user_metadata?.role === 'kepala_sekolah') ||
             (user?.user_metadata?.jabatan === 'kepala_sekolah') ||
-            cleanEmail === 'kepsek@demo.com' ||
-            cleanEmail === 'santoso.7404@admin.sd.belajar.id' ||
-            cleanEmail.startsWith('santoso') ||
-            (profile?.nama && profile.nama.toLowerCase().includes('santoso'));
+            cleanEmail === 'kepsek@demo.com';
 
           const detectedRole =
             (queryRole as any) ||
@@ -1179,11 +1176,10 @@ function BukuPenghubungContent() {
                 </p>
                 <div className="h-16 print:h-20" />
                 <p className="font-bold underline">
-                  {currentKelasObj?.wali_kelas?.nama && !currentKelasObj.wali_kelas.nama.toLowerCase().includes('santoso')
-                    ? currentKelasObj.wali_kelas.nama
-                    : (currentRole === 'guru' && currentUserName && !currentUserName.toLowerCase().includes('santoso')
-                        ? currentUserName
-                        : `Guru Kelas ${currentKelasObj?.nama_kelas || 'I'}`)}
+                  {currentKelasObj?.wali_kelas?.nama ||
+                    (currentRole === 'guru' && currentUserName
+                      ? currentUserName
+                      : `Guru Kelas ${currentKelasObj?.nama_kelas || 'I'}`)}
                 </p>
                 <p className="text-[11px] text-[#6B6B6B] print:text-black">
                   {currentKelasObj?.wali_kelas?.telepon ? `Kontak: ${currentKelasObj.wali_kelas.telepon}` : 'NIP. -'}

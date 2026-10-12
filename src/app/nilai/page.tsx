@@ -202,17 +202,15 @@ function NilaiContent() {
           roleParam === 'kepala_sekolah' ||
           metaRole === 'kepala_sekolah' ||
           metaJabatan === 'kepala_sekolah' ||
-          currentUserEmail === 'kepsek@demo.com' ||
-          currentUserEmail === 'santoso.7404@admin.sd.belajar.id' ||
-          Boolean(currentUserEmail && currentUserEmail.startsWith('santoso'));
+          currentUserEmail === 'kepsek@demo.com';
 
         if (!detectedKepsek && currentUserId) {
           const { data: prof } = await supabase
             .from('users_profile')
-            .select('role, jabatan')
+            .select('role')
             .eq('id', currentUserId)
             .maybeSingle();
-          if (prof && (prof.role === 'kepala_sekolah' || (prof as any).jabatan === 'kepala_sekolah')) {
+          if (prof && prof.role === 'kepala_sekolah') {
             detectedKepsek = true;
           }
         }

@@ -151,9 +151,7 @@ function KehadiranContent() {
         queryRole === 'kepala_sekolah' ||
         metaRole === 'kepala_sekolah' ||
         metaJabatan === 'kepala_sekolah' ||
-        email === 'kepsek@demo.com' ||
-        email === 'santoso.7404@admin.sd.belajar.id' ||
-        (email && email.startsWith('santoso'));
+        email === 'kepsek@demo.com';
 
       if (isKepsekDetected) {
         setRole('kepala_sekolah');
@@ -1544,9 +1542,7 @@ function KehadiranContent() {
                 <p className="font-bold">Wali Kelas {currentKelasObj.nama_kelas}</p>
                 <div className="h-20"></div>
                 <p className="font-bold underline">
-                  {currentKelasObj.wali_kelas?.nama && !currentKelasObj.wali_kelas.nama.toLowerCase().includes('santoso')
-                    ? currentKelasObj.wali_kelas.nama
-                    : `Wali Kelas ${currentKelasObj.nama_kelas}`}
+                  {currentKelasObj.wali_kelas?.nama || `Wali Kelas ${currentKelasObj.nama_kelas}`}
                 </p>
                 <p>{(currentKelasObj.wali_kelas as any)?.telepon ? `Kontak: ${(currentKelasObj.wali_kelas as any).telepon}` : 'NIP. -'}</p>
               </div>

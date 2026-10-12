@@ -65,14 +65,10 @@ export function isKepalaSekolah(user: any, profile?: any): boolean {
   const role = user?.user_metadata?.role || profile?.role;
   const jabatan = user?.user_metadata?.jabatan || profile?.jabatan;
   const email = (user?.email || profile?.email || '').toLowerCase().trim();
-  const nama = (user?.user_metadata?.nama || profile?.nama || '').toLowerCase();
   return (
     role === 'kepala_sekolah' ||
     jabatan === 'kepala_sekolah' ||
-    email === 'kepsek@demo.com' ||
-    email === 'santoso.7404@admin.sd.belajar.id' ||
-    email.startsWith('santoso') ||
-    nama.includes('santoso')
+    email === 'kepsek@demo.com'
   );
 }
 
