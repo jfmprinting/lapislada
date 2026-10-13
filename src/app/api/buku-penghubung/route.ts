@@ -12,9 +12,24 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 });
 
+async function verifyCaller(request: Request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return null;
+  return user;
+}
+
 // DELETE: Hapus catatan buku penghubung
 export async function DELETE(request: Request) {
   try {
+    const caller = await verifyCaller(request);
+    if (!caller) {
+      return NextResponse.json({ error: 'Akses ditolak: Sesi Anda tidak valid atau telah berakhir.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const idFromQuery = searchParams.get('id');
 
@@ -28,7 +43,7 @@ export async function DELETE(request: Request) {
       }
     }
 
-    if (!id) {
+    if (!id || typeof id !== 'string') {
       return NextResponse.json(
         { error: 'ID catatan buku penghubung wajib disertakan.' },
         { status: 400 }
@@ -42,29 +57,34 @@ export async function DELETE(request: Request) {
 
     if (error) {
       console.error('Error delete buku_penghubung:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Gagal menghapus catatan buku penghubung.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Catatan buku penghubung berhasil dihapus.' });
   } catch (err: any) {
     console.error('Exception DELETE buku_penghubung:', err);
-    return NextResponse.json({ error: err.message || 'Terjadi kesalahan sistem.' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan sistem.' }, { status: 500 });
   }
 }
 
 // PATCH: Update isi catatan buku penghubung
 export async function PATCH(request: Request) {
   try {
+    const caller = await verifyCaller(request);
+    if (!caller) {
+      return NextResponse.json({ error: 'Akses ditolak: Sesi Anda tidak valid atau telah berakhir.' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, catatan, is_read_by_guru } = body;
 
-    if (!id) {
+    if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'ID catatan wajib disertakan.' }, { status: 400 });
     }
 
     const updatePayload: Record<string, any> = {};
-    if (catatan !== undefined) updatePayload.catatan = catatan;
-    if (is_read_by_guru !== undefined) updatePayload.is_read_by_guru = is_read_by_guru;
+    if (catatan !== undefined) updatePayload.catatan = String(catatan).slice(0, 2000);
+    if (is_read_by_guru !== undefined) updatePayload.is_read_by_guru = Boolean(is_read_by_guru);
 
     const { data, error } = await supabaseAdmin
       .from('buku_penghubung')
@@ -74,11 +94,11 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Gagal memperbarui catatan buku penghubung.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Terjadi kesalahan sistem.' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan sistem.' }, { status: 500 });
   }
 }

@@ -1,8 +1,8 @@
 // Cloudflare Pages Function for Admin Update User
-// Runs on Cloudflare Edge Serverless Workers
+// Protected by RBAC (Role-Based Access Control) & Token Verification
 
 const SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
-const SERVICE_ROLE_KEY =
+const FALLBACK_SERVICE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
 
 const corsHeaders = {
@@ -17,25 +17,85 @@ export async function onRequestOptions() {
 
 export async function onRequestPost(context: any) {
   try {
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || SERVICE_ROLE_KEY;
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const authHeader = context.request.headers.get('Authorization') || '';
+    const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    // 1. Enforce Authentication (A01: Broken Access Control)
+    if (!callerToken) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Token autentikasi wajib disertakan.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 2. Verify Caller Identity via Supabase Auth
+    const callerRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${callerToken}`,
+      },
+    });
+
+    if (!callerRes.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Sesi login tidak valid atau telah kedaluwarsa. Silakan login kembali.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const callerData = await callerRes.json();
+    const callerRole = callerData?.user_metadata?.role;
+    const callerJabatan = callerData?.user_metadata?.jabatan;
+
+    let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
+
+    if (!isCallerAdmin && callerData?.id) {
+      const profileCheck = await fetch(
+        `${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(callerData.id)}&select=role`,
+        {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        }
+      );
+      if (profileCheck.ok) {
+        const pRows = await profileCheck.json();
+        if (pRows?.[0]?.role === 'admin' || pRows?.[0]?.role === 'kepala_sekolah') {
+          isCallerAdmin = true;
+        }
+      }
+    }
+
+    // 3. Enforce Admin Privilege Check (A01 & A06)
+    if (!isCallerAdmin) {
+      console.warn(`[SECURITY ALERT] Unauthorized admin update attempt by user: ${callerData?.id} (${callerData?.email})`);
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mengubah data pendidik.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 4. Validate Input Data (A05: Injection & Data Validation)
     const body = await context.request.json();
     const { id, nama, email, telepon, role, wali_kelas_id } = body;
 
-    if (!id || !nama) {
+    if (!id || typeof id !== 'string' || !nama || typeof nama !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'ID dan nama lengkap wajib diisi.' }),
+        JSON.stringify({ error: 'ID dan nama lengkap pengguna wajib diisi dengan format yang benar.' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const cleanName = nama.trim();
-    const cleanEmail = email ? email.toLowerCase().trim() : null;
-    const cleanTelepon = telepon ? telepon.trim() : null;
-    const cleanRole = role || 'guru';
+    const cleanName = nama.trim().slice(0, 150);
+    const cleanEmail = email && typeof email === 'string' ? email.toLowerCase().trim().slice(0, 100) : null;
+    const cleanTelepon = telepon && typeof telepon === 'string' ? telepon.trim().slice(0, 30) : null;
+    const cleanRole = ['guru', 'admin', 'kepala_sekolah', 'orangtua'].includes(role) ? role : 'guru';
 
-    // 1. Update Supabase Auth user metadata & email if user exists in auth.users
+    // 5. Update Supabase Auth user metadata & email if user exists in auth.users
     try {
-      const authUserRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
+      const authUserRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
         headers: {
           apikey: serviceKey,
           Authorization: `Bearer ${serviceKey}`,
@@ -46,7 +106,7 @@ export async function onRequestPost(context: any) {
         const authUserData = await authUserRes.json();
         const existingMeta = authUserData?.user_metadata || {};
 
-        await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
+        await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
           method: 'PUT',
           headers: {
             apikey: serviceKey,
@@ -68,8 +128,8 @@ export async function onRequestPost(context: any) {
       console.warn('Notice: auth.admin update skipped or failed:', authErr);
     }
 
-    // 2. Update users_profile
-    const profileRes = await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${id}`, {
+    // 6. Update users_profile in database with parameterized encoding
+    const profileRes = await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: {
         apikey: serviceKey,
@@ -87,18 +147,16 @@ export async function onRequestPost(context: any) {
     });
 
     if (!profileRes.ok) {
-      const errText = await profileRes.text();
-      console.error('Error updating users_profile:', errText);
       return new Response(
         JSON.stringify({ error: 'Gagal memperbarui profil pengguna di database.' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // 3. Update wali kelas assignment
-    if (wali_kelas_id) {
+    // 7. Update wali kelas assignment
+    if (wali_kelas_id && typeof wali_kelas_id === 'string') {
       // Clear old class
-      await fetch(`${SUPABASE_URL}/rest/v1/kelas?wali_kelas_id=eq.${id}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/kelas?wali_kelas_id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: {
           apikey: serviceKey,
@@ -108,7 +166,7 @@ export async function onRequestPost(context: any) {
         body: JSON.stringify({ wali_kelas_id: null }),
       });
       // Assign new class
-      await fetch(`${SUPABASE_URL}/rest/v1/kelas?id=eq.${wali_kelas_id}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/kelas?id=eq.${encodeURIComponent(wali_kelas_id)}`, {
         method: 'PATCH',
         headers: {
           apikey: serviceKey,
@@ -119,7 +177,7 @@ export async function onRequestPost(context: any) {
       });
     } else if (wali_kelas_id === '') {
       // Cleared assignment
-      await fetch(`${SUPABASE_URL}/rest/v1/kelas?wali_kelas_id=eq.${id}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/kelas?wali_kelas_id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: {
           apikey: serviceKey,
@@ -137,7 +195,7 @@ export async function onRequestPost(context: any) {
   } catch (err: any) {
     console.error('Error in admin-update-user:', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Gagal menyimpan perubahan pengguna.' }),
+      JSON.stringify({ error: 'Terjadi kesalahan sistem saat memperbarui data pengguna.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }

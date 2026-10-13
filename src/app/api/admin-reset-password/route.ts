@@ -15,20 +15,70 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 export async function POST(request: Request) {
   try {
+    // 1. Enforce Authentication & Admin Role (A01: Broken Access Control)
+    const authHeader = request.headers.get('Authorization') || '';
+    const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+    if (!callerToken) {
+      return NextResponse.json(
+        { error: 'Akses ditolak: Token autentikasi wajib disertakan.' },
+        { status: 401 }
+      );
+    }
+
+    const { data: { user: callerUser }, error: authCheckErr } = await supabaseAdmin.auth.getUser(callerToken);
+    if (authCheckErr || !callerUser) {
+      return NextResponse.json(
+        { error: 'Sesi login tidak valid atau telah kedaluwarsa. Silakan login kembali.' },
+        { status: 401 }
+      );
+    }
+
+    const callerRole = callerUser.user_metadata?.role;
+    const callerJabatan = callerUser.user_metadata?.jabatan;
+    let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
+
+    if (!isCallerAdmin) {
+      const { data: pData } = await supabaseAdmin
+        .from('users_profile')
+        .select('role')
+        .eq('id', callerUser.id)
+        .maybeSingle();
+      if (pData?.role === 'admin' || pData?.role === 'kepala_sekolah') {
+        isCallerAdmin = true;
+      }
+    }
+
+    if (!isCallerAdmin) {
+      console.warn(`[SECURITY ALERT] Unauthorized password reset attempt by user: ${callerUser.id} (${callerUser.email})`);
+      return NextResponse.json(
+        { error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mereset password pengguna.' },
+        { status: 403 }
+      );
+    }
+
+    // 2. Validate and Sanitize Input (A05: Injection)
     const body = await request.json();
     const { email, password, role, nama, phone, targetUserId } = body;
 
-    if (!email || !password) {
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
       return NextResponse.json(
         { error: 'Email dan password wajib diisi.' },
         { status: 400 }
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password minimal harus 6 karakter demi keamanan akun.' },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.toLowerCase().trim().slice(0, 100);
     const cleanPassword = password.trim();
 
-    // 1. Search if user exists
+    // 3. Search if user exists
     const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
       perPage: 1000,
     });
@@ -42,7 +92,7 @@ export async function POST(request: Request) {
     let authUserId = existingUser?.id;
 
     if (existingUser) {
-      // 2a. Update existing user
+      // 3a. Update existing user
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
         existingUser.id,
         {
@@ -58,10 +108,10 @@ export async function POST(request: Request) {
         }
       );
       if (updateError) {
-        throw new Error(updateError.message || 'Gagal memperbarui password akun.');
+        throw new Error('Gagal memperbarui password akun di Supabase Auth.');
       }
     } else {
-      // 2b. Create new user
+      // 3b. Create new user
       const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: cleanEmail,
         password: cleanPassword,
@@ -74,12 +124,12 @@ export async function POST(request: Request) {
         },
       });
       if (createError) {
-        throw new Error(createError.message || 'Gagal mendaftarkan akun baru.');
+        throw new Error('Gagal mendaftarkan akun baru.');
       }
       authUserId = createData.user?.id;
     }
 
-    // 3. Keep users_profile in sync (with graceful fallback if DB constraint hasn't been altered)
+    // 4. Keep users_profile in sync
     if (authUserId) {
       try {
         await supabaseAdmin.from('users_profile').upsert({
@@ -92,7 +142,6 @@ export async function POST(request: Request) {
         });
       } catch (upsertErr) {
         if (role === 'kepala_sekolah') {
-          // Fallback to role 'admin' in users_profile if PostgreSQL check constraint users_profile_role_check restricts it
           await supabaseAdmin.from('users_profile').upsert({
             id: authUserId,
             nama: nama,
@@ -101,24 +150,22 @@ export async function POST(request: Request) {
             telepon: phone || null,
             updated_at: new Date().toISOString(),
           });
-        } else {
-          throw upsertErr;
         }
       }
     }
 
-    // 4. Update student record or teacher record
-    if (targetUserId) {
+    // 5. Update student record or teacher record
+    if (targetUserId && typeof targetUserId === 'string') {
+      const cleanPhone = phone ? String(phone).trim().slice(0, 30) : null;
       if (role === 'orangtua') {
         await supabaseAdmin
           .from('siswa')
           .update({
             ...(authUserId ? { wali_murid_id: authUserId } : {}),
-            ...(phone ? { no_hp_wali: phone } : {}),
+            ...(cleanPhone ? { no_hp_wali: cleanPhone } : {}),
           })
           .eq('id', targetUserId);
       } else {
-        // For Guru / Admin: migrate assigned kelas to the new authUserId if ID differed
         if (authUserId && targetUserId !== authUserId) {
           await supabaseAdmin
             .from('kelas')
@@ -132,7 +179,7 @@ export async function POST(request: Request) {
         } else {
           await supabaseAdmin
             .from('users_profile')
-            .update({ ...(phone ? { telepon: phone } : {}) })
+            .update({ ...(cleanPhone ? { telepon: cleanPhone } : {}) })
             .eq('id', targetUserId);
         }
       }
@@ -144,8 +191,9 @@ export async function POST(request: Request) {
       userId: authUserId,
     });
   } catch (err: any) {
+    console.error('Error in admin-reset-password:', err);
     return NextResponse.json(
-      { error: err.message || 'Terjadi kesalahan pada server.' },
+      { error: 'Terjadi kesalahan sistem saat memperbarui password.' },
       { status: 500 }
     );
   }

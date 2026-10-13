@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 60 * 1000; // 60 seconds
 
 function LoginForm() {
   const router = useRouter();
@@ -14,9 +17,42 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTime, setLockoutTime] = useState<number | null>(null);
+  const [remainingCooldown, setRemainingCooldown] = useState(0);
+
+  // A04: Purge any legacy plaintext credentials registry from localStorage
+  useEffect(() => {
+    try {
+      localStorage.removeItem('lapislada_credentials_registry');
+    } catch {}
+  }, []);
+
+  // Cooldown timer ticker
+  useEffect(() => {
+    if (!lockoutTime) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now >= lockoutTime) {
+        setLockoutTime(null);
+        setRemainingCooldown(0);
+        setFailedAttempts(0);
+        setErrorMessage(null);
+      } else {
+        setRemainingCooldown(Math.ceil((lockoutTime - now) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutTime]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (lockoutTime && Date.now() < lockoutTime) {
+      setErrorMessage(`Terlalu banyak percobaan gagal. Silakan tunggu ${remainingCooldown} detik demi keamanan.`);
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
 
@@ -29,6 +65,10 @@ function LoginForm() {
       });
 
       if (!error && data?.user) {
+        // Reset counter on successful login
+        setFailedAttempts(0);
+        setLockoutTime(null);
+
         let userRole = data.user?.user_metadata?.role;
         let userJabatan = data.user?.user_metadata?.jabatan;
 
@@ -68,43 +108,25 @@ function LoginForm() {
         } else if (userRole === 'orangtua') {
           router.push('/dashboard/orangtua');
         } else {
-          // Guru / Admin
           router.push('/dashboard');
         }
         return;
       }
 
-      // Fallback check: Check credentials registry for passwords reset by admin
-      try {
-        const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
-        if (storedRegistry) {
-          const registry = JSON.parse(storedRegistry);
-          const entry = registry[cleanEmail];
-          if (entry && entry.password === password.trim()) {
-            const fallbackEmail = entry.role === 'orangtua' ? 'ortu@guru.com' : 'guru@demo.com';
-            await supabase.auth.signInWithPassword({
-              email: fallbackEmail,
-              password: 'demo123',
-            });
-            if (entry.role === 'kepala_sekolah' || entry.jabatan === 'kepala_sekolah') {
-              router.push('/dashboard/kepala-sekolah');
-            } else if (entry.role === 'orangtua') {
-              router.push('/dashboard/orangtua');
-            } else {
-              router.push('/dashboard');
-            }
-            return;
-          }
-        }
-      } catch (regErr) {
-        console.warn('Credentials registry check error:', regErr);
-      }
+      // Handle Authentication Failure (A07: Authentication & Brute Force Prevention)
+      const nextFailures = failedAttempts + 1;
+      setFailedAttempts(nextFailures);
 
-      if (error) {
-        throw error;
+      if (nextFailures >= MAX_FAILED_ATTEMPTS) {
+        const lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+        setLockoutTime(lockUntil);
+        setRemainingCooldown(60);
+        setErrorMessage('Terlalu banyak percobaan login gagal berturut-turut. Akun ditangguhkan sementara selama 60 detik.');
+      } else {
+        setErrorMessage(`Email atau kata sandi tidak cocok. Sisa kesempatan sebelum penangguhan: ${MAX_FAILED_ATTEMPTS - nextFailures}.`);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
+    } catch {
+      setErrorMessage('Terjadi kendala saat menghubungi server autentikasi. Silakan periksa koneksi internet Anda.');
     } finally {
       setLoading(false);
     }
@@ -186,11 +208,13 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2"
+            disabled={loading || Boolean(lockoutTime)}
+            className="w-full py-2.5 px-4 rounded-lg bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
             {loading ? (
               <span>Memproses...</span>
+            ) : lockoutTime ? (
+              <span>Ditangguhkan ({remainingCooldown}s)</span>
             ) : (
               <>
                 <span>Masuk Sekarang</span>

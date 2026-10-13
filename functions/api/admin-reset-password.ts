@@ -1,27 +1,104 @@
 // Cloudflare Pages Function for Admin Password Reset
-// Runs on Cloudflare Edge Serverless Workers
+// Protected by RBAC (Role-Based Access Control) & Token Verification
 
 const SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
-const SERVICE_ROLE_KEY =
+const FALLBACK_SERVICE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
 
 export async function onRequestPost(context: any) {
   try {
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || SERVICE_ROLE_KEY;
-    const body = await context.request.json();
-    const { email, password, role, nama, phone, targetUserId } = body;
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const authHeader = context.request.headers.get('Authorization') || '';
+    const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-    if (!email || !password) {
+    // 1. Enforce Authentication (A01: Broken Access Control)
+    if (!callerToken) {
       return new Response(
-        JSON.stringify({ error: 'Email dan password wajib diisi.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Akses ditolak: Token autentikasi wajib disertakan.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    // 2. Verify Caller Identity via Supabase Auth
+    const callerRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${callerToken}`,
+      },
+    });
+
+    if (!callerRes.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Sesi login tidak valid atau telah kedaluwarsa. Silakan login kembali.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const callerData = await callerRes.json();
+    const callerRole = callerData?.user_metadata?.role;
+    const callerJabatan = callerData?.user_metadata?.jabatan;
+
+    let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
+
+    if (!isCallerAdmin && callerData?.id) {
+      const profileCheck = await fetch(
+        `${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(callerData.id)}&select=role`,
+        {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        }
+      );
+      if (profileCheck.ok) {
+        const pRows = await profileCheck.json();
+        if (pRows?.[0]?.role === 'admin' || pRows?.[0]?.role === 'kepala_sekolah') {
+          isCallerAdmin = true;
+        }
+      }
+    }
+
+    // 3. Enforce Admin Privilege Check (A01 & A06)
+    if (!isCallerAdmin) {
+      console.warn(`[SECURITY ALERT] Unauthorized admin password reset attempt by user: ${callerData?.id} (${callerData?.email})`);
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mereset password pengguna.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 4. Validate Input Data (A05: Injection & Data Validation)
+    const body = await context.request.json();
+    const { email, password, role, nama, phone, targetUserId } = body;
+
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Email dan password wajib diisi.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    if (password.length < 6) {
+      return new Response(
+        JSON.stringify({ error: 'Password minimal harus 6 karakter demi keamanan akun.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const cleanEmail = email.toLowerCase().trim().slice(0, 100);
     const cleanPassword = password.trim();
 
-    // 1. Search if user exists in Supabase auth.users
+    // 5. Search if user exists in Supabase auth.users
     const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
       headers: {
         apikey: serviceKey,
@@ -36,9 +113,9 @@ export async function onRequestPost(context: any) {
     let authUserId = existingUser?.id;
 
     if (existingUser) {
-      // 2a. Update existing user's password
+      // 5a. Update existing user's password
       const updateRes = await fetch(
-        `${SUPABASE_URL}/auth/v1/admin/users/${existingUser.id}`,
+        `${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(existingUser.id)}`,
         {
           method: 'PUT',
           headers: {
@@ -57,11 +134,10 @@ export async function onRequestPost(context: any) {
         }
       );
       if (!updateRes.ok) {
-        const errJson = await updateRes.json();
-        throw new Error(errJson.message || 'Gagal memperbarui password akun.');
+        throw new Error('Gagal memperbarui password akun di Supabase Auth.');
       }
     } else {
-      // 2b. Create new user in auth.users
+      // 5b. Create new user in auth.users
       const createRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
         method: 'POST',
         headers: {
@@ -87,27 +163,28 @@ export async function onRequestPost(context: any) {
       authUserId = createData.user?.id;
     }
 
-    // 3. Update phone number in database if provided
-    if (phone && targetUserId) {
+    // 6. Update phone number in database if provided
+    if (phone && targetUserId && typeof targetUserId === 'string') {
+      const cleanPhone = String(phone).trim().slice(0, 30);
       if (role === 'orangtua') {
-        await fetch(`${SUPABASE_URL}/rest/v1/siswa?id=eq.${targetUserId}`, {
+        await fetch(`${SUPABASE_URL}/rest/v1/siswa?id=eq.${encodeURIComponent(targetUserId)}`, {
           method: 'PATCH',
           headers: {
             apikey: serviceKey,
             Authorization: `Bearer ${serviceKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ no_hp_wali: phone }),
+          body: JSON.stringify({ no_hp_wali: cleanPhone }),
         });
       } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${targetUserId}`, {
+        await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(targetUserId)}`, {
           method: 'PATCH',
           headers: {
             apikey: serviceKey,
             Authorization: `Bearer ${serviceKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ telepon: phone }),
+          body: JSON.stringify({ telepon: cleanPhone }),
         });
       }
     }
@@ -118,12 +195,13 @@ export async function onRequestPost(context: any) {
         message: 'Password akun berhasil diperbarui di server.',
         userId: authUserId,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   } catch (err: any) {
+    console.error('Error in admin-reset-password:', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Terjadi kesalahan pada server.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: err.message || 'Terjadi kesalahan sistem saat memperbarui password.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 }

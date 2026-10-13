@@ -245,9 +245,13 @@ export default function MasterGuruPage() {
         // Sync via API route to ensure both users_profile and auth user metadata are updated
         let apiSuccess = false;
         try {
+          const { data: { session } } = await supabase.auth.getSession();
           const res = await fetch('/api/admin-update-user', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
             body: JSON.stringify({
               id: editingId,
               nama: formData.nama.trim(),

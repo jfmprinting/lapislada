@@ -100,23 +100,8 @@ export default function ResetPasswordModal({
       setShowExistingPassword(false);
       setShowPassword(false);
 
-      // Cek apakah ada password aktif di cache/registry
-      try {
-        const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
-        if (storedRegistry && userEmail) {
-          const registry = JSON.parse(storedRegistry);
-          const entry = registry[userEmail.toLowerCase().trim()];
-          if (entry?.password) {
-            setExistingPassword(entry.password);
-          } else {
-            setExistingPassword(null);
-          }
-        } else {
-          setExistingPassword(null);
-        }
-      } catch {
-        setExistingPassword(null);
-      }
+      // Password di-hash secara aman di Supabase Auth dan tidak disimpan plaintext di browser
+      setExistingPassword(null);
     }
   }, [targetUser, isOpen]);
 
@@ -255,9 +240,13 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
       let serverSaved = false;
       let serverErrorMsg = '';
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('/api/admin-reset-password', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
           body: JSON.stringify({
             email: email.trim(),
             password: password.trim(),
@@ -277,26 +266,9 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
         serverErrorMsg = apiErr.message || 'Gagal menghubungi server.';
       }
 
-      // 2. Direct client fallback if API wasn't reached
+      // 2. Direct verification
       if (!serverSaved) {
         throw new Error(serverErrorMsg || 'API server reset password gagal dihubungi. Pastikan koneksi internet lancar dan coba lagi.');
-      }
-
-      // 3. Save to local credentials registry as extra client cache
-      try {
-        const storedRegistry = localStorage.getItem('lapislada_credentials_registry');
-        const registry = storedRegistry ? JSON.parse(storedRegistry) : {};
-        registry[email.toLowerCase().trim()] = {
-          password: password.trim(),
-          userId: targetUser.id,
-          role: targetUser.role,
-          nama: targetUser.nama,
-          updatedAt: new Date().toISOString(),
-        };
-        localStorage.setItem('lapislada_credentials_registry', JSON.stringify(registry));
-        setExistingPassword(password.trim());
-      } catch (err) {
-        console.warn('LocalStorage error:', err);
       }
 
       // 4. Update phone number in database if changed

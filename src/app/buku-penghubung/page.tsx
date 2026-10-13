@@ -496,9 +496,13 @@ function BukuPenghubungContent() {
 
       if (isEditing && editingEntryId) {
         // Mode UPDATE / EDIT Catatan
+        const { data: { session } } = await supabase.auth.getSession();
         const res = await fetch('/api/buku-penghubung', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
           body: JSON.stringify({
             id: editingEntryId,
             catatan: structuredCatatan,
@@ -613,8 +617,12 @@ function BukuPenghubungContent() {
 
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/buku-penghubung?id=${entryToDelete.id}`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/buku-penghubung?id=${encodeURIComponent(entryToDelete.id)}`, {
         method: 'DELETE',
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
       });
 
       if (!res.ok) {

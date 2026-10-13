@@ -188,16 +188,22 @@ export default function MasterSiswaPage() {
           return;
         }
 
+        const sanitizeCell = (val: any, maxLen = 150) => {
+          const s = String(val ?? '').trim().slice(0, maxLen);
+          // Mitigasi CSV / Formula Injection (karakter =, +, -, @ di awal) & HTML tags
+          return s.replace(/^[=+\-@\t\r]+/, '').replace(/[<>]/g, '');
+        };
+
         // Parse rows starting from row 1 (row 0 is header)
         const parsedRows = json.slice(1).filter((row) => row && row.length > 0 && row[2]).map((row, idx) => {
-          const nisn = String(row[0] || '').trim();
-          const nis = String(row[1] || '').trim();
-          const nama = String(row[2] || '').trim();
+          const nisn = sanitizeCell(row[0], 20);
+          const nis = sanitizeCell(row[1], 20);
+          const nama = sanitizeCell(row[2], 100);
           const jk = String(row[3] || '').trim().toUpperCase().startsWith('P') ? 'P' : 'L';
-          const kelasStr = String(row[4] || '').trim();
-          const namaWali = String(row[5] || '').trim();
-          const noHpWali = String(row[6] || '').trim();
-          const alamat = String(row[7] || '').trim();
+          const kelasStr = sanitizeCell(row[4], 50);
+          const namaWali = sanitizeCell(row[5], 100);
+          const noHpWali = sanitizeCell(row[6], 30);
+          const alamat = sanitizeCell(row[7], 255);
 
           // Match with existing class in db flexibly
           const matchedKelas = kelasList.find(

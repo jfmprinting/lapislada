@@ -1,8 +1,8 @@
 // Cloudflare Pages Function for Buku Penghubung API
-// Runs on Cloudflare Edge Serverless Workers
+// Protected by Caller Authentication Verification
 
 const SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
-const SERVICE_ROLE_KEY =
+const FALLBACK_SERVICE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
 
 const corsHeaders = {
@@ -15,9 +15,33 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: corsHeaders });
 }
 
+async function verifyAuth(context: any, serviceKey: string) {
+  const authHeader = context.request.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return null;
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) return null;
+  return await res.json();
+}
+
 export async function onRequestDelete(context: any) {
   try {
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || SERVICE_ROLE_KEY;
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const user = await verifyAuth(context, serviceKey);
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Sesi tidak valid atau belum login.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     const url = new URL(context.request.url);
     let id = url.searchParams.get('id');
 
@@ -30,14 +54,14 @@ export async function onRequestDelete(context: any) {
       }
     }
 
-    if (!id) {
+    if (!id || typeof id !== 'string') {
       return new Response(
         JSON.stringify({ error: 'ID catatan buku penghubung wajib disertakan.' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    const delRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${id}`, {
+    const delRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: {
         apikey: serviceKey,
@@ -46,10 +70,8 @@ export async function onRequestDelete(context: any) {
     });
 
     if (!delRes.ok) {
-      const errText = await delRes.text();
-      console.error('Error delete buku_penghubung:', errText);
       return new Response(
-        JSON.stringify({ error: 'Gagal menghapus catatan buku penghubung.' }),
+        JSON.stringify({ error: 'Gagal menghapus catatan buku penghubung di database.' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -61,7 +83,7 @@ export async function onRequestDelete(context: any) {
   } catch (err: any) {
     console.error('Exception DELETE buku_penghubung:', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Terjadi kesalahan sistem.' }),
+      JSON.stringify({ error: 'Terjadi kesalahan sistem saat menghapus data.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
@@ -69,11 +91,20 @@ export async function onRequestDelete(context: any) {
 
 export async function onRequestPatch(context: any) {
   try {
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || SERVICE_ROLE_KEY;
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const user = await verifyAuth(context, serviceKey);
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Sesi tidak valid atau belum login.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     const body = await context.request.json();
     const { id, catatan, is_read_by_guru } = body;
 
-    if (!id) {
+    if (!id || typeof id !== 'string') {
       return new Response(
         JSON.stringify({ error: 'ID catatan wajib disertakan.' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
@@ -81,10 +112,10 @@ export async function onRequestPatch(context: any) {
     }
 
     const updatePayload: Record<string, any> = {};
-    if (catatan !== undefined) updatePayload.catatan = catatan;
-    if (is_read_by_guru !== undefined) updatePayload.is_read_by_guru = is_read_by_guru;
+    if (catatan !== undefined) updatePayload.catatan = String(catatan).slice(0, 2000);
+    if (is_read_by_guru !== undefined) updatePayload.is_read_by_guru = Boolean(is_read_by_guru);
 
-    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${id}`, {
+    const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: {
         apikey: serviceKey,
@@ -96,10 +127,8 @@ export async function onRequestPatch(context: any) {
     });
 
     if (!patchRes.ok) {
-      const errText = await patchRes.text();
-      console.error('Error PATCH buku_penghubung:', errText);
       return new Response(
-        JSON.stringify({ error: 'Gagal memperbarui catatan buku penghubung.' }),
+        JSON.stringify({ error: 'Gagal memperbarui catatan buku penghubung di database.' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -112,7 +141,7 @@ export async function onRequestPatch(context: any) {
   } catch (err: any) {
     console.error('Exception PATCH buku_penghubung:', err);
     return new Response(
-      JSON.stringify({ error: err.message || 'Terjadi kesalahan sistem.' }),
+      JSON.stringify({ error: 'Terjadi kesalahan sistem saat memperbarui data.' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
