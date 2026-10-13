@@ -136,7 +136,7 @@ function KehadiranContent() {
 
   // 1. Detect User Role
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       const user = session?.user ?? null;
       if (user) {
         setUserId(user.id);
@@ -147,8 +147,21 @@ function KehadiranContent() {
       const metaJabatan = user?.user_metadata?.jabatan;
       const email = user?.email?.toLowerCase().trim();
 
+      let dbRole: string | undefined;
+      if (user?.id) {
+        try {
+          const { data: prof } = await supabase
+            .from('users_profile')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (prof?.role) dbRole = prof.role;
+        } catch {}
+      }
+
       const isKepsekDetected =
         queryRole === 'kepala_sekolah' ||
+        dbRole === 'kepala_sekolah' ||
         metaRole === 'kepala_sekolah' ||
         metaJabatan === 'kepala_sekolah' ||
         email === 'kepsek@demo.com';
@@ -158,6 +171,7 @@ function KehadiranContent() {
       } else {
         const detectedRole =
           (queryRole as 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah') ||
+          (dbRole as 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah') ||
           (metaRole as 'guru' | 'admin' | 'orangtua' | 'kepala_sekolah') ||
           'guru';
         setRole(detectedRole);

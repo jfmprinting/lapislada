@@ -91,9 +91,11 @@ function NilaiContent() {
   // Publication Toggle State
   const [isPublishedForCurrentAsesmen, setIsPublishedForCurrentAsesmen] = useState<boolean>(true);
 
-  // Wali Kelas & Kepala Sekolah restriction
+  // Wali Kelas, Administrator & Kepala Sekolah restriction
   const [isWaliKelas, setIsWaliKelas] = useState<boolean>(false);
   const [isKepalaSekolah, setIsKepalaSekolah] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [myAssignedKelasId, setMyAssignedKelasId] = useState<string | null>(null);
   const [waliKelasNama, setWaliKelasNama] = useState<string>('');
   const [allowedKelasList, setAllowedKelasList] = useState<Kelas[]>([]);
 
@@ -197,25 +199,51 @@ function NilaiContent() {
         const fetchedKelas: Kelas[] = kData && kData.length > 0 ? kData : [];
         setKelasList(fetchedKelas);
 
-        // Deteksi Kepala Sekolah
+        // Deteksi Kepala Sekolah & Admin
         let detectedKepsek: boolean =
           roleParam === 'kepala_sekolah' ||
           metaRole === 'kepala_sekolah' ||
           metaJabatan === 'kepala_sekolah' ||
           currentUserEmail === 'kepsek@demo.com';
 
-        if (!detectedKepsek && currentUserId) {
+        let detectedAdmin: boolean =
+          roleParam === 'admin' ||
+          metaRole === 'admin' ||
+          currentUserEmail === 'admin@demo.com';
+
+        if (currentUserId) {
           const { data: prof } = await supabase
             .from('users_profile')
             .select('role')
             .eq('id', currentUserId)
             .maybeSingle();
-          if (prof && prof.role === 'kepala_sekolah') {
+          if (prof?.role === 'kepala_sekolah') {
             detectedKepsek = true;
+          }
+          if (prof?.role === 'admin') {
+            detectedAdmin = true;
           }
         }
 
         setIsKepalaSekolah(detectedKepsek);
+        setIsAdmin(detectedAdmin);
+
+        // Cari apakah akun ini adalah wali kelas di salah satu kelas
+        const myKelas = fetchedKelas.find((k: any) => {
+          const idMatch = currentUserId && k.wali_kelas_id === currentUserId;
+          const emailMatch = currentUserEmail && k.wali_kelas?.email?.toLowerCase() === currentUserEmail;
+          return idMatch || emailMatch;
+        });
+
+        if (myKelas) {
+          setMyAssignedKelasId(myKelas.id);
+          setWaliKelasNama(myKelas.nama_kelas);
+          setIsWaliKelas(true);
+        } else {
+          setMyAssignedKelasId(null);
+          setWaliKelasNama('');
+          setIsWaliKelas(false);
+        }
 
         if (detectedKepsek) {
           setIsWaliKelas(false);
@@ -223,21 +251,21 @@ function NilaiContent() {
           if (fetchedKelas.length > 0) {
             setSelectedKelasId(fetchedKelas[0].id);
           }
-        } else {
-          // Detect Wali Kelas: match either by wali_kelas_id or by email
-          const myKelas = fetchedKelas.find((k: any) => {
-            const idMatch = currentUserId && k.wali_kelas_id === currentUserId;
-            const emailMatch = currentUserEmail && k.wali_kelas?.email?.toLowerCase() === currentUserEmail;
-            return idMatch || emailMatch;
-          });
-
+        } else if (detectedAdmin) {
+          // Admin memiliki akses ke seluruh kelas
+          setAllowedKelasList(fetchedKelas);
+          // Jika admin juga wali kelas, dahulukan kelas binaannya
           if (myKelas) {
-            setIsWaliKelas(true);
-            setWaliKelasNama(myKelas.nama_kelas);
+            setSelectedKelasId(myKelas.id);
+          } else if (fetchedKelas.length > 0) {
+            setSelectedKelasId(fetchedKelas[0].id);
+          }
+        } else {
+          // Guru biasa: jika wali kelas, kunci ke kelasnya. Jika bukan, beri daftar kelas.
+          if (myKelas) {
             setAllowedKelasList([myKelas]);
             setSelectedKelasId(myKelas.id);
           } else {
-            setIsWaliKelas(false);
             setAllowedKelasList(fetchedKelas);
             if (fetchedKelas.length > 0) {
               setSelectedKelasId(fetchedKelas[0].id);
@@ -1001,11 +1029,19 @@ function NilaiContent() {
   // =========================================================================
   return (
     <AppShell
-      role={isKepalaSekolah ? 'kepala_sekolah' : 'guru'}
-      pageTitle={isKepalaSekolah ? 'Monitoring Nilai & Asesmen Sekolah' : 'Nilai & Asesmen Siswa'}
+      role={isKepalaSekolah ? 'kepala_sekolah' : isAdmin ? 'admin' : 'guru'}
+      pageTitle={
+        isKepalaSekolah
+          ? 'Monitoring Nilai & Asesmen Sekolah'
+          : isAdmin
+          ? 'Pengelolaan Nilai & Leger Sekolah'
+          : 'Nilai & Asesmen Siswa'
+      }
       pageSubtitle={
         isKepalaSekolah
           ? 'Pemantauan komprehensif capaian nilai siswa dan buku leger seluruh kelas'
+          : isAdmin
+          ? 'Akses penuh administrasi nilai mapel, kontrol publikasi wali murid, dan leger nilai rombel'
           : 'Alur input nilai guru mata pelajaran, kontrol publikasi wali murid, dan buku leger'
       }
     >
@@ -1028,7 +1064,7 @@ function NilaiContent() {
         {/* TOP TAB TOGGLE: Input Asesmen Mapel VS Buku Leger Rombel */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-[#DDD8CE] shadow-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className={`grid gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 ${isWaliKelas || isKepalaSekolah ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-1.5 p-1 bg-[#F5F0E8] rounded-xl border border-[#DDD8CE]/70 ${isWaliKelas || isKepalaSekolah || isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <button
                 onClick={() => setActiveTab('input')}
                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -1041,8 +1077,8 @@ function NilaiContent() {
                 <span>Input / Cek Nilai</span>
               </button>
 
-              {/* Buku Leger Tab: visible for Wali Kelas OR Kepala Sekolah */}
-              {(isWaliKelas || isKepalaSekolah) && (
+              {/* Buku Leger Tab: visible for Wali Kelas, Admin, OR Kepala Sekolah */}
+              {(isWaliKelas || isKepalaSekolah || isAdmin) && (
                 <button
                   onClick={() => setActiveTab('leger')}
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -1057,11 +1093,16 @@ function NilaiContent() {
               )}
             </div>
 
-            {/* Wali Kelas / Kepala Sekolah badge */}
+            {/* Wali Kelas / Admin / Kepala Sekolah badge */}
             {isKepalaSekolah ? (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-[11px] font-bold text-amber-900">
                 <Award className="w-3.5 h-3.5 text-amber-700" />
                 <span>Pengawasan Pimpinan</span>
+              </div>
+            ) : isAdmin ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-800">
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                <span>Administrator Sekolah {waliKelasNama ? `· Wali Kelas ${waliKelasNama}` : ''}</span>
               </div>
             ) : isWaliKelas ? (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
@@ -1087,13 +1128,13 @@ function NilaiContent() {
             {/* Filter Card: Kelas, Mapel, Asesmen & Publikasi Global */}
             <div className="bg-white rounded-2xl p-5 border border-[#DDD8CE] shadow-xs space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* 1. Pilih Kelas Diajar - restricted for Wali Kelas */}
+                {/* 1. Pilih Kelas Diajar - restricted for pure Wali Kelas, open for Admin */}
                 <div>
                   <label className="block text-xs font-bold text-[#3D3D3D] mb-1.5 flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-[#922B21]" />
                     <span>1. Kelas / Rombel Diajar:</span>
                   </label>
-                  {isWaliKelas ? (
+                  {isWaliKelas && !isAdmin ? (
                     <div className="w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 flex items-center gap-2">
                       <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                       <span>{waliKelasNama}</span>
@@ -1107,7 +1148,7 @@ function NilaiContent() {
                     >
                       {allowedKelasList.map((k) => (
                         <option key={k.id} value={k.id}>
-                          {k.nama_kelas}
+                          {k.nama_kelas} {myAssignedKelasId && k.id === myAssignedKelasId ? '★ (Kelas Binaan Anda)' : ''}
                         </option>
                       ))}
                     </select>
