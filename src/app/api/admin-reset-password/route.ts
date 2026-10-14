@@ -13,52 +13,101 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 });
 
+async function verifyAdminCaller(request: Request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  if (!callerToken) return null;
+
+  const { data: { user: callerUser }, error: authCheckErr } = await supabaseAdmin.auth.getUser(callerToken);
+  if (authCheckErr || !callerUser) return null;
+
+  const callerRole = callerUser.user_metadata?.role;
+  const callerJabatan = callerUser.user_metadata?.jabatan;
+  let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
+
+  if (!isCallerAdmin) {
+    const { data: pData } = await supabaseAdmin
+      .from('users_profile')
+      .select('role')
+      .eq('id', callerUser.id)
+      .maybeSingle();
+    if (pData?.role === 'admin' || pData?.role === 'kepala_sekolah') {
+      isCallerAdmin = true;
+    }
+  }
+
+  if (!isCallerAdmin) return null;
+  return callerUser;
+}
+
 export async function POST(request: Request) {
   try {
     // 1. Enforce Authentication & Admin Role (A01: Broken Access Control)
-    const authHeader = request.headers.get('Authorization') || '';
-    const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-    if (!callerToken) {
+    const adminUser = await verifyAdminCaller(request);
+    if (!adminUser) {
       return NextResponse.json(
-        { error: 'Akses ditolak: Token autentikasi wajib disertakan.' },
-        { status: 401 }
-      );
-    }
-
-    const { data: { user: callerUser }, error: authCheckErr } = await supabaseAdmin.auth.getUser(callerToken);
-    if (authCheckErr || !callerUser) {
-      return NextResponse.json(
-        { error: 'Sesi login tidak valid atau telah kedaluwarsa. Silakan login kembali.' },
-        { status: 401 }
-      );
-    }
-
-    const callerRole = callerUser.user_metadata?.role;
-    const callerJabatan = callerUser.user_metadata?.jabatan;
-    let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
-
-    if (!isCallerAdmin) {
-      const { data: pData } = await supabaseAdmin
-        .from('users_profile')
-        .select('role')
-        .eq('id', callerUser.id)
-        .maybeSingle();
-      if (pData?.role === 'admin' || pData?.role === 'kepala_sekolah') {
-        isCallerAdmin = true;
-      }
-    }
-
-    if (!isCallerAdmin) {
-      console.warn(`[SECURITY ALERT] Unauthorized password reset attempt by user: ${callerUser.id} (${callerUser.email})`);
-      return NextResponse.json(
-        { error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mereset password pengguna.' },
+        { error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mengakses data akun atau mereset password pengguna.' },
         { status: 403 }
       );
     }
 
-    // 2. Validate and Sanitize Input (A05: Injection)
     const body = await request.json();
+
+    // Query Detail Akun & Kata Sandi Aktif Tersimpan
+    if (body?.action === 'get_account') {
+      const emailParam = body?.email?.toLowerCase().trim();
+      const userIdParam = body?.userId?.trim();
+
+      if (!emailParam && !userIdParam) {
+        return NextResponse.json(
+          { error: 'Parameter email atau userId wajib disertakan.' },
+          { status: 400 }
+        );
+      }
+
+      let targetAuthUser: any = null;
+
+      if (userIdParam) {
+        const { data: uData, error: uErr } = await supabaseAdmin.auth.admin.getUserById(userIdParam);
+        if (!uErr && uData?.user) {
+          targetAuthUser = uData.user;
+        }
+      }
+
+      if (!targetAuthUser && emailParam) {
+        const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+          perPage: 1000,
+        });
+        if (!listError && listData?.users) {
+          targetAuthUser = listData.users.find(
+            (u) => u.email?.toLowerCase() === emailParam
+          ) || null;
+        }
+      }
+
+      if (!targetAuthUser) {
+        return NextResponse.json({
+          success: true,
+          exists: false,
+          password: null,
+        });
+      }
+
+      const passwordDisplay = targetAuthUser.user_metadata?.password_display || null;
+
+      return NextResponse.json({
+        success: true,
+        exists: true,
+        userId: targetAuthUser.id,
+        email: targetAuthUser.email,
+        nama: targetAuthUser.user_metadata?.nama || null,
+        role: targetAuthUser.user_metadata?.role || null,
+        password: passwordDisplay,
+      });
+    }
+
+    // 2. Validate and Sanitize Input for Reset Password (A05: Injection)
     const { email, password, role, nama, phone, targetUserId } = body;
 
     if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
@@ -104,6 +153,7 @@ export async function POST(request: Request) {
             jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : null,
             nama: nama || existingUser.user_metadata?.nama,
             siswa_id: targetUserId || existingUser.user_metadata?.siswa_id,
+            password_display: cleanPassword,
           },
         }
       );
@@ -121,6 +171,7 @@ export async function POST(request: Request) {
           jabatan: role === 'kepala_sekolah' ? 'kepala_sekolah' : undefined,
           nama: nama,
           siswa_id: targetUserId,
+          password_display: cleanPassword,
         },
       });
       if (createError) {
@@ -189,6 +240,7 @@ export async function POST(request: Request) {
       success: true,
       message: 'Password akun berhasil diperbarui di server.',
       userId: authUserId,
+      password: cleanPassword,
     });
   } catch (err: any) {
     console.error('Error in admin-reset-password:', err);

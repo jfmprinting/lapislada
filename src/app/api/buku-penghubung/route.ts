@@ -102,3 +102,66 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Terjadi kesalahan sistem.' }, { status: 500 });
   }
 }
+
+// POST: Buat catatan buku penghubung baru (Guru atau Orang Tua)
+export async function POST(request: Request) {
+  try {
+    const caller = await verifyCaller(request);
+    if (!caller) {
+      return NextResponse.json({ error: 'Akses ditolak: Sesi Anda tidak valid atau telah berakhir.' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { siswa_id, catatan, author_role, parent_entry_id } = body;
+
+    if (!siswa_id || !catatan || typeof catatan !== 'string') {
+      return NextResponse.json({ error: 'Data siswa dan catatan wajib diisi.' }, { status: 400 });
+    }
+
+    const role = author_role === 'orangtua' ? 'orangtua' : 'guru';
+    const isReadByGuru = role === 'guru';
+
+    const { data: newEntry, error } = await supabaseAdmin
+      .from('buku_penghubung')
+      .insert({
+        siswa_id,
+        author_id: caller.id,
+        author_role: role,
+        catatan: catatan.slice(0, 2000),
+        parent_entry_id: parent_entry_id || null,
+        is_read_by_guru: isReadByGuru,
+      })
+      .select(`
+        id,
+        siswa_id,
+        author_id,
+        author_role,
+        catatan,
+        parent_entry_id,
+        is_read_by_guru,
+        created_at,
+        users_profile:author_id(nama),
+        siswa:siswa_id(
+          id,
+          nama_lengkap,
+          nis,
+          nisn,
+          jenis_kelamin,
+          nama_wali,
+          no_hp_wali,
+          kelas:kelas_id(id, nama_kelas)
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error insert buku_penghubung:', error);
+      return NextResponse.json({ error: error.message || 'Gagal menyimpan catatan buku penghubung.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data: newEntry });
+  } catch (err: any) {
+    console.error('Exception POST buku_penghubung:', err);
+    return NextResponse.json({ error: 'Terjadi kesalahan sistem saat menyimpan catatan.' }, { status: 500 });
+  }
+}

@@ -15,70 +15,211 @@ export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: corsHeaders });
 }
 
-export async function onRequestPost(context: any) {
-  try {
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
-    const authHeader = context.request.headers.get('Authorization') || '';
-    const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+async function verifyAdminCaller(context: any, serviceKey: string) {
+  const authHeader = context.request.headers.get('Authorization') || '';
+  const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-    // 1. Enforce Authentication (A01: Broken Access Control)
-    if (!callerToken) {
-      return new Response(
-        JSON.stringify({ error: 'Akses ditolak: Token autentikasi wajib disertakan.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
+  if (!callerToken) return null;
 
-    // 2. Verify Caller Identity via Supabase Auth
-    const callerRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${callerToken}`,
-      },
-    });
+  const callerRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${callerToken}`,
+    },
+  });
 
-    if (!callerRes.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Sesi login tidak valid atau telah kedaluwarsa. Silakan login kembali.' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      );
-    }
+  if (!callerRes.ok) return null;
 
-    const callerData = await callerRes.json();
-    const callerRole = callerData?.user_metadata?.role;
-    const callerJabatan = callerData?.user_metadata?.jabatan;
+  const callerData = await callerRes.json();
+  const callerRole = callerData?.user_metadata?.role;
+  const callerJabatan = callerData?.user_metadata?.jabatan;
 
-    let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
+  let isCallerAdmin = callerRole === 'admin' || callerRole === 'kepala_sekolah' || callerJabatan === 'kepala_sekolah';
 
-    if (!isCallerAdmin && callerData?.id) {
-      const profileCheck = await fetch(
-        `${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(callerData.id)}&select=role`,
-        {
-          headers: {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-          },
-        }
-      );
-      if (profileCheck.ok) {
-        const pRows = await profileCheck.json();
-        if (pRows?.[0]?.role === 'admin' || pRows?.[0]?.role === 'kepala_sekolah') {
-          isCallerAdmin = true;
-        }
+  if (!isCallerAdmin && callerData?.id) {
+    const profileCheck = await fetch(
+      `${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(callerData.id)}&select=role`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      }
+    );
+    if (profileCheck.ok) {
+      const pRows = await profileCheck.json();
+      if (pRows?.[0]?.role === 'admin' || pRows?.[0]?.role === 'kepala_sekolah') {
+        isCallerAdmin = true;
       }
     }
+  }
 
-    // 3. Enforce Admin Privilege Check (A01 & A06)
-    if (!isCallerAdmin) {
-      console.warn(`[SECURITY ALERT] Unauthorized admin password reset attempt by user: ${callerData?.id} (${callerData?.email})`);
+  if (!isCallerAdmin) return null;
+  return callerData;
+}
+
+// GET: Ambil data akun & password aktif tersimpan
+export async function onRequestGet(context: any) {
+  try {
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const adminUser = await verifyAdminCaller(context, serviceKey);
+
+    if (!adminUser) {
       return new Response(
-        JSON.stringify({ error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mereset password pengguna.' }),
+        JSON.stringify({ error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang melihat kata sandi pengguna.' }),
         { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // 4. Validate Input Data (A05: Injection & Data Validation)
+    const url = new URL(context.request.url);
+    const emailParam = url.searchParams.get('email')?.toLowerCase().trim();
+    const userIdParam = url.searchParams.get('userId')?.trim();
+
+    if (!emailParam && !userIdParam) {
+      return new Response(
+        JSON.stringify({ error: 'Parameter email atau userId wajib disertakan.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    let targetAuthUser: any = null;
+
+    if (userIdParam) {
+      const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userIdParam)}`, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      });
+      if (userRes.ok) {
+        targetAuthUser = await userRes.json();
+      }
+    }
+
+    if (!targetAuthUser && emailParam) {
+      const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        targetAuthUser = listData?.users?.find(
+          (u: any) => u.email?.toLowerCase() === emailParam
+        ) || null;
+      }
+    }
+
+    if (!targetAuthUser) {
+      return new Response(
+        JSON.stringify({ success: true, exists: false, password: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const passwordDisplay = targetAuthUser.user_metadata?.password_display || null;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        exists: true,
+        userId: targetAuthUser.id,
+        email: targetAuthUser.email,
+        nama: targetAuthUser.user_metadata?.nama || null,
+        role: targetAuthUser.user_metadata?.role || null,
+        password: passwordDisplay,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    );
+  } catch (err: any) {
+    console.error('Error in onRequestGet admin-reset-password:', err);
+    return new Response(
+      JSON.stringify({ error: err.message || 'Terjadi kesalahan sistem saat mengambil data akun.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    );
+  }
+}
+
+export async function onRequestPost(context: any) {
+  try {
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const adminUser = await verifyAdminCaller(context, serviceKey);
+
+    if (!adminUser) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Hanya Administrator atau Kepala Sekolah yang berwenang mengakses data akun atau mereset password pengguna.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     const body = await context.request.json();
+
+    // Query Detail Akun & Kata Sandi Aktif Tersimpan
+    if (body?.action === 'get_account') {
+      const emailParam = body?.email?.toLowerCase().trim();
+      const userIdParam = body?.userId?.trim();
+
+      if (!emailParam && !userIdParam) {
+        return new Response(
+          JSON.stringify({ error: 'Parameter email atau userId wajib disertakan.' }),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+
+      let targetAuthUser: any = null;
+
+      if (userIdParam) {
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userIdParam)}`, {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        });
+        if (userRes.ok) {
+          targetAuthUser = await userRes.json();
+        }
+      }
+
+      if (!targetAuthUser && emailParam) {
+        const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          targetAuthUser = listData?.users?.find(
+            (u: any) => u.email?.toLowerCase() === emailParam
+          ) || null;
+        }
+      }
+
+      if (!targetAuthUser) {
+        return new Response(
+          JSON.stringify({ success: true, exists: false, password: null }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+
+      const passwordDisplay = targetAuthUser.user_metadata?.password_display || null;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          exists: true,
+          userId: targetAuthUser.id,
+          email: targetAuthUser.email,
+          nama: targetAuthUser.user_metadata?.nama || null,
+          role: targetAuthUser.user_metadata?.role || null,
+          password: passwordDisplay,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 4. Validate Input Data for Password Reset (A05: Injection & Data Validation)
     const { email, password, role, nama, phone, targetUserId } = body;
 
     if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
@@ -129,6 +270,7 @@ export async function onRequestPost(context: any) {
               ...existingUser.user_metadata,
               role: role || existingUser.user_metadata?.role || 'orangtua',
               nama: nama || existingUser.user_metadata?.nama,
+              password_display: cleanPassword,
             },
           }),
         }
@@ -153,6 +295,7 @@ export async function onRequestPost(context: any) {
             role: role || 'orangtua',
             nama: nama,
             siswa_id: targetUserId,
+            password_display: cleanPassword,
           },
         }),
       });
@@ -194,6 +337,7 @@ export async function onRequestPost(context: any) {
         success: true,
         message: 'Password akun berhasil diperbarui di server.',
         userId: authUserId,
+        password: cleanPassword,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );

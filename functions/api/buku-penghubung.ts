@@ -146,3 +146,69 @@ export async function onRequestPatch(context: any) {
     );
   }
 }
+
+export async function onRequestPost(context: any) {
+  try {
+    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const user = await verifyAuth(context, serviceKey);
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Sesi tidak valid atau belum login.' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const body = await context.request.json();
+    const { siswa_id, catatan, author_role, parent_entry_id } = body;
+
+    if (!siswa_id || !catatan || typeof catatan !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Data siswa_id dan catatan wajib diisi.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const role = author_role === 'orangtua' ? 'orangtua' : 'guru';
+    const isReadByGuru = role === 'guru';
+
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?select=id,siswa_id,author_id,author_role,catatan,parent_entry_id,is_read_by_guru,created_at,users_profile:author_id(nama),siswa:siswa_id(id,nama_lengkap,nis,nisn,jenis_kelamin,nama_wali,no_hp_wali,kelas:kelas_id(id,nama_kelas))`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        siswa_id,
+        author_id: user.id,
+        author_role: role,
+        catatan: catatan.slice(0, 2000),
+        parent_entry_id: parent_entry_id || null,
+        is_read_by_guru: isReadByGuru,
+      }),
+    });
+
+    if (!insertRes.ok) {
+      const errText = await insertRes.text();
+      console.error('Error insert buku_penghubung:', errText);
+      return new Response(
+        JSON.stringify({ error: 'Gagal menyimpan catatan buku penghubung.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const insertedRows = await insertRes.json();
+    return new Response(
+      JSON.stringify({ success: true, data: insertedRows?.[0] || insertedRows }),
+      { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    );
+  } catch (err: any) {
+    console.error('Exception POST buku_penghubung:', err);
+    return new Response(
+      JSON.stringify({ error: 'Terjadi kesalahan sistem saat menyimpan data.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+    );
+  }
+}

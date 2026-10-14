@@ -84,6 +84,7 @@ export default function ResetPasswordModal({
   const [isResetMode, setIsResetMode] = useState(false);
   const [existingPassword, setExistingPassword] = useState<string | null>(null);
   const [showExistingPassword, setShowExistingPassword] = useState(false);
+  const [loadingExistingPassword, setLoadingExistingPassword] = useState(false);
 
   useEffect(() => {
     if (targetUser && isOpen) {
@@ -100,8 +101,53 @@ export default function ResetPasswordModal({
       setShowExistingPassword(false);
       setShowPassword(false);
 
-      // Password di-hash secara aman di Supabase Auth dan tidak disimpan plaintext di browser
-      setExistingPassword(null);
+      const cleanTargetEmail = userEmail.toLowerCase().trim();
+      const cacheKey = `lapislada_pwd_${cleanTargetEmail}`;
+      const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+      if (cached) {
+        setExistingPassword(cached);
+      } else {
+        setExistingPassword(null);
+      }
+
+      let isMounted = true;
+      async function loadSavedPassword() {
+        setLoadingExistingPassword(true);
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch('/api/admin-reset-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({
+              action: 'get_account',
+              email: cleanTargetEmail,
+              userId: targetUser?.id || '',
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted && data?.password) {
+              setExistingPassword(data.password);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(cacheKey, data.password);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch saved password from server:', err);
+        } finally {
+          if (isMounted) setLoadingExistingPassword(false);
+        }
+      }
+
+      loadSavedPassword();
+
+      return () => {
+        isMounted = false;
+      };
     }
   }, [targetUser, isOpen]);
 
@@ -286,6 +332,14 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
         }
       }
 
+      const trimmed = password.trim();
+      setExistingPassword(trimmed);
+      setShowExistingPassword(true);
+      const cleanTargetEmail = (email || '').toLowerCase().trim();
+      if (cleanTargetEmail && typeof window !== 'undefined') {
+        localStorage.setItem(`lapislada_pwd_${cleanTargetEmail}`, trimmed);
+      }
+
       showToast({
         type: 'success',
         message: `Password untuk ${targetUser.nama} berhasil diperbarui & disimpan!`,
@@ -294,7 +348,7 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
       setIsResetMode(false);
 
       if (onSuccess) {
-        onSuccess(password.trim());
+        onSuccess(trimmed);
       }
     } catch (err: any) {
       showToast({
@@ -442,13 +496,24 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
             {/* View Mode: Informasi Password Aktif Saat Ini */}
             {!isResetMode ? (
               <div className="space-y-2.5">
-                {existingPassword ? (
-                  <div className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
+                {loadingExistingPassword ? (
+                  <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-center gap-2 text-xs text-[#6B6B6B]">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#922B21]" />
+                    <span>Memeriksa catatan kredensial akun...</span>
+                  </div>
+                ) : existingPassword ? (
+                  <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex items-center justify-between">
                     <div>
-                      <div className="text-[11px] font-medium text-[#666]">
-                        Password Aktif Tersimpan:
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-[#666]">
+                          Kata Sandi Aktif Tersimpan:
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          <Check className="w-2.5 h-2.5" />
+                          Siap Dibagikan
+                        </span>
                       </div>
-                      <div className="font-mono text-sm font-bold text-[#1A1A1A] mt-0.5">
+                      <div className="font-mono text-sm font-bold text-[#1A1A1A] mt-1 tracking-wide">
                         {showExistingPassword ? existingPassword : '••••••••••••••••'}
                       </div>
                     </div>
@@ -474,13 +539,26 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-[#FAF8F2] border border-[#DDD8CE] text-xs text-[#666] leading-relaxed">
-                    <p className="font-medium text-[#1A1A1A] mb-1">
-                      🔒 Password terenkripsi aman di sistem
-                    </p>
-                    <p className="text-[11px] text-[#7A7A7A]">
-                      Untuk alasan keamanan, kata sandi lama tidak ditampilkan secara teks terbuka. Jika pengguna lupa kata sandi atau ingin kredensial baru, klik tombol <strong>&ldquo;Reset Password Baru&rdquo;</strong> di kanan atas.
-                    </p>
+                  <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] text-xs leading-relaxed space-y-2.5">
+                    <div className="flex items-start gap-2">
+                      <Lock className="w-4 h-4 text-[#922B21] shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-[#1A1A1A]">
+                          Kata Sandi Belum Pernah Disimpan
+                        </p>
+                        <p className="text-[11px] text-[#6B6B6B] mt-0.5">
+                          Akun ini belum memiliki catatan kata sandi tersimpan. Klik tombol di bawah untuk membuat dan mengaktifkan password baru agar selalu dapat dilihat tanpa harus reset ulang.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleStartReset}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#922B21] hover:bg-[#771F18] text-white rounded-lg font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Buat & Simpan Password Sekarang</span>
+                    </button>
                   </div>
                 )}
               </div>

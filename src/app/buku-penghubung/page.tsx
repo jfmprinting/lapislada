@@ -135,10 +135,53 @@ Guru / Wali Kelas ${kelasNama}
 UPT SD Negeri Latsari 2 Bancar`;
 }
 
+// Helper format WhatsApp khusus Orang Tua untuk dikirimkan ke Guru
+function buildWhatsAppMessageOrtu({
+  siswaNama,
+  kelasNama,
+  tanggal,
+  pesan,
+  saran,
+  waliNama,
+}: {
+  siswaNama: string;
+  kelasNama: string;
+  tanggal: string;
+  pesan: string;
+  saran: string;
+  waliNama: string;
+}) {
+  return `*BUKU PENGHUBUNG ORANG TUA & GURU*
+*UPT SD NEGERI LATSARI 2 BANCAR*
+------------------------------------------------
+Yth. Bapak/Ibu Wali Kelas dari *${siswaNama}* (${kelasNama})
+
+Berikut disampaikan catatan resmi buku penghubung terkait ananda:
+
+📅 *Tanggal:* ${tanggal}
+
+📝 *Pesan / Catatan Orang Tua:*
+${pesan}
+
+💡 *Tanggapan / Harapan Orang Tua:*
+${saran || '-'}
+
+------------------------------------------------
+Catatan ini juga tersimpan di portal resmi sekolah:
+🌐 https://lapislada.web.id/buku-penghubung
+
+Terima kasih atas bimbingan dan kerja sama Bapak/Ibu Guru.
+
+Salam hormat,
+*${waliNama || 'Wali Murid'}*
+Wali Murid dari ${siswaNama}`;
+}
+
 function BukuPenghubungContent() {
   const { showToast } = useNotification();
   const searchParams = useSearchParams();
   const queryRole = searchParams.get('role');
+  const queryTulis = searchParams.get('tulis');
 
   // State user & role
   const [currentRole, setCurrentRole] = useState<'guru' | 'orangtua' | 'admin' | 'kepala_sekolah'>('guru');
@@ -236,7 +279,7 @@ function BukuPenghubungContent() {
       try {
         const { data: allKelas, error } = await supabase
           .from('kelas')
-          .select('id, nama_kelas, tahun_ajaran, wali_kelas_id, wali_kelas:wali_kelas_id(id, nama, email)')
+          .select('id, nama_kelas, tahun_ajaran, wali_kelas_id, wali_kelas:wali_kelas_id(id, nama, email, telepon)')
           .order('nama_kelas', { ascending: true });
 
         if (!error && allKelas && allKelas.length > 0) {
@@ -430,9 +473,25 @@ function BukuPenghubungContent() {
     setFormTanggal(new Date().toISOString().split('T')[0]);
     setFormMasalah('');
     setFormSaran('');
-    setFormNoHpWali(siswa.no_hp_wali || '');
+    const defaultPhone = currentRole === 'orangtua'
+      ? (currentKelasObj?.wali_kelas?.telepon || '')
+      : (siswa.no_hp_wali || '');
+    setFormNoHpWali(defaultPhone);
     setShowModal(true);
   };
+
+  // Otomatis buka modal catat jika URL mengandung ?tulis=true
+  useEffect(() => {
+    if (queryTulis === 'true' && !loadingSiswa && siswaList.length > 0 && !showModal) {
+      const targetChild =
+        (myChildren.length > 0 && myChildren.find((c) => c.id === parentChildId)) ||
+        myChildren[0] ||
+        siswaList[0];
+      if (targetChild) {
+        openCatatModal(targetChild);
+      }
+    }
+  }, [queryTulis, loadingSiswa, siswaList, myChildren, parentChildId]);
 
   // Buka Modal Edit Catatan
   const openEditModal = (item: BukuPenghubungItem) => {
@@ -472,7 +531,7 @@ function BukuPenghubungContent() {
     e.preventDefault();
     if (!modalSiswa) return;
     if (!formMasalah.trim()) {
-      showToast({ type: 'warning', message: 'Silakan isi masalah yang disampaikan.' });
+      showToast({ type: 'warning', message: 'Silakan isi pesan atau masalah yang disampaikan.' });
       return;
     }
 
@@ -492,7 +551,9 @@ function BukuPenghubungContent() {
         year: 'numeric',
       });
 
-      const structuredCatatan = `*Tanggal Kejadian:* ${formattedTanggal}\n\n*Masalah yang Disampaikan:*\n${formMasalah.trim()}\n\n*Saran dan Kesimpulan:*\n${formSaran.trim() || '-'}`;
+      const structuredCatatan = currentRole === 'orangtua'
+        ? `*Tanggal:* ${formattedTanggal}\n\n*Pesan / Catatan Orang Tua:*\n${formMasalah.trim()}\n\n*Tanggapan / Harapan:*\n${formSaran.trim() || '-'}`
+        : `*Tanggal Kejadian:* ${formattedTanggal}\n\n*Masalah yang Disampaikan:*\n${formMasalah.trim()}\n\n*Saran dan Kesimpulan:*\n${formSaran.trim() || '-'}`;
 
       if (isEditing && editingEntryId) {
         // Mode UPDATE / EDIT Catatan
@@ -528,40 +589,66 @@ function BukuPenghubungContent() {
           message: `Catatan ananda ${modalSiswa.nama_lengkap} berhasil diperbarui.`,
         });
       } else {
-        // Mode INSERT Catatan Baru
-        const { data: newEntry, error: insertError } = await supabase
-          .from('buku_penghubung')
-          .insert({
-            siswa_id: modalSiswa.id,
-            author_id: user.id,
-            author_role: currentRole === 'orangtua' ? 'orangtua' : 'guru',
-            catatan: structuredCatatan,
-            is_read_by_guru: currentRole !== 'orangtua',
-          })
-          .select(`
-            id,
-            siswa_id,
-            author_id,
-            author_role,
-            catatan,
-            parent_entry_id,
-            is_read_by_guru,
-            created_at,
-            users_profile:author_id(nama),
-            siswa:siswa_id(
-              id,
-              nama_lengkap,
-              nis,
-              nisn,
-              jenis_kelamin,
-              nama_wali,
-              no_hp_wali,
-              kelas:kelas_id(id, nama_kelas)
-            )
-          `)
-          .single();
+        // Mode INSERT Catatan Baru: utamakan API serverless agar aman dari masalah RLS
+        let newEntry: any = null;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch('/api/buku-penghubung', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({
+              siswa_id: modalSiswa.id,
+              author_role: currentRole === 'orangtua' ? 'orangtua' : 'guru',
+              catatan: structuredCatatan,
+            }),
+          });
+          if (res.ok) {
+            const resData = await res.json();
+            newEntry = resData.data;
+          }
+        } catch (apiErr) {
+          console.warn('POST API error, fallback to direct insert:', apiErr);
+        }
 
-        if (insertError) throw insertError;
+        if (!newEntry) {
+          const { data: clientEntry, error: insertError } = await supabase
+            .from('buku_penghubung')
+            .insert({
+              siswa_id: modalSiswa.id,
+              author_id: user.id,
+              author_role: currentRole === 'orangtua' ? 'orangtua' : 'guru',
+              catatan: structuredCatatan,
+              is_read_by_guru: currentRole !== 'orangtua',
+            })
+            .select(`
+              id,
+              siswa_id,
+              author_id,
+              author_role,
+              catatan,
+              parent_entry_id,
+              is_read_by_guru,
+              created_at,
+              users_profile:author_id(nama),
+              siswa:siswa_id(
+                id,
+                nama_lengkap,
+                nis,
+                nisn,
+                jenis_kelamin,
+                nama_wali,
+                no_hp_wali,
+                kelas:kelas_id(id, nama_kelas)
+              )
+            `)
+            .single();
+
+          if (insertError) throw insertError;
+          newEntry = clientEntry;
+        }
 
         if (newEntry) {
           setEntries((prev) => [newEntry as any, ...prev]);
@@ -570,12 +657,14 @@ function BukuPenghubungContent() {
         showToast({
           type: 'success',
           title: 'Catatan Tersimpan',
-          message: `Catatan ananda ${modalSiswa.nama_lengkap} berhasil dibukukan!`,
+          message: isOrangTua
+            ? `Pesan untuk ananda ${modalSiswa.nama_lengkap} berhasil dikirim ke guru!`
+            : `Catatan ananda ${modalSiswa.nama_lengkap} berhasil dibukukan!`,
         });
       }
 
-      // Update No HP Wali jika diisi
-      if (formNoHpWali.trim() && formNoHpWali.trim() !== modalSiswa.no_hp_wali) {
+      // Update No HP Wali jika diisi oleh guru
+      if (currentRole !== 'orangtua' && formNoHpWali.trim() && formNoHpWali.trim() !== modalSiswa.no_hp_wali) {
         await supabase
           .from('siswa')
           .update({ no_hp_wali: formNoHpWali.trim() })
@@ -670,21 +759,32 @@ function BukuPenghubungContent() {
       cleanPhone = '62' + cleanPhone;
     }
 
-    const messageText = buildWhatsAppMessage({
-      siswaNama,
-      kelasNama,
-      tanggal,
-      masalah,
-      saran: saran || '-',
-      guruNama: currentUserName,
-    });
+    const messageText = isOrangTua
+      ? buildWhatsAppMessageOrtu({
+          siswaNama,
+          kelasNama,
+          tanggal,
+          pesan: masalah,
+          saran: saran || '-',
+          waliNama: currentUserName || 'Wali Murid',
+        })
+      : buildWhatsAppMessage({
+          siswaNama,
+          kelasNama,
+          tanggal,
+          masalah,
+          saran: saran || '-',
+          guruNama: currentUserName,
+        });
 
     if (!cleanPhone || cleanPhone.length < 9) {
       navigator.clipboard.writeText(messageText);
       showToast({
         type: 'warning',
         title: 'Nomor WA Belum Lengkap',
-        message: 'Nomor WhatsApp wali murid belum valid. Redaksi pesan telah otomatis disalin ke clipboard!',
+        message: isOrangTua
+          ? 'Nomor WhatsApp wali kelas belum valid. Redaksi pesan telah disalin ke clipboard!'
+          : 'Nomor WhatsApp wali murid belum valid. Redaksi pesan telah disalin ke clipboard!',
       });
       return;
     }
@@ -701,14 +801,23 @@ function BukuPenghubungContent() {
     masalah: string,
     saran: string
   ) => {
-    const text = buildWhatsAppMessage({
-      siswaNama,
-      kelasNama,
-      tanggal,
-      masalah,
-      saran,
-      guruNama: currentUserName,
-    });
+    const text = isOrangTua
+      ? buildWhatsAppMessageOrtu({
+          siswaNama,
+          kelasNama,
+          tanggal,
+          pesan: masalah,
+          saran,
+          waliNama: currentUserName || 'Wali Murid',
+        })
+      : buildWhatsAppMessage({
+          siswaNama,
+          kelasNama,
+          tanggal,
+          masalah,
+          saran,
+          guruNama: currentUserName,
+        });
 
     navigator.clipboard.writeText(text);
     showToast({
@@ -808,6 +917,7 @@ function BukuPenghubungContent() {
             )}
 
             {/* Tombol Cetak Dokumen Resmi */}
+            {/* Tombol Cetak Dokumen Resmi */}
             <button
               onClick={handlePrint}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F2] text-[#3D3D3D] border border-[#DDD8CE] text-xs font-bold transition shadow-2xs cursor-pointer active:scale-95"
@@ -817,8 +927,26 @@ function BukuPenghubungContent() {
               <span>Cetak Format Resmi</span>
             </button>
 
-            {/* Tombol Tulis Catatan Baru untuk Guru */}
-            {!isOrangTua && (
+            {/* Tombol Tulis Catatan Baru untuk Guru atau Orang Tua */}
+            {isOrangTua ? (
+              <button
+                onClick={() => {
+                  const targetChild =
+                    (myChildren.length > 0 && myChildren.find((c) => c.id === parentChildId)) ||
+                    myChildren[0] ||
+                    siswaList[0];
+                  if (targetChild) {
+                    openCatatModal(targetChild);
+                  } else {
+                    showToast({ type: 'warning', message: 'Data ananda belum terhubung.' });
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#922B21] text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tulis Catatan Baru</span>
+              </button>
+            ) : (
               <button
                 onClick={() => {
                   if (siswaList.length > 0) {
@@ -883,6 +1011,38 @@ function BukuPenghubungContent() {
         {/* ============================================================== */}
         {(activeTab === 'rekap-resmi' || isOrangTua) && (
           <div className="bg-white rounded-2xl border border-[#DDD8CE] shadow-xs p-3.5 sm:p-6 print:p-0 print:border-none print:shadow-none">
+            {/* BANNER KHUSUS WALI MURID (KOMUNIKASI 2 ARAH) */}
+            {isOrangTua && (
+              <div className="mb-5 p-4 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21] shrink-0 border border-[#F1948A]/40">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-[#1A1A1A]">
+                      Buku Penghubung Dua Arah
+                    </h4>
+                    <p className="text-[11px] text-[#6B6B6B] mt-0.5">
+                      Bapak/Ibu dapat mengirimkan catatan kejadian, kendala belajar, atau permohonan izin resmi langsung kepada Wali Kelas.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const targetChild =
+                      (myChildren.length > 0 && myChildren.find((c) => c.id === parentChildId)) ||
+                      myChildren[0] ||
+                      siswaList[0];
+                    if (targetChild) openCatatModal(targetChild);
+                  }}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#C0392B] hover:bg-[#922B21] text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tulis Catatan Baru</span>
+                </button>
+              </div>
+            )}
+
             {/* BAR FILTER SISWA SPESIFIK (HANYA MUNCUL DI TAMPILAN SCREEN, TIDAK DI CETAK) */}
             {!isOrangTua && (
               <div className="mb-5 p-3 sm:p-3.5 bg-[#FAF8F2] rounded-2xl border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
@@ -1431,10 +1591,16 @@ function BukuPenghubungContent() {
                   </div>
                   <div>
                     <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                      {isEditing ? 'Edit Catatan Buku Penghubung' : 'Catat Kejadian / Kasus Siswa'}
+                      {isEditing
+                        ? 'Edit Catatan Buku Penghubung'
+                        : isOrangTua
+                        ? 'Tulis Catatan / Pesan untuk Guru'
+                        : 'Catat Kejadian / Kasus Siswa'}
                     </h3>
                     <p className="text-[11px] text-[#6B6B6B]">
-                      Buku Penghubung Guru & Orang Tua (Format Resmi)
+                      {isOrangTua
+                        ? 'Buku Penghubung Dua Arah • Komunikasi Resmi Wali Kelas & Orang Tua'
+                        : 'Buku Penghubung Guru & Orang Tua (Format Resmi)'}
                     </p>
                   </div>
                 </div>
@@ -1480,7 +1646,7 @@ function BukuPenghubungContent() {
                 {/* Tanggal Kejadian */}
                 <div>
                   <label className="block font-bold text-[#3D3D3D] mb-1">
-                    Tanggal Kejadian:
+                    {isOrangTua ? 'Tanggal Catatan / Pesan:' : 'Tanggal Kejadian:'}
                   </label>
                   <div className="relative">
                     <input
@@ -1497,7 +1663,9 @@ function BukuPenghubungContent() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="font-bold text-[#3D3D3D]">
-                      Masalah yang Disampaikan (Kejadian / Kasus):
+                      {isOrangTua
+                        ? 'Pesan / Catatan untuk Guru (Perkembangan / Izin / Kendala Belajar):'
+                        : 'Masalah yang Disampaikan (Kejadian / Kasus):'}
                     </label>
                     <span className="text-[10px] text-[#6B6B6B]">
                       {formMasalah.length} / 500 karakter
@@ -1509,7 +1677,11 @@ function BukuPenghubungContent() {
                     rows={3}
                     value={formMasalah}
                     onChange={(e) => setFormMasalah(e.target.value)}
-                    placeholder="Contoh: Ananda mengeluh sakit perut setelah istirahat pertama, sudah diberi minyak kayu putih di UKS namun belum membaik..."
+                    placeholder={
+                      isOrangTua
+                        ? 'Contoh: Ananda hari ini izin tidak masuk sekolah karena demam, mohon bantuan tugas atau materi belajar yang diberikan hari ini...'
+                        : 'Contoh: Ananda mengeluh sakit perut setelah istirahat pertama, sudah diberi minyak kayu putih di UKS namun belum membaik...'
+                    }
                     className="w-full p-3 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
                   />
                 </div>
@@ -1518,7 +1690,9 @@ function BukuPenghubungContent() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="font-bold text-[#3D3D3D]">
-                      Saran dan Kesimpulan / Tindak Lanjut:
+                      {isOrangTua
+                        ? 'Tanggapan / Harapan Orang Tua (Opsional):'
+                        : 'Saran dan Kesimpulan / Tindak Lanjut:'}
                     </label>
                     <span className="text-[10px] text-[#6B6B6B]">
                       {formSaran.length} / 500 karakter
@@ -1529,15 +1703,21 @@ function BukuPenghubungContent() {
                     rows={3}
                     value={formSaran}
                     onChange={(e) => setFormSaran(e.target.value)}
-                    placeholder="Contoh: Mohon Ayah/Bunda dapat menjemput ananda lebih awal atau memeriksa kesehatannya di rumah..."
+                    placeholder={
+                      isOrangTua
+                        ? 'Contoh: Kami akan mendampingi ananda belajar di rumah dan mengumpulkan tugas besok pagi...'
+                        : 'Contoh: Mohon Ayah/Bunda dapat menjemput ananda lebih awal atau memeriksa kesehatannya di rumah...'
+                    }
                     className="w-full p-3 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
                   />
                 </div>
 
-                {/* Nomor WhatsApp Wali Murid */}
+                {/* Nomor WhatsApp Tujuan */}
                 <div>
                   <label className="block font-bold text-[#3D3D3D] mb-1">
-                    Nomor WhatsApp Wali Murid (Untuk Kirim Laporan):
+                    {isOrangTua
+                      ? 'Nomor WhatsApp Wali Kelas (Tujuan Kirim Salinan Pesan):'
+                      : 'Nomor WhatsApp Wali Murid (Untuk Kirim Laporan):'}
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#27AE60]" />
@@ -1545,12 +1725,18 @@ function BukuPenghubungContent() {
                       type="text"
                       value={formNoHpWali}
                       onChange={(e) => setFormNoHpWali(e.target.value)}
-                      placeholder="Contoh: 081234567890 (otomatis tersimpan ke profil siswa)"
+                      placeholder={
+                        isOrangTua
+                          ? 'Contoh: 081234567890 (Nomor WhatsApp Wali Kelas)'
+                          : 'Contoh: 081234567890 (otomatis tersimpan ke profil siswa)'
+                      }
                       className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#DDD8CE] bg-white text-[#1A1A1A] font-mono text-xs focus:ring-1 focus:ring-[#922B21]"
                     />
                   </div>
                   <p className="text-[10px] text-[#6B6B6B] mt-1">
-                    Nomor WhatsApp ini otomatis terhubung dengan tombol kirim laporan instan ke wali murid.
+                    {isOrangTua
+                      ? 'Nomor WhatsApp wali kelas terhubung untuk mengirim salinan pesan resmi langsung.'
+                      : 'Nomor WhatsApp ini otomatis terhubung dengan tombol kirim laporan instan ke wali murid.'}
                   </p>
                 </div>
 
@@ -1580,14 +1766,23 @@ function BukuPenghubungContent() {
                       </button>
                     </div>
                     <pre className="text-[11px] text-[#3D3D3D] font-mono whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto bg-white p-2.5 rounded-lg border border-[#DDD8CE]">
-                      {buildWhatsAppMessage({
-                        siswaNama: modalSiswa.nama_lengkap,
-                        kelasNama: modalSiswa.kelas?.nama_kelas || currentKelasObj?.nama_kelas || 'Kelas I',
-                        tanggal: formTanggal,
-                        masalah: formMasalah,
-                        saran: formSaran || '-',
-                        guruNama: currentUserName,
-                      })}
+                      {isOrangTua
+                        ? buildWhatsAppMessageOrtu({
+                            siswaNama: modalSiswa.nama_lengkap,
+                            kelasNama: modalSiswa.kelas?.nama_kelas || currentKelasObj?.nama_kelas || 'Kelas I',
+                            tanggal: formTanggal,
+                            pesan: formMasalah,
+                            saran: formSaran,
+                            waliNama: currentUserName || 'Wali Murid',
+                          })
+                        : buildWhatsAppMessage({
+                            siswaNama: modalSiswa.nama_lengkap,
+                            kelasNama: modalSiswa.kelas?.nama_kelas || currentKelasObj?.nama_kelas || 'Kelas I',
+                            tanggal: formTanggal,
+                            masalah: formMasalah,
+                            saran: formSaran || '-',
+                            guruNama: currentUserName,
+                          })}
                     </pre>
                   </div>
                 )}
@@ -1607,7 +1802,13 @@ function BukuPenghubungContent() {
                     disabled={submitting || !formMasalah.trim()}
                     className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white hover:bg-[#FAF8F2] border border-[#DDD8CE] text-[#3D3D3D] font-bold shadow-2xs active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
-                    {submitting ? 'Menyimpan...' : isEditing ? 'Simpan Perubahan' : 'Simpan di Buku'}
+                    {submitting
+                      ? 'Menyimpan...'
+                      : isEditing
+                      ? 'Simpan Perubahan'
+                      : isOrangTua
+                      ? 'Simpan Catatan'
+                      : 'Simpan di Buku'}
                   </button>
 
                   <button
@@ -1617,7 +1818,13 @@ function BukuPenghubungContent() {
                     className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20BA5C] text-white font-bold shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer inline-flex items-center justify-center gap-1.5"
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    <span>{isEditing ? 'Simpan & Kirim WA' : 'Simpan & Kirim ke WhatsApp'}</span>
+                    <span>
+                      {isEditing
+                        ? 'Simpan & Kirim WA'
+                        : isOrangTua
+                        ? 'Simpan & Kirim ke WA Guru'
+                        : 'Simpan & Kirim ke WhatsApp'}
+                    </span>
                   </button>
                 </div>
               </form>
