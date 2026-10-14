@@ -11,6 +11,7 @@ import {
   compressImageFile,
 } from '@/lib/supabase';
 import { INITIAL_KAIH_KEGIATAN, generateKaihWhatsAppBroadcast } from '@/lib/kaihData';
+import KaihGarden from '@/components/kaih/KaihGarden';
 import { useNotification } from '@/components/ui/NotificationContext';
 import {
   HeartHandshake,
@@ -37,6 +38,7 @@ import {
   Copy,
   ExternalLink,
   CloudUpload,
+  TreePine,
 } from 'lucide-react';
 
 function KaihContent() {
@@ -49,8 +51,8 @@ function KaihContent() {
   const [studentName, setStudentName] = useState('Ahmad Budi Santoso');
   const [studentClass, setStudentClass] = useState('Kelas 4A');
 
-  // Active Tab for Guru: 'sekolah' | 'rumah' | 'panduan'
-  const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan'>('sekolah');
+  // Active Tab for Guru: 'sekolah' | 'rumah' | 'panduan' | 'taman'
+  const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan' | 'taman'>('sekolah');
 
   // Filter states
   const todayStr = new Date().toISOString().split('T')[0];
@@ -567,6 +569,17 @@ function KaihContent() {
               </button>
             </div>
 
+            {/* ================================================================ */}
+            {/* KAIH GARDEN: 7 TANAMAN KARAKTER ANANDA (tampilan Orang Tua) */}
+            {/* ================================================================ */}
+            <KaihGarden
+              role="orangtua"
+              siswaId="s-1"
+              kelasId="c1-4a"
+              kegiatanList={kegiatanList}
+              studentName={studentName}
+            />
+
             {/* SEKSI 1: KEGIATAN KELAS DI SEKOLAH HARI INI (DARI BU GURU) */}
             <section className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-[#F5F0E8]">
@@ -787,6 +800,20 @@ function KaihContent() {
                   <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
                     {filteredRumah.length}
                   </span>
+                </button>
+
+                {/* TAB TAMAN: Gamifikasi Kebun Karakter Kelas */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('taman')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'taman'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white text-[#6B6B6B] hover:text-[#1A1A1A] border border-[#DDD8CE]'
+                  }`}
+                >
+                  <TreePine className="w-4 h-4" />
+                  <span>Kebun Karakter</span>
                 </button>
 
                 <button
@@ -1061,7 +1088,18 @@ function KaihContent() {
               </div>
             )}
 
-            {/* TAB CONTENT 3: PANDUAN 7 PILAR KAIH */}
+            {/* TAB CONTENT 3: KEBUN KARAKTER (GAMIFIKASI) */}
+            {activeTab === 'taman' && (
+              <KaihGarden
+                role={role === 'admin' ? 'admin' : 'guru'}
+                siswaId="s-1"
+                kelasId="c1-4a"
+                kegiatanList={kegiatanList}
+                studentName={currentUserName}
+              />
+            )}
+
+            {/* TAB CONTENT 4: PANDUAN 7 PILAR KAIH */}
             {activeTab === 'panduan' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PILAR_KAIH.map((pilar) => (
