@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import {
@@ -48,8 +48,9 @@ function KaihContent() {
   // Role detection: query param (?role=orangtua) or auth metadata
   const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
   const [currentUserName, setCurrentUserName] = useState('Bu Sari, S.Pd');
-  const [studentName, setStudentName] = useState('Ahmad Budi Santoso');
+  const [studentName, setStudentName] = useState('Ananda');
   const [studentClass, setStudentClass] = useState('Kelas 4A');
+  const [siswaId, setSiswaId] = useState<string>('s-1');
 
   // Active Tab for Guru: 'sekolah' | 'rumah' | 'panduan' | 'taman'
   const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan' | 'taman'>('sekolah');
@@ -58,6 +59,10 @@ function KaihContent() {
   const todayStr = new Date().toISOString().split('T')[0];
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterStudent, setFilterStudent] = useState('semua');
+
+  // Real student list from database for filter & mapping
+  const [siswaKelasList, setSiswaKelasList] = useState<{ id: string; nama: string; nisn?: string }[]>([]);
+  const [siswaMap, setSiswaMap] = useState<Record<string, { id: string; nama_lengkap: string; nama_wali?: string; nama_kelas?: string }>>({});
 
   // Data states
   const [kegiatanList, setKegiatanList] = useState<KaihKegiatan[]>(INITIAL_KAIH_KEGIATAN);
@@ -84,15 +89,6 @@ function KaihContent() {
   const [waSelectedKegiatan, setWaSelectedKegiatan] = useState<KaihKegiatan | null>(null);
   const [waBroadcastText, setWaBroadcastText] = useState('');
 
-  // Sample student list for Kelas 4A
-  const siswaKelasList = [
-    { id: 's-1', nama: 'Ahmad Budi Santoso' },
-    { id: 's-2', nama: 'Bima Arya Pratama' },
-    { id: 's-3', nama: 'Citra Kirana Dewi' },
-    { id: 's-4', nama: 'Daffa Rizky Maulana' },
-    { id: 's-5', nama: 'Eka Putri Lestari' },
-  ];
-
   // 1. Initialize Auth and Role
   useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -115,9 +111,68 @@ function KaihContent() {
           .single();
 
         if (detectedRole === 'orangtua') {
-          const rawName = (prof?.nama || meta?.nama || 'Wali Murid').replace(/\s*\(Wali Murid\)/i, '').trim();
-          setStudentName(rawName || 'Ahmad Budi Santoso');
-          setCurrentUserName(`Wali Murid ${rawName}`);
+          let matchedSiswa: any = null;
+
+          // Attempt 1: by wali_murid_id
+          const { data: byWali } = await supabase
+            .from('siswa')
+            .select('*, kelas:kelas_id(nama_kelas)')
+            .eq('wali_murid_id', session.user.id)
+            .maybeSingle();
+          matchedSiswa = byWali;
+
+          // Attempt 2: by NISN extracted from email (e.g. 3176896109@sdnlatsari.sch.id)
+          if (!matchedSiswa && session.user.email) {
+            const extractedNisn = session.user.email.split('@')[0].replace(/[^0-9]/g, '');
+            if (extractedNisn && extractedNisn.length >= 8) {
+              const { data: byNisn } = await supabase
+                .from('siswa')
+                .select('*, kelas:kelas_id(nama_kelas)')
+                .eq('nisn', extractedNisn)
+                .maybeSingle();
+              matchedSiswa = byNisn;
+            }
+          }
+
+          // Attempt 3: by metadata siswa_id
+          if (!matchedSiswa && meta?.siswa_id) {
+            const { data: byMetaId } = await supabase
+              .from('siswa')
+              .select('*, kelas:kelas_id(nama_kelas)')
+              .eq('id', meta.siswa_id)
+              .maybeSingle();
+            matchedSiswa = byMetaId;
+          }
+
+          // Attempt 4: by matching parent name in siswa.nama_wali
+          if (!matchedSiswa && (prof?.nama || meta?.nama)) {
+            const cleanProf = (prof?.nama || meta?.nama || '').replace(/\s*\(Wali Murid\)/i, '').trim();
+            const { data: byNamaWali } = await supabase
+              .from('siswa')
+              .select('*, kelas:kelas_id(nama_kelas)')
+              .ilike('nama_wali', `%${cleanProf}%`)
+              .maybeSingle();
+            matchedSiswa = byNamaWali;
+          }
+
+          if (matchedSiswa) {
+            setSiswaId(matchedSiswa.id);
+            setStudentName(matchedSiswa.nama_lengkap);
+            const parentDisplayName = matchedSiswa.nama_wali || prof?.nama || meta?.nama || 'Wali Murid';
+            const cleanParent = parentDisplayName.replace(/\s*\(Wali Murid\)/i, '').trim();
+            setCurrentUserName(`Wali Murid ${cleanParent}`);
+            const kName = (matchedSiswa.kelas as any)?.nama_kelas || 'Kelas 4A';
+            setStudentClass(kName);
+
+            // Auto-link wali_murid_id if missing
+            if (!matchedSiswa.wali_murid_id) {
+              supabase.from('siswa').update({ wali_murid_id: session.user.id }).eq('id', matchedSiswa.id).then();
+            }
+          } else {
+            const rawName = (prof?.nama || meta?.nama || 'Wali Murid').replace(/\s*\(Wali Murid\)/i, '').trim();
+            setStudentName(rawName);
+            setCurrentUserName(`Wali Murid ${rawName}`);
+          }
         } else {
           const guruName = prof?.nama || meta?.nama || 'Guru / Wali Kelas';
           setCurrentUserName(guruName);
@@ -190,6 +245,26 @@ function KaihContent() {
           }
         }
 
+        // Ambil seluruh data siswa untuk dropdown filter guru & mapping nama ananda asli
+        const { data: siswaData } = await supabase
+          .from('siswa')
+          .select('id, nisn, nama_lengkap, nama_wali, kelas_id, kelas:kelas_id(nama_kelas)')
+          .order('nama_lengkap');
+
+        const sMap: Record<string, { id: string; nama_lengkap: string; nama_wali?: string; nama_kelas?: string }> = {};
+        if (siswaData && siswaData.length > 0) {
+          setSiswaKelasList(siswaData.map((s) => ({ id: s.id, nama: s.nama_lengkap, nisn: s.nisn })));
+          siswaData.forEach((s) => {
+            sMap[s.id] = {
+              id: s.id,
+              nama_lengkap: s.nama_lengkap,
+              nama_wali: s.nama_wali,
+              nama_kelas: (s.kelas as any)?.nama_kelas,
+            };
+          });
+          setSiswaMap(sMap);
+        }
+
         // Try Supabase fetch
         const { data, error } = await supabase
           .from('kaih_kegiatan')
@@ -197,9 +272,26 @@ function KaihContent() {
           .order('created_at', { ascending: false });
 
         if (data && data.length > 0 && !error) {
-          setKegiatanList(data);
+          const enriched = data.map((item) => {
+            let sName = item.siswa?.nama_lengkap;
+            if ((!sName || sName === 'Ahmad Budi Santoso') && item.siswa_id && sMap[item.siswa_id]) {
+              sName = sMap[item.siswa_id].nama_lengkap;
+            }
+            if ((!sName || sName === 'Ahmad Budi Santoso') && item.creator_nama) {
+              const match = item.creator_nama.match(/\(Ananda:\s*([^)]+)\)/i);
+              if (match) sName = match[1].trim();
+            }
+            return {
+              ...item,
+              siswa: {
+                nama_lengkap: sName || 'Ananda',
+                kelas: { nama_kelas: (item.siswa_id && sMap[item.siswa_id]?.nama_kelas) || studentClass },
+              },
+            };
+          });
+          setKegiatanList(enriched);
           try {
-            localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(data));
+            localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(enriched));
           } catch (e) {}
         } else if (!error && data && data.length === 0 && currentItems.length > 0) {
           // Jika tabel di database ada namun masih kosong, auto sync data awal ke Supabase
@@ -232,7 +324,7 @@ function KaihContent() {
       }
     }
     loadData();
-  }, []);
+  }, [studentClass]);
 
   const saveKegiatanList = (items: KaihKegiatan[]) => {
     setKegiatanList(items);
@@ -351,7 +443,7 @@ function KaihContent() {
       id: newId,
       tipe: modalType,
       kelas_id: 'c1-4a',
-      siswa_id: modalType === 'rumah' ? 's-1' : null,
+      siswa_id: modalType === 'rumah' ? (siswaId || 's-1') : null,
       kategori_id: selectedPilar.id,
       kategori_nama: selectedPilar.judul,
       judul: formData.judul.trim(),
@@ -475,6 +567,21 @@ function KaihContent() {
     });
   };
 
+  // Helper: Ambil nama ananda yang sebenarnya (bebas hardcode)
+  const getAnandaName = useCallback((item: KaihKegiatan): string => {
+    if (item.siswa?.nama_lengkap && item.siswa.nama_lengkap !== 'Ahmad Budi Santoso') {
+      return item.siswa.nama_lengkap;
+    }
+    if (item.siswa_id && siswaMap[item.siswa_id]?.nama_lengkap) {
+      return siswaMap[item.siswa_id].nama_lengkap;
+    }
+    if (item.creator_nama) {
+      const match = item.creator_nama.match(/\(Ananda:\s*([^)]+)\)/i);
+      if (match) return match[1].trim();
+    }
+    return item.siswa?.nama_lengkap || studentName || 'Ananda';
+  }, [siswaMap, studentName]);
+
   // Filtered lists
   const filteredSekolah = kegiatanList.filter(
     (k) => k.tipe === 'sekolah' && (!filterDate || k.tanggal === filterDate)
@@ -492,7 +599,7 @@ function KaihContent() {
     (k) => k.tipe === 'sekolah' && k.tanggal === todayStr
   );
   const ortuRumahAnanda = kegiatanList.filter(
-    (k) => k.tipe === 'rumah' && (k.siswa_id === 's-1' || k.siswa?.nama_lengkap === studentName)
+    (k) => k.tipe === 'rumah' && (k.siswa_id === siswaId || getAnandaName(k) === studentName)
   );
 
   // Retention days calculation (30 days policy)
@@ -574,7 +681,7 @@ function KaihContent() {
             {/* ================================================================ */}
             <KaihGarden
               role="orangtua"
-              siswaId="s-1"
+              siswaId={siswaId}
               kelasId="c1-4a"
               kegiatanList={kegiatanList}
               studentName={studentName}
@@ -880,7 +987,7 @@ function KaihContent() {
                         onChange={(e) => setFilterStudent(e.target.value)}
                         className="px-2.5 py-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF8F2] text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#922B21]"
                       >
-                        <option value="semua">Semua Siswa Kelas 4A</option>
+                        <option value="semua">Semua Siswa {studentClass ? `(${studentClass})` : ''}</option>
                         {siswaKelasList.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.nama}
@@ -1038,7 +1145,7 @@ function KaihContent() {
 
                             <div className="pt-1">
                               <span className="text-[10px] font-bold text-[#922B21] uppercase tracking-wider block">
-                                Ananda: {item.siswa?.nama_lengkap || 'Ahmad Budi Santoso'}
+                                Ananda: {getAnandaName(item)}
                               </span>
                               <h4 className="font-serif font-bold text-sm text-[#1A1A1A] mt-0.5">
                                 {item.judul}
