@@ -1,5 +1,5 @@
 // Service Worker LAPIS LADA v2 (Auto-update & Network-first for all pages)
-const CACHE_NAME = 'lapislada-v2-cache-v6';
+const CACHE_NAME = 'lapislada-v2-cache-v7';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo.webp',

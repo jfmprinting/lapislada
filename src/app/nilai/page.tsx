@@ -742,16 +742,14 @@ function NilaiContent() {
       }
 
       // 2. Filter students with filled scores
-      const upsertRows = currentStudents
+      const rawUpsertRows = currentStudents
         .map((s) => {
           const raw = gridScores[s.id]?.nilai;
           if (raw === '' || raw === undefined) return null;
           const num = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
           if (isNaN(num)) return null;
 
-          const existingId = existingRecordIds[s.id];
           return {
-            ...(existingId ? { id: existingId } : {}),
             siswa_id: s.id,
             mapel_id: currentMapel.id,
             jenis_ujian: selectedJenisAsesmen,
@@ -763,6 +761,11 @@ function NilaiContent() {
           };
         })
         .filter(Boolean) as any[];
+
+      // Deduplicate rows by siswa_id to avoid PostgreSQL "ON CONFLICT DO UPDATE command cannot affect row a second time"
+      const upsertRows = Array.from(
+        new Map(rawUpsertRows.map((r) => [r.siswa_id, r])).values()
+      );
 
       if (upsertRows.length === 0 && clearedStudentIds.length === 0) {
         showToast({
@@ -784,6 +787,7 @@ function NilaiContent() {
           .select('id, siswa_id');
 
         if (upsertErr) {
+          console.warn('Primary upsert error, trying fallback:', upsertErr);
           // Fallback: If column 'catatan' or 'is_published' doesn't exist yet, save standard columns
           const fallbackRows = upsertRows.map(({ is_published, catatan, ...rest }) => rest);
           const { data: fbData, error: fbErr } = await supabase
