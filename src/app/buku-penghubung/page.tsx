@@ -327,25 +327,40 @@ function BukuPenghubungContent() {
       setLoadingSiswa(true);
       try {
         if (currentRole === 'orangtua') {
-          const { data: sData } = await supabase
+          let sData: any = null;
+          const { data: directSData } = await supabase
             .from('siswa')
             .select('id, nis, nisn, nama_lengkap, jenis_kelamin, nama_wali, no_hp_wali, kelas_id, kelas:kelas_id(id, nama_kelas)')
             .eq('wali_murid_id', currentUserId);
+          sData = directSData;
+
+          if (!sData || sData.length === 0) {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.access_token) {
+                const linkRes = await fetch('/api/link-siswa', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                });
+                if (linkRes.ok) {
+                  const linkJson = await linkRes.json();
+                  if (linkJson?.siswa) {
+                    sData = [linkJson.siswa];
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Auto-link in buku penghubung failed:', err);
+            }
+          }
 
           if (sData && sData.length > 0) {
             setMyChildren(sData as any);
             setSiswaList(sData as any);
             setParentChildId(sData[0].id);
-          } else {
-            const { data: allS } = await supabase
-              .from('siswa')
-              .select('id, nis, nisn, nama_lengkap, jenis_kelamin, nama_wali, no_hp_wali, kelas_id, kelas:kelas_id(id, nama_kelas)')
-              .limit(10);
-            if (allS) {
-              setMyChildren(allS as any);
-              setSiswaList(allS as any);
-              setParentChildId(allS[0]?.id || '');
-            }
           }
         } else {
           // Guru / Admin / Kepsek: AMBIL SISWA KHUSUS KELAS TERPILIH

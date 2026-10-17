@@ -105,6 +105,9 @@ function NilaiContent() {
   // Input Grid State: studentId -> { nilai: number | string, catatan: string }
   const [gridScores, setGridScores] = useState<Record<string, { nilai: number | string; catatan: string }>>({});
 
+  // Track existing database row IDs: studentId -> rowId
+  const [existingRecordIds, setExistingRecordIds] = useState<Record<string, string>>({});
+
   // Leger Matrix State: studentId -> { [mapelId]: number }
   const [legerData, setLegerData] = useState<Record<string, Record<string, number>>>({});
 
@@ -353,8 +356,9 @@ function NilaiContent() {
         }
         setIsPublishedForCurrentAsesmen(isPublished);
 
-        // Build grid scores dictionary
+        // Build grid scores dictionary and record ID dictionary
         const newGrid: Record<string, { nilai: number | string; catatan: string }> = {};
+        const newRecordIds: Record<string, string> = {};
         currentStudents.forEach((s) => {
           const row = savedScores?.find((r) => r.siswa_id === s.id);
           const cachedCatatan = catatanMap[`${s.id}_${selectedMapelId}_${selectedJenisAsesmen}`] || '';
@@ -363,6 +367,7 @@ function NilaiContent() {
               nilai: row.nilai,
               catatan: (row as any).catatan || cachedCatatan || '',
             };
+            newRecordIds[s.id] = row.id;
           } else {
             newGrid[s.id] = {
               nilai: '',
@@ -371,6 +376,7 @@ function NilaiContent() {
           }
         });
         setGridScores(newGrid);
+        setExistingRecordIds(newRecordIds);
 
         // Update Leger Data for this class
         const { data: allNilaiKelas } = await supabase
@@ -433,7 +439,8 @@ function NilaiContent() {
       setLoadingOrangTua(true);
       try {
         const { data: sessionData } = await supabase.auth.getSession();
-        const user = sessionData?.session?.user;
+        const session = sessionData?.session;
+        const user = session?.user;
         if (!user) {
           if (isMounted) setLoadingOrangTua(false);
           return;
@@ -450,7 +457,26 @@ function NilaiContent() {
           .maybeSingle();
         child = byWali;
 
-        // Attempt 2: by siswa_id in metadata
+        // Attempt 2: by /api/link-siswa with session token
+        if (!child && session.access_token) {
+          try {
+            const linkRes = await fetch('/api/link-siswa', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+            if (linkRes.ok) {
+              const linkJson = await linkRes.json();
+              if (linkJson?.siswa) child = linkJson.siswa;
+            }
+          } catch (e) {
+            console.warn('Auto-link in nilai failed:', e);
+          }
+        }
+
+        // Attempt 3: by siswa_id in metadata
         if (!child && meta?.siswa_id) {
           const { data: byMetaId } = await supabase
             .from('siswa')
@@ -460,7 +486,7 @@ function NilaiContent() {
           child = byMetaId;
         }
 
-        // Attempt 3: by NISN extracted from email
+        // Attempt 4: by NISN extracted from email
         if (!child && user.email) {
           const extractedNisn = user.email.split('@')[0].replace(/[^0-9]/g, '');
           if (extractedNisn && extractedNisn.length >= 8) {
@@ -471,11 +497,6 @@ function NilaiContent() {
               .maybeSingle();
             child = byNisn;
           }
-        }
-
-        // Auto-link if found but wali_murid_id not set
-        if (child && (!child.wali_murid_id || child.wali_murid_id !== user.id)) {
-          await supabase.from('siswa').update({ wali_murid_id: user.id }).eq('id', child.id);
         }
 
         if (!isMounted) return;
@@ -690,11 +711,37 @@ function NilaiContent() {
     }
   };
 
-  // Save all scores to database with fault tolerance
+  // Save all scores to database with fault tolerance & proper unique constraint conflict resolution
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      // Filter students with filled scores
+      // 1. Check if any student who previously had a saved score was cleared (set to empty)
+      const clearedStudentIds = currentStudents
+        .filter((s) => {
+          const raw = gridScores[s.id]?.nilai;
+          const isBlank = raw === '' || raw === undefined;
+          return isBlank && existingRecordIds[s.id];
+        })
+        .map((s) => s.id);
+
+      if (clearedStudentIds.length > 0) {
+        await supabase
+          .from('nilai')
+          .delete()
+          .eq('mapel_id', currentMapel.id)
+          .eq('jenis_ujian', selectedJenisAsesmen)
+          .eq('semester', semester)
+          .eq('tahun_ajaran', tahunAjaran)
+          .in('siswa_id', clearedStudentIds);
+
+        setExistingRecordIds((prev) => {
+          const next = { ...prev };
+          clearedStudentIds.forEach((id) => delete next[id]);
+          return next;
+        });
+      }
+
+      // 2. Filter students with filled scores
       const upsertRows = currentStudents
         .map((s) => {
           const raw = gridScores[s.id]?.nilai;
@@ -702,7 +749,9 @@ function NilaiContent() {
           const num = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
           if (isNaN(num)) return null;
 
+          const existingId = existingRecordIds[s.id];
           return {
+            ...(existingId ? { id: existingId } : {}),
             siswa_id: s.id,
             mapel_id: currentMapel.id,
             jenis_ujian: selectedJenisAsesmen,
@@ -711,19 +760,57 @@ function NilaiContent() {
             tahun_ajaran: tahunAjaran,
             catatan: gridScores[s.id]?.catatan || null,
             is_published: isPublishedForCurrentAsesmen,
-            created_at: new Date().toISOString(),
           };
         })
         .filter(Boolean) as any[];
 
+      if (upsertRows.length === 0 && clearedStudentIds.length === 0) {
+        showToast({
+          type: 'warning',
+          title: 'Tidak Ada Nilai yang Disimpan',
+          message: 'Silakan isi skor nilai siswa terlebih dahulu sebelum menyimpan.',
+        });
+        setSaving(false);
+        return;
+      }
+
       if (upsertRows.length > 0) {
-        // Try saving with is_published & catatan
-        const { error: upsertErr } = await supabase.from('nilai').upsert(upsertRows);
+        // Try saving with is_published & catatan using onConflict target
+        const { data: savedData, error: upsertErr } = await supabase
+          .from('nilai')
+          .upsert(upsertRows, {
+            onConflict: 'siswa_id,mapel_id,jenis_ujian,semester,tahun_ajaran',
+          })
+          .select('id, siswa_id');
+
         if (upsertErr) {
           // Fallback: If column 'catatan' or 'is_published' doesn't exist yet, save standard columns
           const fallbackRows = upsertRows.map(({ is_published, catatan, ...rest }) => rest);
-          const { error: fbErr } = await supabase.from('nilai').upsert(fallbackRows);
+          const { data: fbData, error: fbErr } = await supabase
+            .from('nilai')
+            .upsert(fallbackRows, {
+              onConflict: 'siswa_id,mapel_id,jenis_ujian,semester,tahun_ajaran',
+            })
+            .select('id, siswa_id');
           if (fbErr) throw fbErr;
+
+          if (fbData) {
+            setExistingRecordIds((prev) => {
+              const updated = { ...prev };
+              fbData.forEach((r: any) => {
+                updated[r.siswa_id] = r.id;
+              });
+              return updated;
+            });
+          }
+        } else if (savedData) {
+          setExistingRecordIds((prev) => {
+            const updated = { ...prev };
+            savedData.forEach((r: any) => {
+              updated[r.siswa_id] = r.id;
+            });
+            return updated;
+          });
         }
       }
 

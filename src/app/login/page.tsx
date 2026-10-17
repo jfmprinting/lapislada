@@ -106,6 +106,16 @@ function LoginForm() {
         ) {
           router.push('/dashboard/kepala-sekolah');
         } else if (userRole === 'orangtua') {
+          // Pre-emptively link student with backend service role
+          if (data.session?.access_token) {
+            fetch('/api/link-siswa', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${data.session.access_token}`,
+              },
+            }).catch(() => {});
+          }
           router.push('/dashboard/orangtua');
         } else {
           router.push('/dashboard');

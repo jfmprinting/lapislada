@@ -192,23 +192,40 @@ function KehadiranContent() {
         const meta = user.user_metadata;
         let sData: any = null;
 
-        // Try meta.siswa_id first
-        if (meta?.siswa_id) {
+        // 1. Query by wali_murid_id = user.id
+        const { data: byWali } = await supabase
+          .from('siswa')
+          .select('*, kelas:kelas_id(id, nama_kelas)')
+          .eq('wali_murid_id', user.id)
+          .maybeSingle();
+        sData = byWali;
+
+        // 2. Fallback to /api/link-siswa with session token
+        if (!sData && session?.access_token) {
+          try {
+            const linkRes = await fetch('/api/link-siswa', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
+            if (linkRes.ok) {
+              const linkJson = await linkRes.json();
+              if (linkJson?.siswa) sData = linkJson.siswa;
+            }
+          } catch (e) {
+            console.warn('Auto-link in kehadiran failed:', e);
+          }
+        }
+
+        // 3. Fallback to meta.siswa_id
+        if (!sData && meta?.siswa_id) {
           const { data } = await supabase
             .from('siswa')
             .select('*, kelas:kelas_id(id, nama_kelas)')
             .eq('id', meta.siswa_id)
-            .single();
-          sData = data;
-        }
-
-        // Fallback query by wali_murid_id
-        if (!sData) {
-          const { data } = await supabase
-            .from('siswa')
-            .select('*, kelas:kelas_id(id, nama_kelas)')
-            .eq('wali_murid_id', user.id)
-            .single();
+            .maybeSingle();
           sData = data;
         }
 

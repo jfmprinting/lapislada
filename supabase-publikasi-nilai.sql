@@ -33,15 +33,10 @@ CREATE POLICY "Lihat nilai"
     USING (
         -- Guru, Admin, dan Kepala Sekolah dapat melihat semua nilai (termasuk draft)
         public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'role') IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'jabatan') = 'kepala_sekolah'
         -- Orang tua hanya melihat nilai anaknya yang sudah dipublikasikan (is_published = true)
         OR (
             (is_published = true)
-            AND (
-                siswa_id IN (SELECT id FROM public.siswa WHERE wali_murid_id = auth.uid())
-                OR siswa_id = (auth.jwt()->'user_metadata'->>'siswa_id')::uuid
-            )
+            AND siswa_id IN (SELECT id FROM public.siswa WHERE wali_murid_id = auth.uid())
         )
     );
 
@@ -53,8 +48,5 @@ CREATE POLICY "Lihat siswa"
     TO authenticated
     USING (
         public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'role') IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'jabatan') = 'kepala_sekolah'
         OR wali_murid_id = auth.uid()
-        OR id = (auth.jwt()->'user_metadata'->>'siswa_id')::uuid
     );

@@ -306,30 +306,77 @@ export async function onRequestPost(context: any) {
       authUserId = createData.user?.id;
     }
 
-    // 6. Update phone number in database if provided
-    if (phone && targetUserId && typeof targetUserId === 'string') {
-      const cleanPhone = String(phone).trim().slice(0, 30);
-      if (role === 'orangtua') {
-        await fetch(`${SUPABASE_URL}/rest/v1/siswa?id=eq.${encodeURIComponent(targetUserId)}`, {
-          method: 'PATCH',
-          headers: {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ no_hp_wali: cleanPhone }),
-        });
-      } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(targetUserId)}`, {
-          method: 'PATCH',
-          headers: {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ telepon: cleanPhone }),
-        });
+    const cleanPhone = phone ? String(phone).trim().slice(0, 30) : null;
+
+    // 6. Sync student record if role is orangtua
+    if (role === 'orangtua') {
+      let resolvedStudentId = targetUserId;
+
+      // If targetUserId is not provided, try to find student by NISN from email
+      if (!resolvedStudentId) {
+        const extractedNisn = cleanEmail.split('@')[0].replace(/[^0-9]/g, '');
+        if (extractedNisn && extractedNisn.length >= 8) {
+          const sRes = await fetch(`${SUPABASE_URL}/rest/v1/siswa?nisn=eq.${encodeURIComponent(extractedNisn)}&select=id&limit=1`, {
+            headers: {
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`,
+            },
+          });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData?.[0]?.id) resolvedStudentId = sData[0].id;
+          }
+        }
       }
+
+      if (resolvedStudentId && typeof resolvedStudentId === 'string') {
+        const studentPatch: any = {};
+        if (authUserId) studentPatch.wali_murid_id = authUserId;
+        if (cleanPhone) studentPatch.no_hp_wali = cleanPhone;
+
+        if (Object.keys(studentPatch).length > 0) {
+          await fetch(`${SUPABASE_URL}/rest/v1/siswa?id=eq.${encodeURIComponent(resolvedStudentId)}`, {
+            method: 'PATCH',
+            headers: {
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(studentPatch),
+          });
+        }
+      }
+    } else if (cleanPhone && targetUserId && typeof targetUserId === 'string') {
+      await fetch(`${SUPABASE_URL}/rest/v1/users_profile?id=eq.${encodeURIComponent(targetUserId)}`, {
+        method: 'PATCH',
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ telepon: cleanPhone }),
+      });
+    }
+
+    // 7. Ensure users_profile exists for all created/updated users
+    if (authUserId) {
+      await fetch(`${SUPABASE_URL}/rest/v1/users_profile`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          id: authUserId,
+          nama: nama || (role === 'orangtua' ? 'Wali Murid' : 'Pengguna'),
+          email: cleanEmail,
+          role: role || 'orangtua',
+          telepon: cleanPhone,
+          updated_at: new Date().toISOString(),
+        }),
+      });
     }
 
     return new Response(

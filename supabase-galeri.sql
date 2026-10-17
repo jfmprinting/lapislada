@@ -33,13 +33,9 @@ CREATE POLICY "Kelola galeri kegiatan"
     TO authenticated
     USING (
         public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'role') IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'jabatan') = 'kepala_sekolah'
     )
     WITH CHECK (
         public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'role') IN ('admin', 'guru', 'kepala_sekolah')
-        OR (auth.jwt()->'user_metadata'->>'jabatan') = 'kepala_sekolah'
     );
 
 -- 5. Data Awal Bawaan Sekolah (Default Seed)

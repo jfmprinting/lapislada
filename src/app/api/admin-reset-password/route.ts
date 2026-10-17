@@ -209,13 +209,30 @@ export async function POST(request: Request) {
     if (targetUserId && typeof targetUserId === 'string') {
       const cleanPhone = phone ? String(phone).trim().slice(0, 30) : null;
       if (role === 'orangtua') {
-        await supabaseAdmin
-          .from('siswa')
-          .update({
-            ...(authUserId ? { wali_murid_id: authUserId } : {}),
-            ...(cleanPhone ? { no_hp_wali: cleanPhone } : {}),
-          })
-          .eq('id', targetUserId);
+        let updated = false;
+        if (targetUserId) {
+          const { error: updErr } = await supabaseAdmin
+            .from('siswa')
+            .update({
+              ...(authUserId ? { wali_murid_id: authUserId } : {}),
+              ...(cleanPhone ? { no_hp_wali: cleanPhone } : {}),
+            })
+            .eq('id', targetUserId);
+          if (!updErr) updated = true;
+        }
+
+        if (!updated) {
+          const extractedNisn = cleanEmail.split('@')[0].replace(/[^0-9]/g, '');
+          if (extractedNisn && extractedNisn.length >= 8) {
+            await supabaseAdmin
+              .from('siswa')
+              .update({
+                ...(authUserId ? { wali_murid_id: authUserId } : {}),
+                ...(cleanPhone ? { no_hp_wali: cleanPhone } : {}),
+              })
+              .eq('nisn', extractedNisn);
+          }
+        }
       } else {
         if (authUserId && targetUserId !== authUserId) {
           await supabaseAdmin

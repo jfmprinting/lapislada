@@ -65,7 +65,28 @@ export default function DashboardOrangTuaPage() {
             .maybeSingle();
           siswa = byWali;
 
-          // Attempt 2: query by siswa_id from metadata
+          // Attempt 2: Server-side auto-link with Service Role privileges
+          if (!siswa && session.access_token) {
+            try {
+              const linkRes = await fetch('/api/link-siswa', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+              if (linkRes.ok) {
+                const linkJson = await linkRes.json();
+                if (linkJson?.siswa) {
+                  siswa = linkJson.siswa;
+                }
+              }
+            } catch (linkErr) {
+              console.warn('Auto-link serverless call failed:', linkErr);
+            }
+          }
+
+          // Attempt 3: query by siswa_id from metadata (fallback)
           if (!siswa && meta?.siswa_id) {
             const { data: byMetaId } = await supabase
               .from('siswa')
@@ -75,7 +96,7 @@ export default function DashboardOrangTuaPage() {
             siswa = byMetaId;
           }
 
-          // Attempt 3: query by NISN extracted from login email
+          // Attempt 4: query by NISN extracted from login email
           if (!siswa && user.email) {
             const extractedNisn = user.email.split('@')[0].replace(/[^0-9]/g, '');
             if (extractedNisn && extractedNisn.length >= 8) {
@@ -86,14 +107,6 @@ export default function DashboardOrangTuaPage() {
                 .maybeSingle();
               siswa = byNisn;
             }
-          }
-
-          // Auto-link: if found but wali_murid_id is null, link it now
-          if (siswa && (!siswa.wali_murid_id || siswa.wali_murid_id !== user.id)) {
-            await supabase
-              .from('siswa')
-              .update({ wali_murid_id: user.id })
-              .eq('id', siswa.id);
           }
 
           // Also check users_profile for parent name

@@ -121,7 +121,26 @@ function KaihContent() {
             .maybeSingle();
           matchedSiswa = byWali;
 
-          // Attempt 2: by NISN extracted from email (e.g. 3176896109@sdnlatsari.sch.id)
+          // Attempt 2: Server-side auto-link with Service Role privileges
+          if (!matchedSiswa && session?.access_token) {
+            try {
+              const linkRes = await fetch('/api/link-siswa', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              });
+              if (linkRes.ok) {
+                const linkJson = await linkRes.json();
+                if (linkJson?.siswa) matchedSiswa = linkJson.siswa;
+              }
+            } catch (e) {
+              console.warn('Auto-link in kaih failed:', e);
+            }
+          }
+
+          // Attempt 3: by NISN extracted from email (e.g. 3176896109@sdnlatsari.sch.id)
           if (!matchedSiswa && session.user.email) {
             const extractedNisn = session.user.email.split('@')[0].replace(/[^0-9]/g, '');
             if (extractedNisn && extractedNisn.length >= 8) {
@@ -134,7 +153,7 @@ function KaihContent() {
             }
           }
 
-          // Attempt 3: by metadata siswa_id
+          // Attempt 4: by metadata siswa_id
           if (!matchedSiswa && meta?.siswa_id) {
             const { data: byMetaId } = await supabase
               .from('siswa')
