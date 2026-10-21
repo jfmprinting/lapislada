@@ -16,6 +16,8 @@ import {
   Award,
   Plus,
   FolderLock,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
@@ -33,6 +35,8 @@ export default function DashboardOrangTuaPage() {
   const [kaihCount, setKaihCount] = useState(0);
   const [bukuCatatan, setBukuCatatan] = useState<any[]>([]);
   const [avgNilai, setAvgNilai] = useState<number | null>(null);
+  const [materiList, setMateriList] = useState<any[]>([]);
+  const [materiCount, setMateriCount] = useState<number>(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -214,6 +218,25 @@ export default function DashboardOrangTuaPage() {
           const sum = nilaiData.reduce((acc, curr) => acc + Number(curr.nilai), 0);
           setAvgNilai(sum / nilaiData.length);
         }
+      });
+
+    // Fetch latest Materi Pelajaran for Orang Tua
+    supabase
+      .from('materi')
+      .select('id, judul, deskripsi, link_gdrive, mapel:mapel_id(nama_mapel)')
+      .order('created_at', { ascending: false })
+      .limit(3)
+      .then(({ data, error }) => {
+        if (data && !error) {
+          setMateriList(data);
+        }
+      });
+
+    supabase
+      .from('materi')
+      .select('*', { count: 'exact', head: true })
+      .then(({ count }) => {
+        if (typeof count === 'number') setMateriCount(count);
       });
   }, [siswaId]);
 
@@ -435,6 +458,82 @@ export default function DashboardOrangTuaPage() {
             >
               Buka Rapor Nilai
             </Link>
+          </div>
+        </section>
+
+        {/* MATERI & LEMBAR BELAJAR SISWA */}
+        <section className="bg-white rounded-xl p-4 shadow-sm border border-[#DDD8CE]">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-[#F5F0E8]">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-[#FDEDEC] text-[#922B21]">
+                <FolderOpen className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="font-serif font-bold text-sm text-[#1A1A1A]">
+                  Materi &amp; Lembar Belajar Siswa
+                </h2>
+                <span className="text-[10px] text-[#6B6B6B] block">
+                  Bahan ajar mandiri dari guru via Google Drive
+                </span>
+              </div>
+            </div>
+            <Link
+              href="/materi?role=orangtua"
+              className="text-xs font-bold text-[#C0392B] hover:underline flex items-center gap-1"
+            >
+              <span>Semua Materi ({materiCount})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="space-y-2.5">
+            {materiList.length > 0 ? (
+              materiList.map((m) => (
+                <div
+                  key={m.id}
+                  className="p-3 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]">
+                        {m.mapel?.nama_mapel || 'Materi'}
+                      </span>
+                    </div>
+                    <h4 className="font-serif font-bold text-xs text-[#1A1A1A] line-clamp-1">
+                      {m.judul}
+                    </h4>
+                    {m.deskripsi && (
+                      <p className="text-[11px] text-[#6B6B6B] line-clamp-1 mt-0.5">
+                        {m.deskripsi}
+                      </p>
+                    )}
+                  </div>
+                  <a
+                    href={m.link_gdrive}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#922B21] hover:bg-[#771F18] text-white font-bold text-xs shadow-xs transition shrink-0 active:scale-95"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Buka Berkas</span>
+                  </a>
+                </div>
+              ))
+            ) : (
+              <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] text-center text-xs text-[#6B6B6B]">
+                Belum ada berkas materi pelajaran yang diunggah.
+              </div>
+            )}
+
+            <div className="pt-1">
+              <Link
+                href="/materi?role=orangtua"
+                className="w-full py-2 px-3 rounded-xl bg-white border border-[#DDD8CE] hover:bg-[#F5F0E8] text-[#1A1A1A] font-bold text-xs shadow-xs transition text-center flex items-center justify-center gap-1.5"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-[#922B21]" />
+                <span>Buka Seluruh Materi Pembelajaran</span>
+              </Link>
+            </div>
           </div>
         </section>
 

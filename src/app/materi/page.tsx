@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useNotification } from '@/components/ui/NotificationContext';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +18,8 @@ import {
   Layers,
   Link2,
   FileText,
+  GraduationCap,
+  Sparkles,
 } from 'lucide-react';
 
 interface MateriItem {
@@ -52,15 +55,18 @@ const SAMPLE_MATERI: MateriItem[] = [
   { id: 's-m3', judul: 'LKS Bahasa Indonesia: Menulis Puisi Bertema Alam', deskripsi: 'Format latihan tugas menulis puisi bertema alam sekitar.', link_gdrive: 'https://drive.google.com/file/d/demo-materi-bind/view', kelas_nama: 'Kelas 4A', mapel_nama: 'Bahasa Indonesia' },
 ];
 
-export default function MateriPage() {
+function MateriContent() {
   const { showToast, confirm } = useNotification();
+  const searchParams = useSearchParams();
+  const queryRole = searchParams.get('role');
 
   const [materiList, setMateriList] = useState<MateriItem[]>([]);
   const [kelasList, setKelasList] = useState<KelasOption[]>([]);
   const [mapelList, setMapelList] = useState<MapelOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string>('guru');
+  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'guru' | 'orangtua' | 'kepala_sekolah'>('guru');
+  const [linkedStudent, setLinkedStudent] = useState<any>(null);
 
   // Filter state
   const [filterKelas, setFilterKelas] = useState('');
@@ -76,31 +82,96 @@ export default function MateriPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [queryRole]);
 
   async function loadData() {
     setLoading(true);
     try {
-      // Get session
+      // 1. Get session & profile
       const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData?.session?.user?.id || null;
+      const user = sessionData?.session?.user ?? null;
+      const uid = user?.id || null;
       setCurrentUserId(uid);
 
-      // Fetch user role
-      if (uid) {
-        const { data: profile } = await supabase.from('users_profile').select('role').eq('id', uid).single();
-        if (profile?.role) setCurrentUserRole(profile.role);
+      let resolvedRole: 'admin' | 'guru' | 'orangtua' | 'kepala_sekolah' = 'guru';
+      const meta = user?.user_metadata || {};
+      const metaRole = meta.role;
+
+      if (queryRole && ['admin', 'guru', 'orangtua', 'kepala_sekolah'].includes(queryRole)) {
+        resolvedRole = queryRole as any;
+      } else if (metaRole && ['admin', 'guru', 'orangtua', 'kepala_sekolah'].includes(metaRole)) {
+        resolvedRole = metaRole;
       }
 
-      // Fetch kelas
+      if (uid) {
+        const { data: profile } = await supabase.from('users_profile').select('role').eq('id', uid).maybeSingle();
+        if (profile?.role) {
+          if (!queryRole) resolvedRole = profile.role as any;
+        }
+      }
+
+      // If user email indicates parent pattern or wali
+      if (!queryRole && user?.email && user.email.includes('@sdnlatsari.sch.id')) {
+        const extractedDigits = user.email.split('@')[0].replace(/[^0-9]/g, '');
+        if (extractedDigits.length >= 8) {
+          resolvedRole = 'orangtua';
+        }
+      }
+
+      setCurrentUserRole(resolvedRole);
+
+      // 2. Fetch kelas
       const { data: kData } = await supabase.from('kelas').select('id, nama_kelas').order('nama_kelas');
       setKelasList(kData || []);
 
-      // Fetch mapel
+      // 3. Fetch mapel
       const { data: mData } = await supabase.from('mapel').select('id, nama_mapel').order('nama_mapel');
       setMapelList(mData || []);
 
-      // Fetch materi from Supabase
+      // 4. If parent, link student to detect child's class
+      if (user && (resolvedRole === 'orangtua' || queryRole === 'orangtua')) {
+        let student: any = null;
+        // Attempt A: by wali_murid_id
+        const { data: byWali } = await supabase
+          .from('siswa')
+          .select('id, nama_lengkap, kelas_id, kelas:kelas_id(id, nama_kelas)')
+          .eq('wali_murid_id', user.id)
+          .maybeSingle();
+        student = byWali;
+
+        // Attempt B: by meta.siswa_id
+        if (!student && meta.siswa_id) {
+          const { data: byMeta } = await supabase
+            .from('siswa')
+            .select('id, nama_lengkap, kelas_id, kelas:kelas_id(id, nama_kelas)')
+            .eq('id', meta.siswa_id)
+            .maybeSingle();
+          student = byMeta;
+        }
+
+        // Attempt C: by email digits (NISN)
+        if (!student && user.email) {
+          const digits = user.email.split('@')[0].replace(/[^0-9]/g, '');
+          if (digits.length >= 8) {
+            const { data: byNisn } = await supabase
+              .from('siswa')
+              .select('id, nama_lengkap, kelas_id, kelas:kelas_id(id, nama_kelas)')
+              .eq('nisn', digits)
+              .maybeSingle();
+            student = byNisn;
+          }
+        }
+
+        if (student) {
+          setLinkedStudent(student);
+          // Auto-select child's class filter initially if available
+          if (student.kelas_id) {
+            setFilterKelas(student.kelas_id);
+          }
+        }
+      }
+
+      // 5. Fetch materi from Supabase
       const { data: matData } = await supabase.from('materi').select('*').order('created_at', { ascending: false });
       if (matData && matData.length > 0) {
         // Enrich with kelas and mapel names
@@ -199,6 +270,7 @@ export default function MateriPage() {
     }
   };
 
+  const isOrangTua = currentUserRole === 'orangtua';
   const canEdit = (_item: MateriItem) => {
     // Both admin and guru have full CRUD access to materials
     return currentUserRole === 'admin' || currentUserRole === 'guru';
@@ -213,8 +285,45 @@ export default function MateriPage() {
   });
 
   return (
-    <AppShell role="guru" pageTitle="Materi Pelajaran" pageSubtitle="Kelola link Google Drive materi belajar siswa (Zero Storage Server)">
+    <AppShell
+      role={currentUserRole}
+      pageTitle="Materi Pelajaran"
+      pageSubtitle={
+        isOrangTua
+          ? 'Akses dan unduh materi pembelajaran serta lembar latihan ananda via Google Drive'
+          : 'Kelola link Google Drive materi belajar siswa (Zero Storage Server)'
+      }
+    >
       <div className="space-y-6">
+        {/* Orang Tua Guidance Banner */}
+        {isOrangTua && (
+          <div className="bg-[#FAF8F2] rounded-2xl p-4 sm:p-5 border border-[#DDD8CE] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-[#FDEDEC] text-[#922B21] shrink-0 mt-0.5">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-sm text-[#1A1A1A]">
+                  Portal Materi &amp; Lembar Belajar Siswa
+                </h3>
+                <p className="text-xs text-[#6B6B6B] mt-0.5 leading-relaxed">
+                  Bapak/Ibu wali murid dapat langsung mengunduh bahan ajar, rangkuman, dan modul latihan mandiri siswa dari Google Drive untuk pendampingan belajar di rumah.
+                </p>
+              </div>
+            </div>
+            {linkedStudent && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#DDD8CE] shrink-0 text-xs shadow-2xs">
+                <GraduationCap className="w-3.5 h-3.5 text-[#922B21]" />
+                <span className="text-[#6B6B6B]">Ananda:</span>
+                <span className="font-bold text-[#1A1A1A]">{linkedStudent.nama_lengkap}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FDEDEC] text-[#922B21] font-bold border border-[#F1948A]">
+                  {linkedStudent.kelas?.nama_kelas || 'Siswa'}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Header Action Bar */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -223,16 +332,22 @@ export default function MateriPage() {
             </div>
             <div>
               <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">Materi &amp; Lembar Belajar Siswa</h2>
-              <p className="text-xs text-[#6B6B6B]">{filtered.length} materi &middot; Wali murid dapat mengunduh langsung dari Google Drive</p>
+              <p className="text-xs text-[#6B6B6B]">
+                {filtered.length} materi ditampilkan &middot; Terbuka untuk diunduh langsung dari Google Drive
+              </p>
             </div>
           </div>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Materi</span>
-          </button>
+
+          {/* Add button: visible ONLY for guru & admin */}
+          {!isOrangTua && currentUserRole !== 'kepala_sekolah' && (
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#922B21] hover:bg-[#771F18] text-white text-xs font-bold shadow-sm transition active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Materi</span>
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -254,7 +369,12 @@ export default function MateriPage() {
               className="w-full px-3 py-2 rounded-xl border border-[#DDD8CE] bg-[#FAF8F2] text-xs text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#922B21]"
             >
               <option value="">Semua Kelas</option>
-              {kelasList.map((k) => <option key={k.id} value={k.id}>{k.nama_kelas}</option>)}
+              {kelasList.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.nama_kelas}
+                  {linkedStudent?.kelas_id === k.id ? ' (Kelas Ananda)' : ''}
+                </option>
+              ))}
             </select>
             <select
               value={filterMapel}
@@ -274,7 +394,20 @@ export default function MateriPage() {
           <div className="bg-white rounded-2xl p-12 text-center border border-[#DDD8CE]">
             <FolderOpen className="w-10 h-10 mx-auto text-[#DDD8CE] mb-3" />
             <p className="text-sm font-bold text-[#666]">Belum ada materi</p>
-            <p className="text-xs text-[#999] mt-1">Klik &ldquo;Tambah Materi&rdquo; untuk menambahkan yang pertama.</p>
+            <p className="text-xs text-[#999] mt-1">
+              {isOrangTua
+                ? 'Belum ada berkas untuk kelas atau mata pelajaran yang dipilih.'
+                : 'Klik "Tambah Materi" untuk menambahkan berkas pertama.'}
+            </p>
+            {filterKelas && (
+              <button
+                type="button"
+                onClick={() => setFilterKelas('')}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] text-xs font-bold text-[#922B21] hover:bg-[#FDEDEC] transition cursor-pointer"
+              >
+                <span>Tampilkan Materi Semua Kelas</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -282,7 +415,7 @@ export default function MateriPage() {
               <div key={item.id} className="bg-white rounded-2xl p-5 shadow-xs border border-[#DDD8CE] hover:border-[#C0392B]/40 transition flex flex-col justify-between group">
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE] truncate max-w-[120px]">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE] truncate max-w-[140px]">
                       {item.mapel_nama || 'Umum'}
                     </span>
                     <span className="text-[11px] text-[#6B6B6B] font-medium shrink-0">
@@ -330,7 +463,7 @@ export default function MateriPage() {
         )}
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* Add / Edit Modal (Admin & Guru Only) */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[#DDD8CE] animate-in fade-in zoom-in-95 duration-150">
@@ -459,4 +592,10 @@ export default function MateriPage() {
   );
 }
 
-
+export default function MateriPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center text-xs text-[#6B6B6B]">Memuat Materi...</div>}>
+      <MateriContent />
+    </Suspense>
+  );
+}

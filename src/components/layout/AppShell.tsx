@@ -139,8 +139,16 @@ export default function AppShell({
     year: 'numeric',
   }).format(new Date());
 
-  // Determine active role dynamically from database profile, user metadata or props
+  // Determine active role dynamically from database profile, user metadata, query params, or props
+  const queryRole =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('role')
+      : null;
+
   const rawRole =
+    (queryRole === 'orangtua' || queryRole === 'kepala_sekolah' || queryRole === 'admin' || queryRole === 'guru'
+      ? queryRole
+      : undefined) ||
     (dbProfile?.role as string) ||
     (currentUser?.user_metadata?.role as string) ||
     (currentUser?.user_metadata?.jabatan === 'kepala_sekolah' ? 'kepala_sekolah' : undefined) ||
@@ -157,7 +165,7 @@ export default function AppShell({
       ? 'Administrator'
       : activeRole === 'guru'
       ? 'Guru'
-      : 'Pak Budi');
+      : 'Wali Murid');
 
   // Build role-aware navigation groups
   const getNavGroups = () => {
@@ -176,6 +184,16 @@ export default function AppShell({
               href: '/buku-penghubung?role=orangtua',
               icon: BookOpen,
               badge: realUnreadCount > 0 ? `${realUnreadCount} Baru` : undefined,
+            },
+            {
+              label: 'Materi Pelajaran',
+              href: '/materi?role=orangtua',
+              icon: FolderOpen,
+            },
+            {
+              label: 'Nilai & Rapor',
+              href: '/nilai?role=orangtua',
+              icon: Award,
             },
             {
               label: 'Karakter KAIH',
