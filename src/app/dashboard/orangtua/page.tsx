@@ -311,12 +311,16 @@ export default function DashboardOrangTuaPage() {
                 Kehadiran Bulan Ini
               </h2>
             </div>
-            <span className="text-[11px] font-semibold text-[#6B6B6B]">
-              Total {attendanceStats.totalHari} Hari Direkam
-            </span>
+            <Link
+              href="/kehadiran?role=orangtua"
+              className="text-[11px] font-bold text-[#922B21] hover:underline flex items-center gap-1"
+            >
+              <span>Detail Riwayat</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="grid grid-cols-4 gap-2 text-center mb-3">
             <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
               <span className="block font-serif font-bold text-xl text-emerald-800">
                 {attendanceStats.hadir}
@@ -353,6 +357,15 @@ export default function DashboardOrangTuaPage() {
               </span>
             </div>
           </div>
+
+          {/* Quick Action: Ajukan Izin / Sakit */}
+          <Link
+            href="/kehadiran?role=orangtua&ajukan=true"
+            className="w-full py-2.5 px-4 rounded-xl bg-[#FDEDEC] hover:bg-[#FADBD8] text-[#922B21] border border-[#F1948A] text-xs font-bold transition flex items-center justify-center gap-2 active:scale-98 shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ Ajukan Izin / Sakit Ananda ke Wali Kelas</span>
+          </Link>
         </section>
 
         {/* KARAKTER KAIH ANANDA */}

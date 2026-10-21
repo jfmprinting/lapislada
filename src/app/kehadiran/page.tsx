@@ -26,8 +26,16 @@ import {
   Check,
   AlertCircle,
   Award,
+  Plus,
+  Eye,
+  Camera,
+  X,
+  FileText,
+  Image as ImageIcon,
+  Bell,
+  Trash2,
 } from 'lucide-react';
-import { supabase, Siswa, Kelas } from '@/lib/supabase';
+import { supabase, Siswa, Kelas, compressImageFile } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 
 // Default Classes Fallback
@@ -90,6 +98,14 @@ interface StudentDailyAttendance {
   nama: string;
   jk?: 'L' | 'P';
   status: 'H' | 'S' | 'I' | 'A';
+  izinInfo?: {
+    alasan: string;
+    foto_url?: string | null;
+    diajukan_oleh?: string;
+    tipe?: string;
+    submitted_at?: string;
+    status_label?: string;
+  } | null;
 }
 
 function KehadiranContent() {
@@ -133,6 +149,30 @@ function KehadiranContent() {
   const [parentSiswa, setParentSiswa] = useState<any>(null);
   const [parentRecords, setParentRecords] = useState<any[]>([]);
   const [parentLoading, setParentLoading] = useState(false);
+
+  // States Modal Pengajuan Izin (Portal Orang Tua)
+  const [modalIzinOpen, setModalIzinOpen] = useState(false);
+  const [formIzinStatus, setFormIzinStatus] = useState<'S' | 'I'>('S');
+  const [formIzinTanggal, setFormIzinTanggal] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [formIzinAlasan, setFormIzinAlasan] = useState('');
+  const [formIzinFoto, setFormIzinFoto] = useState('');
+  const [compressingFoto, setCompressingFoto] = useState(false);
+  const [submittingIzin, setSubmittingIzin] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // States Modal Detail Izin Siswa (Guru / Admin)
+  const [selectedIzinStudent, setSelectedIzinStudent] = useState<StudentDailyAttendance | null>(null);
+  const [modalDetailIzinOpen, setModalDetailIzinOpen] = useState(false);
+  const [previewFotoUrl, setPreviewFotoUrl] = useState<string | null>(null);
+
+  // Auto-open modal pengajuan jika ada query ?ajukan=true
+  useEffect(() => {
+    if (searchParams.get('ajukan') === 'true') {
+      setModalIzinOpen(true);
+    }
+  }, [searchParams]);
 
   // 1. Detect User Role
   useEffect(() => {
@@ -244,7 +284,20 @@ function KehadiranContent() {
             .lte('tanggal', endDay)
             .order('tanggal', { ascending: false });
 
-          setParentRecords(recs || []);
+          const enrichedRecs = (recs || []).map((r: any) => {
+            let parsedKet: any = null;
+            if (r.keterangan && r.keterangan.startsWith('{') && r.keterangan.endsWith('}')) {
+              try {
+                parsedKet = JSON.parse(r.keterangan);
+              } catch {}
+            }
+            return {
+              ...r,
+              parsedKet,
+            };
+          });
+
+          setParentRecords(enrichedRecs);
         }
       } catch (err) {
         console.error('Error loading parent attendance data:', err);
@@ -341,17 +394,30 @@ function KehadiranContent() {
         // Fetch existing attendance records for the selected date & class
         const { data: attData } = await supabase
           .from('kehadiran')
-          .select('siswa_id, status')
+          .select('id, siswa_id, status, keterangan')
           .eq('kelas_id', selectedKelasId)
           .eq('tanggal', selectedDate);
 
         if (attData && attData.length > 0) {
           const statusMap = new Map<string, 'H' | 'S' | 'I' | 'A'>();
-          attData.forEach((item) => statusMap.set(item.siswa_id, item.status));
+          const keteranganMap = new Map<string, any>();
+          attData.forEach((item) => {
+            statusMap.set(item.siswa_id, item.status);
+            if (item.keterangan) {
+              let parsed: any = null;
+              if (item.keterangan.startsWith('{') && item.keterangan.endsWith('}')) {
+                try {
+                  parsed = JSON.parse(item.keterangan);
+                } catch {}
+              }
+              keteranganMap.set(item.siswa_id, parsed || { alasan: item.keterangan });
+            }
+          });
 
           studentsToUse = studentsToUse.map((s) => ({
             ...s,
             status: statusMap.get(s.id) || 'H',
+            izinInfo: keteranganMap.get(s.id) || null,
           }));
         }
 
@@ -365,6 +431,11 @@ function KehadiranContent() {
 
     loadDailyAttendance();
   }, [selectedKelasId, selectedDate]);
+
+  // Hitung jumlah siswa yang izin diajukan orang tua hari ini
+  const parentIzinCount = useMemo(() => {
+    return dailyStudents.filter((s) => s.izinInfo && s.izinInfo.tipe === 'orangtua').length;
+  }, [dailyStudents]);
 
   // 4. Fetch Month Attendance Records for Monthly Recap
   useEffect(() => {
@@ -517,6 +588,118 @@ function KehadiranContent() {
     return { totalSiswa, avgPersen, sumH, sumS, sumI, sumA };
   }, [monthlyRecapRows]);
 
+  // Handle image upload and compression for leave proof
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCompressingFoto(true);
+    try {
+      const compressedDataUrl = await compressImageFile(file, 900, 900, 0.75);
+      setFormIzinFoto(compressedDataUrl);
+      showToast({
+        type: 'success',
+        title: 'Foto Terlampir',
+        message: 'Foto berhasil diproses secara otomatis.',
+      });
+    } catch (err) {
+      console.error('Gagal memproses foto:', err);
+      showToast({
+        type: 'error',
+        title: 'Gagal Membaca Foto',
+        message: 'Format foto tidak didukung atau ukuran terlalu besar.',
+      });
+    } finally {
+      setCompressingFoto(false);
+    }
+  };
+
+  const handleClearImage = () => {
+    setFormIzinFoto('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Submit pengajuan izin dari orang tua
+  const handleSubmitIzin = async () => {
+    if (!parentSiswa?.id) {
+      showToast({ type: 'error', message: 'Data siswa ananda belum terhubung.' });
+      return;
+    }
+    if (!formIzinAlasan.trim()) {
+      showToast({ type: 'error', message: 'Keterangan atau alasan izin wajib diisi.' });
+      return;
+    }
+
+    setSubmittingIzin(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Sesi autentikasi telah berakhir.');
+
+      const res = await fetch('/api/pengajuan-izin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          siswa_id: parentSiswa.id,
+          tanggal: formIzinTanggal,
+          status: formIzinStatus,
+          alasan: formIzinAlasan.trim(),
+          foto_url: formIzinFoto || null,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (!res.ok) throw new Error(resJson.error || 'Gagal mengirim pengajuan izin.');
+
+      showToast({
+        type: 'success',
+        title: 'Surat Izin Terkirim',
+        message: `Surat izin ${formIzinStatus === 'S' ? 'Sakit' : 'Izin'} untuk ananda berhasil dikirim ke wali kelas dan langsung tercatat di presensi.`,
+      });
+
+      setModalIzinOpen(false);
+      setFormIzinAlasan('');
+      setFormIzinFoto('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      // Reload parent records
+      const startDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+      const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+      const endDay = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+      const { data: recs } = await supabase
+        .from('kehadiran')
+        .select('*')
+        .eq('siswa_id', parentSiswa.id)
+        .gte('tanggal', startDay)
+        .lte('tanggal', endDay)
+        .order('tanggal', { ascending: false });
+
+      const enrichedRecs = (recs || []).map((r: any) => {
+        let parsedKet: any = null;
+        if (r.keterangan && r.keterangan.startsWith('{') && r.keterangan.endsWith('}')) {
+          try {
+            parsedKet = JSON.parse(r.keterangan);
+          } catch {}
+        }
+        return {
+          ...r,
+          parsedKet,
+        };
+      });
+      setParentRecords(enrichedRecs);
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal mengirim izin.' });
+    } finally {
+      setSubmittingIzin(false);
+    }
+  };
+
   // Daily Handler: Status change
   const handleDailyStatusChange = (id: string, newStatus: 'H' | 'S' | 'I' | 'A') => {
     setDailyStudents((prev) =>
@@ -542,6 +725,7 @@ function KehadiranContent() {
         kelas_id: selectedKelasId.startsWith('k-') ? null : selectedKelasId,
         tanggal: selectedDate,
         status: s.status,
+        keterangan: s.izinInfo ? JSON.stringify(s.izinInfo) : null,
       }));
 
       // Try upserting to Supabase if valid UUIDs exist
@@ -768,7 +952,7 @@ function KehadiranContent() {
         {isOrangTua ? (
           <div className="space-y-6">
             {/* Header Parent Summary */}
-            <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-xs border border-[#DDD8CE] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white rounded-2xl p-5 lg:p-6 shadow-xs border border-[#DDD8CE] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#FDEDEC] text-[#922B21] text-[11px] font-bold border border-[#F1948A]">
@@ -787,23 +971,40 @@ function KehadiranContent() {
                 </p>
               </div>
 
-              {/* Counter Grid */}
-              <div className="grid grid-cols-4 gap-2.5 shrink-0 text-center text-xs">
-                <div className="bg-emerald-50 text-emerald-800 p-3 rounded-xl border border-emerald-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">{parentStats.H}</span>
-                  <span className="text-[10px] uppercase font-bold text-emerald-700">Hadir</span>
-                </div>
-                <div className="bg-amber-50 text-amber-800 p-3 rounded-xl border border-amber-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">{parentStats.S}</span>
-                  <span className="text-[10px] uppercase font-bold text-amber-700">Sakit</span>
-                </div>
-                <div className="bg-blue-50 text-blue-800 p-3 rounded-xl border border-blue-200 min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">{parentStats.I}</span>
-                  <span className="text-[10px] uppercase font-bold text-blue-700">Izin</span>
-                </div>
-                <div className="bg-[#FDEDEC] text-[#922B21] p-3 rounded-xl border border-[#F1948A] min-w-[70px]">
-                  <span className="block font-serif font-bold text-lg">{parentStats.A}</span>
-                  <span className="text-[10px] uppercase font-bold text-[#922B21]">Alpha</span>
+              {/* Action Button & Counter Grid */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormIzinTanggal(new Date().toISOString().split('T')[0]);
+                    setFormIzinStatus('S');
+                    setFormIzinAlasan('');
+                    setFormIzinFoto('');
+                    setModalIzinOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-xs transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Ajukan Izin / Sakit Ananda</span>
+                </button>
+
+                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                  <div className="bg-emerald-50 text-emerald-800 p-2.5 rounded-xl border border-emerald-200 min-w-[62px]">
+                    <span className="block font-serif font-bold text-base">{parentStats.H}</span>
+                    <span className="text-[10px] uppercase font-bold text-emerald-700">Hadir</span>
+                  </div>
+                  <div className="bg-amber-50 text-amber-800 p-2.5 rounded-xl border border-amber-200 min-w-[62px]">
+                    <span className="block font-serif font-bold text-base">{parentStats.S}</span>
+                    <span className="text-[10px] uppercase font-bold text-amber-700">Sakit</span>
+                  </div>
+                  <div className="bg-blue-50 text-blue-800 p-2.5 rounded-xl border border-blue-200 min-w-[62px]">
+                    <span className="block font-serif font-bold text-base">{parentStats.I}</span>
+                    <span className="text-[10px] uppercase font-bold text-blue-700">Izin</span>
+                  </div>
+                  <div className="bg-[#FDEDEC] text-[#922B21] p-2.5 rounded-xl border border-[#F1948A] min-w-[62px]">
+                    <span className="block font-serif font-bold text-base">{parentStats.A}</span>
+                    <span className="text-[10px] uppercase font-bold text-[#922B21]">Alpha</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -852,15 +1053,37 @@ function KehadiranContent() {
                       A: { label: 'Alpha', bg: 'bg-red-100 text-red-800 border-red-300' },
                     }[record.status as 'H' | 'S' | 'I' | 'A'] || { label: record.status, bg: 'bg-gray-100 text-gray-800 border-gray-300' };
 
+                    const hasIzinInfo = !!record.parsedKet;
+                    const ketText = hasIzinInfo
+                      ? record.parsedKet.alasan || (record.status === 'S' ? 'Izin sakit diajukan orang tua' : 'Izin diajukan orang tua')
+                      : record.keterangan || (record.status === 'H' ? 'Presensi terekam tepat waktu' : 'Tercatat di sistem');
+
                     return (
-                      <div key={record.id} className="py-2.5 flex items-center justify-between gap-3">
-                        <div>
-                          <span className="font-bold text-[#1A1A1A] block">{dateFormatted}</span>
-                          <span className="text-[11px] text-[#6B6B6B]">
-                            {record.keterangan || (record.status === 'H' ? 'Presensi terekam tepat waktu' : 'Tercatat di sistem')}
-                          </span>
+                      <div key={record.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-[#1A1A1A]">{dateFormatted}</span>
+                            {hasIzinInfo && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
+                                <span>Diajukan Wali Murid</span>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[#6B6B6B] leading-relaxed">
+                            {ketText}
+                          </p>
+                          {hasIzinInfo && record.parsedKet?.foto_url && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewFotoUrl(record.parsedKet.foto_url)}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#922B21] hover:underline cursor-pointer pt-0.5"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              <span>Lihat Lampiran Foto Bukti / Surat Dokter</span>
+                            </button>
+                          )}
                         </div>
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 ${badgeConfig.bg}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border self-start sm:self-center shrink-0 ${badgeConfig.bg}`}>
                           {badgeConfig.label}
                         </span>
                       </div>
@@ -970,6 +1193,31 @@ function KehadiranContent() {
               </div>
             )}
 
+            {/* Banner Notifikasi Pengajuan Izin Wali Murid */}
+            {parentIzinCount > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+                    <Bell className="w-5 h-5 text-amber-800" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs flex items-center gap-2">
+                      <span>Pemberitahuan Izin Hari Ini ({parentIzinCount} Siswa)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold">
+                        Wali Murid
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-amber-800 leading-snug mt-0.5">
+                      Wali murid telah mengirimkan pemberitahuan izin/sakit beserta surat/foto bukti untuk tanggal {selectedDate}. Status absensi siswa di bawah otomatis disesuaikan (Sakit / Izin).
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-amber-900 bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shrink-0">
+                  Periksa baris siswa di bawah
+                </span>
+              </div>
+            )}
+
             {/* Table of Daily Students */}
             <div className="bg-white rounded-2xl shadow-xs border border-[#DDD8CE] overflow-hidden">
               <div className="p-4 bg-[#FAF8F2] border-b border-[#DDD8CE] flex items-center justify-between">
@@ -998,12 +1246,35 @@ function KehadiranContent() {
                         {idx + 1}.
                       </span>
                       <div className="truncate">
-                        <span className="block text-xs sm:text-sm font-semibold text-[#1A1A1A] truncate">
-                          {student.nama}
-                        </span>
-                        <span className="block text-[11px] text-[#6B6B6B]">
-                          NIS: {student.nis} · JK: {student.jk || 'L'} · {currentKelasObj.nama_kelas}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-semibold text-[#1A1A1A] truncate">
+                            {student.nama}
+                          </span>
+                          {student.izinInfo && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              <Bell className="w-3 h-3 text-amber-700" />
+                              <span>Diajukan Wali Murid</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <span className="text-[11px] text-[#6B6B6B]">
+                            NIS: {student.nis} · JK: {student.jk || 'L'} · {currentKelasObj.nama_kelas}
+                          </span>
+                          {student.izinInfo && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedIzinStudent(student);
+                                setModalDetailIzinOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#922B21] hover:underline cursor-pointer bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md border border-red-200 transition"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>Lihat Surat & Foto Bukti</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1577,6 +1848,351 @@ function KehadiranContent() {
                 </p>
                 <p>{(currentKelasObj.wali_kelas as any)?.telepon ? `Kontak: ${(currentKelasObj.wali_kelas as any).telepon}` : 'NIP. -'}</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 1: FORMULIR PENGAJUAN IZIN / SAKIT (PORTAL ORANG TUA) */}
+        {modalIzinOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#DDD8CE] relative max-h-[92vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setModalIzinOpen(false)}
+                className="absolute top-5 right-5 p-2 rounded-full text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#FAF8F2] transition cursor-pointer"
+                title="Tutup Formulir"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 rounded-2xl bg-[#FDEDEC] text-[#922B21] border border-[#F1948A]">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                    Ajukan Izin / Sakit Ananda
+                  </h3>
+                  <p className="text-xs text-[#6B6B6B]">
+                    UPT SD Negeri Latsari 2 Bancar · Presensi Digital
+                  </p>
+                </div>
+              </div>
+
+              {/* Info Ananda Card */}
+              <div className="p-3.5 rounded-2xl bg-[#FAF8F2] border border-[#DDD8CE] mb-5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#6B6B6B]">Nama Siswa:</span>
+                  <span className="font-bold text-[#1A1A1A] text-right">
+                    {parentSiswa?.nama_lengkap || 'Ananda'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[#6B6B6B]">Kelas & NISN:</span>
+                  <span className="font-semibold text-[#1A1A1A] text-right">
+                    {parentSiswa?.kelas?.nama_kelas || 'Kelas'} · {parentSiswa?.nisn || parentSiswa?.nis || '-'}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmitIzin} className="space-y-4 text-xs">
+                {/* Tanggal Izin */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1.5">
+                    Tanggal Izin / Sakit <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formIzinTanggal}
+                    onChange={(e) => setFormIzinTanggal(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
+                  />
+                </div>
+
+                {/* Status: Sakit vs Izin */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1.5">
+                    Jenis Ketidakhadiran <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setFormIzinStatus('S')}
+                      className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
+                        formIzinStatus === 'S'
+                          ? 'bg-amber-50 border-amber-400 text-amber-950 ring-2 ring-amber-300'
+                          : 'bg-white border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#FAF8F2]'
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 border-amber-600">
+                        {formIzinStatus === 'S' && (
+                          <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                        )}
+                      </span>
+                      <div>
+                        <span className="font-bold text-xs block text-amber-900">Sakit (S)</span>
+                        <span className="text-[10px] text-amber-800">Kondisi kesehatan/rawat</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormIzinStatus('I')}
+                      className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 cursor-pointer ${
+                        formIzinStatus === 'I'
+                          ? 'bg-blue-50 border-blue-400 text-blue-950 ring-2 ring-blue-300'
+                          : 'bg-white border-[#DDD8CE] text-[#6B6B6B] hover:bg-[#FAF8F2]'
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 border-blue-600">
+                        {formIzinStatus === 'I' && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        )}
+                      </span>
+                      <div>
+                        <span className="font-bold text-xs block text-blue-900">Izin (I)</span>
+                        <span className="text-[10px] text-blue-800">Acara keluarga / mendesak</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Alasan / Keterangan */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1.5">
+                    Alasan Lengkap <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={formIzinAlasan}
+                    onChange={(e) => setFormIzinAlasan(e.target.value)}
+                    placeholder={
+                      formIzinStatus === 'S'
+                        ? 'Contoh: Ananda demam tinggi sejak semalam dan flu berat, disarankan dokter istirahat di rumah selama 2 hari...'
+                        : 'Contoh: Ananda ada acara keluarga menghadiri pernikahan saudara di luar kota...'
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-hidden focus:ring-2 focus:ring-[#C0392B]"
+                  />
+                </div>
+
+                {/* Upload Foto Surat Dokter / Bukti Fisik */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1.5">
+                    Foto Surat Dokter / Bukti Pendukung <span className="text-gray-400 font-normal">(Sangat Disarankan)</span>
+                  </label>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                    id="foto-surat-izin-input"
+                  />
+
+                  {formIzinFoto ? (
+                    <div className="relative rounded-2xl border border-[#DDD8CE] bg-[#FAF8F2] p-2.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={formIzinFoto}
+                          alt="Pratinjau Surat Dokter"
+                          className="w-14 h-14 object-cover rounded-xl border border-[#DDD8CE] shrink-0 cursor-pointer"
+                          onClick={() => setPreviewFotoUrl(formIzinFoto)}
+                          title="Klik untuk perbesar foto"
+                        />
+                        <div className="truncate">
+                          <span className="font-bold text-[#1A1A1A] block truncate">
+                            Foto Bukti Terlampir
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-semibold block">
+                            ✓ Siap dikirim ke wali kelas
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearImage}
+                        className="p-2 rounded-xl text-red-600 hover:bg-red-50 transition cursor-pointer shrink-0"
+                        title="Hapus foto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="foto-surat-izin-input"
+                      className={`w-full p-4 rounded-2xl border-2 border-dashed border-[#DDD8CE] bg-[#FAF8F2] hover:bg-white text-center cursor-pointer transition flex flex-col items-center justify-center gap-1.5 ${
+                        compressingFoto ? 'opacity-60 pointer-events-none' : ''
+                      }`}
+                    >
+                      <Camera className="w-6 h-6 text-[#922B21]" />
+                      <span className="font-bold text-xs text-[#1A1A1A]">
+                        {compressingFoto ? 'Mengompresi Foto...' : 'Ambil Foto Surat Dokter / Unggah Berkas'}
+                      </span>
+                      <span className="text-[10px] text-[#6B6B6B]">
+                        Format JPG, PNG (Otomatis dioptimalkan)
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-[#F5F0E8] flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setModalIzinOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-[#DDD8CE] bg-white text-[#6B6B6B] hover:text-[#1A1A1A] font-bold text-xs transition cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingIzin || compressingFoto}
+                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 cursor-pointer disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {submittingIzin ? 'Mengirim Surat Izin...' : 'Kirim Pengajuan Izin →'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 2: INSPEKTOR DETAIL IZIN DARI WALI MURID (GURU / ADMIN) */}
+        {modalDetailIzinOpen && selectedIzinStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-[#DDD8CE] relative max-h-[92vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalDetailIzinOpen(false);
+                  setSelectedIzinStudent(null);
+                }}
+                className="absolute top-5 right-5 p-2 rounded-full text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#FAF8F2] transition cursor-pointer"
+                title="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 rounded-2xl bg-amber-50 text-amber-800 border border-amber-300">
+                  <Bell className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#1A1A1A]">
+                    Surat / Keterangan Izin Wali Murid
+                  </h3>
+                  <p className="text-xs text-[#6B6B6B]">
+                    Diajukan melalui Portal Orang Tua SD Negeri Latsari 2 Bancar
+                  </p>
+                </div>
+              </div>
+
+              {/* Detail Siswa & Status */}
+              <div className="space-y-3.5 text-xs">
+                <div className="p-3.5 rounded-2xl bg-[#FAF8F2] border border-[#DDD8CE] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6B6B6B]">Nama Siswa:</span>
+                    <span className="font-bold text-[#1A1A1A]">{selectedIzinStudent.nama}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6B6B6B]">NIS / Kelas:</span>
+                    <span className="font-semibold text-[#1A1A1A]">
+                      {selectedIzinStudent.nis} · {currentKelasObj.nama_kelas}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6B6B6B]">Tanggal Presensi:</span>
+                    <span className="font-bold text-[#1A1A1A]">{selectedDate}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-[#DDD8CE]/60">
+                    <span className="text-[#6B6B6B]">Status Izin:</span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] border ${
+                        selectedIzinStudent.status === 'S'
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-blue-100 text-blue-800 border-blue-300'
+                      }`}
+                    >
+                      {selectedIzinStudent.izinInfo?.status_label || (selectedIzinStudent.status === 'S' ? 'Sakit' : 'Izin')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Alasan Lengkap */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1">
+                    Alasan / Keterangan Wali Murid:
+                  </label>
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200 text-[#1A1A1A] text-xs leading-relaxed whitespace-pre-wrap">
+                    {selectedIzinStudent.izinInfo?.alasan || 'Tidak ada keterangan tambahan.'}
+                  </div>
+                </div>
+
+                {/* Lampiran Foto */}
+                {selectedIzinStudent.izinInfo?.foto_url ? (
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B] mb-1">
+                      Lampiran Foto Surat Dokter / Bukti:
+                    </label>
+                    <div className="rounded-2xl border border-[#DDD8CE] overflow-hidden bg-[#FAF8F2] p-2">
+                      <img
+                        src={selectedIzinStudent.izinInfo.foto_url}
+                        alt="Surat Dokter"
+                        className="w-full max-h-72 object-contain rounded-xl cursor-pointer hover:opacity-95 transition"
+                        onClick={() => setPreviewFotoUrl(selectedIzinStudent.izinInfo?.foto_url || null)}
+                        title="Klik untuk perbesar gambar"
+                      />
+                      <p className="text-[10px] text-center text-[#6B6B6B] mt-2">
+                        Klik gambar untuk melihat dalam ukuran penuh (Lightbox)
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-500 text-[11px] text-center">
+                    Tidak ada lampiran foto surat dokter yang diunggah.
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-[#F5F0E8] flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalDetailIzinOpen(false);
+                      setSelectedIzinStudent(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                  >
+                    Tutup Tinjauan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 3: LIGHTBOX PREVIEW FOTO */}
+        {previewFotoUrl && (
+          <div
+            onClick={() => setPreviewFotoUrl(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 cursor-zoom-out"
+          >
+            <div className="relative max-w-3xl max-h-[90vh] flex flex-col items-center">
+              <button
+                type="button"
+                onClick={() => setPreviewFotoUrl(null)}
+                className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition cursor-pointer"
+                title="Tutup (ESC)"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={previewFotoUrl}
+                alt="Lampiran Foto Bukti Penuh"
+                className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain border border-white/20"
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
           </div>
         )}

@@ -27,6 +27,7 @@ import {
 export default function DashboardGuruPage() {
   const [hasAttendanceToday, setHasAttendanceToday] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [todayIzinCount, setTodayIzinCount] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userKelas, setUserKelas] = useState<Kelas | null>(null);
   const [totalSiswa, setTotalSiswa] = useState<number>(0);
@@ -73,14 +74,25 @@ export default function DashboardGuruPage() {
           const todayDate = new Date().toISOString().split('T')[0];
           const { data: todayAtt } = await supabase
             .from('kehadiran')
-            .select('id, status')
+            .select('id, status, keterangan')
             .eq('kelas_id', kelas.id)
             .eq('tanggal', todayDate);
 
           if (todayAtt && todayAtt.length > 0) {
-            setHasAttendanceToday(true);
+            const hasHadir = todayAtt.some((a) => a.status === 'H');
+            if (hasHadir) setHasAttendanceToday(true);
             const hadir = todayAtt.filter((a) => a.status === 'H').length;
             setHadirCount(hadir);
+
+            const izinOrtu = todayAtt.filter((a) => {
+              if (a.status !== 'S' && a.status !== 'I') return false;
+              if (!a.keterangan) return false;
+              return (
+                a.keterangan.includes('"tipe":"orangtua"') ||
+                a.keterangan.includes('diajukan_oleh')
+              );
+            }).length;
+            setTodayIzinCount(izinOrtu);
           } else {
             // Check yesterday's attendance as fallback metric
             const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -351,6 +363,34 @@ export default function DashboardGuruPage() {
 
           {/* RIGHT COLUMN (lg:col-span-4) */}
           <div className="lg:col-span-4 space-y-6">
+            {/* ALERT NOTIFIKASI IZIN DARI ORANG TUA */}
+            {todayIzinCount > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 shadow-xs animate-in fade-in">
+                <div className="flex items-start gap-2.5 mb-2.5">
+                  <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                      <span>Pemberitahuan Izin Hari Ini</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-bold">
+                        {todayIzinCount} Siswa
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-amber-800 mt-0.5 leading-snug">
+                      Wali murid telah mengirimkan surat/foto izin untuk hari ini. Status absensi siswa otomatis terdata Sakit/Izin.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/kehadiran"
+                  className="w-full py-2 px-3 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Periksa Presensi & Foto Bukti →</span>
+                </Link>
+              </div>
+            )}
+
             {/* ATTENDANCE STATUS CARD */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#DDD8CE]">
               <h3 className="font-serif font-bold text-sm text-[#1A1A1A] mb-3 flex items-center justify-between">
