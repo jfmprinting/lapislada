@@ -57,12 +57,55 @@ function LoginForm() {
     setErrorMessage(null);
 
     const cleanEmail = email.toLowerCase().trim();
+    const cleanPassword = password.trim();
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      let authResult = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        password,
+        password: cleanPassword,
       });
+
+      // Smart fallback: Bantu orang tua jika terjadi salah ketik huruf mirip pada format sandi sekolah
+      // (Misal: 'KelasI' Romawi I vs angka '1' vs huruf 'l' kecil, atau angka romawi lainnya)
+      if (authResult.error && /LadaKelas/i.test(cleanPassword)) {
+        const variants: string[] = [];
+        
+        // Varian Kelas 1 (I kapital vs angka 1 vs huruf l kecil)
+        if (/Kelas[1l]/i.test(cleanPassword)) {
+          variants.push(cleanPassword.replace(/Kelas[1l]/i, 'KelasI'));
+          variants.push(cleanPassword.replace(/Kelas[1l]/i, 'Kelas1'));
+        }
+        if (/KelasI\b/i.test(cleanPassword)) {
+          variants.push(cleanPassword.replace(/KelasI/i, 'Kelas1'));
+          variants.push(cleanPassword.replace(/KelasI/i, 'Kelasl'));
+        }
+
+        // Varian Kelas 2..6 Romawi vs Angka Arab
+        if (/Kelas2/i.test(cleanPassword)) variants.push(cleanPassword.replace(/Kelas2/i, 'KelasII'));
+        if (/KelasII/i.test(cleanPassword)) variants.push(cleanPassword.replace(/KelasII/i, 'Kelas2'));
+        if (/Kelas3/i.test(cleanPassword)) variants.push(cleanPassword.replace(/Kelas3/i, 'KelasIII'));
+        if (/KelasIII/i.test(cleanPassword)) variants.push(cleanPassword.replace(/KelasIII/i, 'Kelas3'));
+        if (/Kelas4/i.test(cleanPassword)) variants.push(cleanPassword.replace(/Kelas4/i, 'KelasIV'));
+        if (/KelasIV/i.test(cleanPassword)) variants.push(cleanPassword.replace(/KelasIV/i, 'Kelas4'));
+        if (/Kelas5/i.test(cleanPassword)) variants.push(cleanPassword.replace(/Kelas5/i, 'KelasV'));
+        if (/KelasV/i.test(cleanPassword)) variants.push(cleanPassword.replace(/KelasV/i, 'Kelas5'));
+        if (/Kelas6/i.test(cleanPassword)) variants.push(cleanPassword.replace(/Kelas6/i, 'KelasVI'));
+        if (/KelasVI/i.test(cleanPassword)) variants.push(cleanPassword.replace(/KelasVI/i, 'Kelas6'));
+
+        for (const variant of variants) {
+          if (variant === cleanPassword) continue;
+          const retry = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: variant,
+          });
+          if (!retry.error && retry.data?.user) {
+            authResult = retry;
+            break;
+          }
+        }
+      }
+
+      const { data, error } = authResult;
 
       if (!error && data?.user) {
         // Reset counter on successful login
@@ -133,7 +176,10 @@ function LoginForm() {
         setRemainingCooldown(60);
         setErrorMessage('Terlalu banyak percobaan login gagal berturut-turut. Akun ditangguhkan sementara selama 60 detik.');
       } else {
-        setErrorMessage(`Email atau kata sandi tidak cocok. Sisa kesempatan sebelum penangguhan: ${MAX_FAILED_ATTEMPTS - nextFailures}.`);
+        const hint = /LadaKelas/i.test(cleanPassword)
+          ? ' (Tips: Perhatikan huruf kapital, angka Romawi vs angka biasa, dan simbol tanda pagar/seru).'
+          : '';
+        setErrorMessage(`Email atau kata sandi tidak cocok. Sisa kesempatan sebelum penangguhan: ${MAX_FAILED_ATTEMPTS - nextFailures}.${hint}`);
       }
     } catch {
       setErrorMessage('Terjadi kendala saat menghubungi server autentikasi. Silakan periksa koneksi internet Anda.');

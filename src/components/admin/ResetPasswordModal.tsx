@@ -51,7 +51,15 @@ export function generateUniqueSchoolPassword(user: TargetResetUser): string {
   const num = Math.floor(100 + Math.random() * 900); // 3-digit random number
 
   if (user.role === 'orangtua') {
-    const rawClass = user.rombel?.replace(/[^a-zA-Z0-9]/g, '') || '4A';
+    // Normalisasi angka Romawi ke angka biasa agar tidak membingungkan (misal: 'Kelas I' jadi 'Kelas1', bukan 'KelasI')
+    const rawClass = (user.rombel || '4A')
+      .replace(/Kelas\s*VI\b/i, 'Kelas6')
+      .replace(/Kelas\s*IV\b/i, 'Kelas4')
+      .replace(/Kelas\s*V\b/i, 'Kelas5')
+      .replace(/Kelas\s*III\b/i, 'Kelas3')
+      .replace(/Kelas\s*II\b/i, 'Kelas2')
+      .replace(/Kelas\s*I\b/i, 'Kelas1')
+      .replace(/[^a-zA-Z0-9]/g, '') || '4A';
     return `Lada${rawClass}-${capitalized || 'Siswa'}${num}${char}`;
   }
 
