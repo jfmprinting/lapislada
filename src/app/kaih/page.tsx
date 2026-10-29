@@ -284,11 +284,12 @@ function KaihContent() {
           setSiswaMap(sMap);
         }
 
-        // Try Supabase fetch
+        // Try Supabase fetch (batasi 40 kegiatan terbaru untuk efisiensi bandwidth kuota)
         const { data, error } = await supabase
           .from('kaih_kegiatan')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(40);
 
         if (data && data.length > 0 && !error) {
           const enriched = data.map((item) => {

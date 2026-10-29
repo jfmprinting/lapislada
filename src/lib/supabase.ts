@@ -294,9 +294,9 @@ export type KaihKegiatan = {
  */
 export async function compressImageFile(
   file: File,
-  maxWidth = 960,
-  maxHeight = 960,
-  quality = 0.75
+  maxWidth = 720,
+  maxHeight = 720,
+  quality = 0.65
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

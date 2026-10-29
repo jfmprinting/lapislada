@@ -79,11 +79,12 @@ export default function GaleriPage() {
           }
         }
 
-        // Fetch from Supabase table if exists
+        // Fetch from Supabase table if exists (batasi 24 foto teratas demi efisiensi kuota)
         const { data, error } = await supabase
           .from('galeri_kegiatan')
           .select('*')
-          .order('tanggal', { ascending: false });
+          .order('tanggal', { ascending: false })
+          .limit(24);
 
         if (data && data.length > 0 && !error) {
           setItems(data);
