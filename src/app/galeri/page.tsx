@@ -66,20 +66,7 @@ export default function GaleriPage() {
   useEffect(() => {
     async function fetchGaleri() {
       try {
-        // Try local storage first
-        const local = localStorage.getItem('lapislada_galeri_items');
-        if (local) {
-          try {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setItems(parsed);
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-
-        // Fetch from Supabase table if exists (batasi 24 foto teratas demi efisiensi kuota)
+        // Fetch from Supabase table (batasi 24 foto teratas demi efisiensi kuota)
         const { data, error } = await supabase
           .from('galeri_kegiatan')
           .select('*')
@@ -88,14 +75,9 @@ export default function GaleriPage() {
 
         if (data && data.length > 0 && !error) {
           setItems(data);
-          try {
-            localStorage.setItem('lapislada_galeri_items', JSON.stringify(data));
-          } catch (e) {
-            // ignore
-          }
         }
       } catch (err) {
-        console.info('Using default/cached gallery data');
+        console.info('Using default gallery data');
       } finally {
         setLoading(false);
       }

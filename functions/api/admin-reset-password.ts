@@ -66,7 +66,60 @@ async function verifyAdminCaller(context: any, serviceKey: string) {
   return callerData;
 }
 
-// GET: Ambil data akun & password aktif tersimpan
+async function findUserByEmailOrId(serviceKey: string, userId?: string | null, email?: string | null) {
+  if (userId) {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    });
+    if (userRes.ok) return await userRes.json();
+  }
+
+  if (email) {
+    const cleanEmail = email.toLowerCase().trim();
+    // 1. Direct indexed lookup in users_profile to get auth ID without scanning memory
+    const profRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/users_profile?email=eq.${encodeURIComponent(cleanEmail)}&select=id&limit=1`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      }
+    );
+    if (profRes.ok) {
+      const rows = await profRes.json();
+      const authId = rows?.[0]?.id;
+      if (authId) {
+        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(authId)}`, {
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+          },
+        });
+        if (userRes.ok) return await userRes.json();
+      }
+    }
+
+    // 2. Fallback to direct targeted check
+    const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=50`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    });
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      return listData?.users?.find((u: any) => u.email?.toLowerCase() === cleanEmail) || null;
+    }
+  }
+
+  return null;
+}
+
+// GET: Ambil data akun & status kata sandi
 export async function onRequestGet(context: any) {
   try {
     initSupabaseUrl(context);
@@ -97,34 +150,7 @@ export async function onRequestGet(context: any) {
       );
     }
 
-    let targetAuthUser: any = null;
-
-    if (userIdParam) {
-      const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userIdParam)}`, {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-        },
-      });
-      if (userRes.ok) {
-        targetAuthUser = await userRes.json();
-      }
-    }
-
-    if (!targetAuthUser && emailParam) {
-      const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-        },
-      });
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        targetAuthUser = listData?.users?.find(
-          (u: any) => u.email?.toLowerCase() === emailParam
-        ) || null;
-      }
-    }
+    const targetAuthUser = await findUserByEmailOrId(serviceKey, userIdParam, emailParam);
 
     if (!targetAuthUser) {
       return new Response(
@@ -132,8 +158,6 @@ export async function onRequestGet(context: any) {
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
-
-    const passwordDisplay = targetAuthUser.user_metadata?.password_display || null;
 
     return new Response(
       JSON.stringify({
@@ -143,7 +167,7 @@ export async function onRequestGet(context: any) {
         email: targetAuthUser.email,
         nama: targetAuthUser.user_metadata?.nama || null,
         role: targetAuthUser.user_metadata?.role || null,
-        password: passwordDisplay,
+        password: null,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
@@ -189,34 +213,7 @@ export async function onRequestPost(context: any) {
         );
       }
 
-      let targetAuthUser: any = null;
-
-      if (userIdParam) {
-        const userRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userIdParam)}`, {
-          headers: {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-          },
-        });
-        if (userRes.ok) {
-          targetAuthUser = await userRes.json();
-        }
-      }
-
-      if (!targetAuthUser && emailParam) {
-        const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
-          headers: {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-          },
-        });
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          targetAuthUser = listData?.users?.find(
-            (u: any) => u.email?.toLowerCase() === emailParam
-          ) || null;
-        }
-      }
+      const targetAuthUser = await findUserByEmailOrId(serviceKey, userIdParam, emailParam);
 
       if (!targetAuthUser) {
         return new Response(
@@ -224,8 +221,6 @@ export async function onRequestPost(context: any) {
           { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
         );
       }
-
-      const passwordDisplay = targetAuthUser.user_metadata?.password_display || null;
 
       return new Response(
         JSON.stringify({
@@ -235,7 +230,7 @@ export async function onRequestPost(context: any) {
           email: targetAuthUser.email,
           nama: targetAuthUser.user_metadata?.nama || null,
           role: targetAuthUser.user_metadata?.role || null,
-          password: passwordDisplay,
+          password: null,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
@@ -261,17 +256,8 @@ export async function onRequestPost(context: any) {
     const cleanEmail = email.toLowerCase().trim().slice(0, 100);
     const cleanPassword = password.trim();
 
-    // 5. Search if user exists in Supabase auth.users
-    const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-    });
-    const listData = await listRes.json();
-    const existingUser = listData?.users?.find(
-      (u: any) => u.email?.toLowerCase() === cleanEmail
-    );
+    // 5. Search if user exists in Supabase auth.users (indexed lookup)
+    const existingUser = await findUserByEmailOrId(serviceKey, targetUserId, cleanEmail);
 
     let authUserId = existingUser?.id;
 
@@ -292,7 +278,6 @@ export async function onRequestPost(context: any) {
               ...existingUser.user_metadata,
               role: role || existingUser.user_metadata?.role || 'orangtua',
               nama: nama || existingUser.user_metadata?.nama,
-              password_display: cleanPassword,
             },
           }),
         }
@@ -317,7 +302,6 @@ export async function onRequestPost(context: any) {
             role: role || 'orangtua',
             nama: nama,
             siswa_id: targetUserId,
-            password_display: cleanPassword,
           },
         }),
       });

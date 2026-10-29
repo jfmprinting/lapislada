@@ -110,17 +110,6 @@ CREATE TABLE IF NOT EXISTS public.kelas (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed kelas standar 1 s.d. 6
-INSERT INTO public.kelas (id, nama_kelas, tahun_ajaran)
-VALUES
-('c1-1', 'Kelas 1', '2025/2026'),
-('c1-2', 'Kelas 2', '2025/2026'),
-('c1-3', 'Kelas 3', '2025/2026'),
-('c1-4a', 'Kelas 4A', '2025/2026'),
-('c1-5', 'Kelas 5', '2025/2026'),
-('c1-6', 'Kelas 6', '2025/2026')
-ON CONFLICT (id) DO NOTHING;
-
 -- =========================================================================
 -- 5. TABEL SISWA
 -- =========================================================================

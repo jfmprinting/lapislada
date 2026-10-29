@@ -28,6 +28,7 @@ import ResetPasswordModal, { TargetResetUser } from '@/components/admin/ResetPas
 
 const normalizeClassName = (name: string) => {
   return (name || '')
+    .trim()
     .toLowerCase()
     .replace(/^kelas\s*/i, '')
     .replace(/\s+/g, '')

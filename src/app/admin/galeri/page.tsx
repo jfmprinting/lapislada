@@ -46,20 +46,6 @@ export default function MasterGaleriPage() {
     async function fetchGaleri() {
       setLoading(true);
       try {
-        let loadedItems: GaleriKegiatan[] = INITIAL_GALERI;
-        const local = localStorage.getItem('lapislada_galeri_items');
-        if (local) {
-          try {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              loadedItems = parsed;
-              setItems(parsed);
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-
         const { data, error } = await supabase
           .from('galeri_kegiatan')
           .select('*')
@@ -67,21 +53,9 @@ export default function MasterGaleriPage() {
 
         if (data && data.length > 0 && !error) {
           setItems(data);
-          try {
-            localStorage.setItem('lapislada_galeri_items', JSON.stringify(data));
-          } catch (e) {
-            // ignore
-          }
-        } else if (!error && data && data.length === 0 && loadedItems.length > 0) {
-          // Jika tabel di database Supabase sudah ada namun masih kosong, bantu otomatis sinkronkan data saat ini
-          try {
-            await supabase.from('galeri_kegiatan').upsert(loadedItems);
-          } catch (syncErr) {
-            console.info('Auto sync fallback');
-          }
         }
       } catch (err) {
-        console.warn('Using local fallback for galeri');
+        console.warn('Using fallback for galeri');
       } finally {
         setLoading(false);
       }
@@ -91,11 +65,6 @@ export default function MasterGaleriPage() {
 
   const saveToLocal = (newItems: GaleriKegiatan[]) => {
     setItems(newItems);
-    try {
-      localStorage.setItem('lapislada_galeri_items', JSON.stringify(newItems));
-    } catch (e) {
-      console.warn('Failed to save to localStorage');
-    }
   };
 
   const handleOpenAddModal = () => {
