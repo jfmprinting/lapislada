@@ -128,11 +128,12 @@ export default function HomePage() {
           }
         }
 
-        // Ambil data terbaru dari Supabase
+        // Ambil data terbaru dari Supabase (batasi 6 item teratas untuk beranda demi efisiensi kuota)
         const { data, error } = await supabase
           .from('galeri_kegiatan')
           .select('*')
-          .order('tanggal', { ascending: false });
+          .order('tanggal', { ascending: false })
+          .limit(6);
 
         if (data && data.length > 0 && !error) {
           setGaleriItems(data);

@@ -1,9 +1,15 @@
 // Cloudflare Pages Function for Buku Penghubung API
 // Protected by Caller Authentication Verification
 
-const SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
+const DEFAULT_SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
 const FALLBACK_SERVICE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
+
+let SUPABASE_URL = DEFAULT_SUPABASE_URL;
+
+function initSupabaseUrl(context: any) {
+  SUPABASE_URL = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +22,7 @@ export async function onRequestOptions() {
 }
 
 async function verifyAuth(context: any, serviceKey: string) {
+  initSupabaseUrl(context);
   const authHeader = context.request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
@@ -32,6 +39,7 @@ async function verifyAuth(context: any, serviceKey: string) {
 
 export async function onRequestDelete(context: any) {
   try {
+    initSupabaseUrl(context);
     const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
     const user = await verifyAuth(context, serviceKey);
 
@@ -91,6 +99,7 @@ export async function onRequestDelete(context: any) {
 
 export async function onRequestPatch(context: any) {
   try {
+    initSupabaseUrl(context);
     const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
     const user = await verifyAuth(context, serviceKey);
 
@@ -149,6 +158,7 @@ export async function onRequestPatch(context: any) {
 
 export async function onRequestPost(context: any) {
   try {
+    initSupabaseUrl(context);
     const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
     const user = await verifyAuth(context, serviceKey);
 

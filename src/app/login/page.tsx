@@ -166,7 +166,33 @@ function LoginForm() {
         return;
       }
 
+      // Tangani error infrastruktur/server (jangan anggap salah password & jangan potong jatah percobaan)
+      const status = (error as any)?.status;
+      const msg = (error?.message || '').toLowerCase();
+
+      if (status === 402 || msg.includes('exceed_egress_quota') || msg.includes('restricted')) {
+        setErrorMessage(
+          'Layanan server sedang dalam pemeliharaan sistem. Silakan coba kembali beberapa saat lagi atau hubungi Admin Sekolah.'
+        );
+        return;
+      }
+
+      if (status === 429 || msg.includes('too many requests')) {
+        setErrorMessage(
+          'Terlalu banyak percobaan dalam waktu singkat. Silakan tunggu beberapa saat sebelum mencoba kembali.'
+        );
+        return;
+      }
+
+      if ((status && status >= 500) || status === 503 || msg.includes('failed to fetch') || msg.includes('network')) {
+        setErrorMessage(
+          'Layanan server sedang mengalami gangguan sementara. Silakan coba beberapa saat lagi.'
+        );
+        return;
+      }
+
       // Handle Authentication Failure (A07: Authentication & Brute Force Prevention)
+      // Hanya potong jatah jika murni kesalahan kredensial (email/password salah)
       const nextFailures = failedAttempts + 1;
       setFailedAttempts(nextFailures);
 
