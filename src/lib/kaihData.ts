@@ -1,6 +1,6 @@
-import { KaihKegiatan } from './supabase';
+import { KaihKegiatan, getTodayDateString } from './supabase';
 
-const todayStr = new Date().toISOString().split('T')[0];
+const todayStr = getTodayDateString();
 
 export const INITIAL_KAIH_KEGIATAN: KaihKegiatan[] = [
   {

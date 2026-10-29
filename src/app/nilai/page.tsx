@@ -639,7 +639,7 @@ function NilaiContent() {
   };
 
   // Toggle Per-Asesmen Publication
-  const handleTogglePublication = () => {
+  const handleTogglePublication = async () => {
     const nextVal = !isPublishedForCurrentAsesmen;
     setIsPublishedForCurrentAsesmen(nextVal);
 
@@ -649,6 +649,23 @@ function NilaiContent() {
         map[currentAsesmenKey] = nextVal;
         localStorage.setItem(PUBLISHED_ASESMEN_KEY, JSON.stringify(map));
       } catch (e) {}
+    }
+
+    // Persist directly to Supabase nilai table across devices
+    const studentIds = currentStudents.map((s) => s.id);
+    if (studentIds.length > 0 && selectedMapelId && selectedJenisAsesmen) {
+      try {
+        await supabase
+          .from('nilai')
+          .update({ is_published: nextVal })
+          .in('siswa_id', studentIds)
+          .eq('mapel_id', selectedMapelId)
+          .eq('jenis_ujian', selectedJenisAsesmen)
+          .eq('semester', semester)
+          .eq('tahun_ajaran', tahunAjaran);
+      } catch (err) {
+        console.warn('Could not update publication state in DB:', err);
+      }
     }
 
     showToast({

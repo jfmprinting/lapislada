@@ -9,6 +9,7 @@ import {
   PILAR_KAIH,
   PilarKaih,
   compressImageFile,
+  getTodayDateString,
 } from '@/lib/supabase';
 import { INITIAL_KAIH_KEGIATAN, generateKaihWhatsAppBroadcast } from '@/lib/kaihData';
 import KaihGarden from '@/components/kaih/KaihGarden';
@@ -56,7 +57,7 @@ function KaihContent() {
   const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan' | 'taman'>('sekolah');
 
   // Filter states
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateString();
   const [filterDate, setFilterDate] = useState(todayStr);
   const [filterStudent, setFilterStudent] = useState('semua');
 

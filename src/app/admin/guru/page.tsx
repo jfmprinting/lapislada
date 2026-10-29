@@ -455,7 +455,8 @@ export default function MasterGuruPage() {
 
     try {
       if (!id.startsWith('sample-') && !id.startsWith('local-')) {
-        await supabase.from('users_profile').delete().eq('id', id);
+        const { error } = await supabase.from('users_profile').delete().eq('id', id);
+        if (error) throw error;
       }
       setGuruList((prev) => prev.filter((g) => g.id !== id));
       showToast({ type: 'success', message: `Data ${nama} berhasil dihapus.` });

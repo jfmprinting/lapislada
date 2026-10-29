@@ -1,14 +1,16 @@
 // Cloudflare Pages Function for Buku Penghubung API
-// Protected by Caller Authentication Verification
+// Protected by Caller Authentication Verification & Role-Based Authorization
 
-const DEFAULT_SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
-const FALLBACK_SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
+function getSupabaseConfig(context: any) {
+  const url = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || 'https://kgufgvhbukartxqxbeyl.supabase.co';
+  const key = context.env?.SUPABASE_SERVICE_ROLE_KEY;
+  return { url, key };
+}
 
-let SUPABASE_URL = DEFAULT_SUPABASE_URL;
+let SUPABASE_URL = 'https://kgufgvhbukartxqxbeyl.supabase.co';
 
 function initSupabaseUrl(context: any) {
-  SUPABASE_URL = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  SUPABASE_URL = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || 'https://kgufgvhbukartxqxbeyl.supabase.co';
 }
 
 const corsHeaders = {
@@ -40,7 +42,13 @@ async function verifyAuth(context: any, serviceKey: string) {
 export async function onRequestDelete(context: any) {
   try {
     initSupabaseUrl(context);
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const { key: serviceKey } = getSupabaseConfig(context);
+    if (!serviceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Konfigurasi server SUPABASE_SERVICE_ROLE_KEY belum disetel.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
     const user = await verifyAuth(context, serviceKey);
 
     if (!user) {
@@ -69,6 +77,42 @@ export async function onRequestDelete(context: any) {
       );
     }
 
+    // 1. Fetch target entry to verify authorship and permissions
+    const entryRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}&select=id,author_id`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    });
+
+    if (!entryRes.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Gagal memverifikasi catatan buku penghubung.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const entries = await entryRes.json();
+    const entry = entries?.[0];
+    if (!entry) {
+      return new Response(
+        JSON.stringify({ error: 'Catatan buku penghubung tidak ditemukan.' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const callerRole = user.user_metadata?.role;
+    const isStaff = callerRole === 'admin' || callerRole === 'guru' || callerRole === 'kepala_sekolah';
+    const isAuthor = entry.author_id === user.id;
+
+    if (!isAuthor && !isStaff) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Anda hanya dapat menghapus catatan yang Anda buat sendiri.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 2. Perform deletion
     const delRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: {
@@ -100,7 +144,13 @@ export async function onRequestDelete(context: any) {
 export async function onRequestPatch(context: any) {
   try {
     initSupabaseUrl(context);
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const { key: serviceKey } = getSupabaseConfig(context);
+    if (!serviceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Konfigurasi server SUPABASE_SERVICE_ROLE_KEY belum disetel.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
     const user = await verifyAuth(context, serviceKey);
 
     if (!user) {
@@ -120,9 +170,55 @@ export async function onRequestPatch(context: any) {
       );
     }
 
+    // 1. Fetch target entry to verify author
+    const entryRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}&select=id,author_id`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    });
+
+    if (!entryRes.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Gagal memverifikasi catatan.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const entries = await entryRes.json();
+    const entry = entries?.[0];
+    if (!entry) {
+      return new Response(
+        JSON.stringify({ error: 'Catatan tidak ditemukan.' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    const callerRole = user.user_metadata?.role;
+    const isAuthor = entry.author_id === user.id;
+    const isStaff = callerRole === 'admin' || callerRole === 'guru' || callerRole === 'kepala_sekolah';
+
     const updatePayload: Record<string, any> = {};
-    if (catatan !== undefined) updatePayload.catatan = String(catatan).slice(0, 2000);
-    if (is_read_by_guru !== undefined) updatePayload.is_read_by_guru = Boolean(is_read_by_guru);
+
+    if (catatan !== undefined) {
+      if (!isAuthor && callerRole !== 'admin') {
+        return new Response(
+          JSON.stringify({ error: 'Akses ditolak: Anda hanya dapat mengubah isi pesan yang Anda tulis sendiri.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+      updatePayload.catatan = String(catatan).slice(0, 2000);
+    }
+
+    if (is_read_by_guru !== undefined) {
+      if (!isStaff) {
+        return new Response(
+          JSON.stringify({ error: 'Akses ditolak: Hanya guru atau wali kelas yang dapat menandai pesan telah dibaca.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+      updatePayload.is_read_by_guru = Boolean(is_read_by_guru);
+    }
 
     const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/buku_penghubung?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
@@ -159,7 +255,13 @@ export async function onRequestPatch(context: any) {
 export async function onRequestPost(context: any) {
   try {
     initSupabaseUrl(context);
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const { key: serviceKey } = getSupabaseConfig(context);
+    if (!serviceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Konfigurasi server SUPABASE_SERVICE_ROLE_KEY belum disetel.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
     const user = await verifyAuth(context, serviceKey);
 
     if (!user) {
@@ -177,6 +279,30 @@ export async function onRequestPost(context: any) {
         JSON.stringify({ error: 'Data siswa_id dan catatan wajib diisi.' }),
         { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
+    }
+
+    const callerRole = user.user_metadata?.role;
+    const isStaff = callerRole === 'admin' || callerRole === 'guru' || callerRole === 'kepala_sekolah';
+
+    // Verify parent has rights to this student
+    if (!isStaff) {
+      const siswaCheckRes = await fetch(`${SUPABASE_URL}/rest/v1/siswa?id=eq.${encodeURIComponent(siswa_id)}&select=id,wali_murid_id`, {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      });
+      if (siswaCheckRes.ok) {
+        const sRows = await siswaCheckRes.json();
+        const student = sRows?.[0];
+        const isLinkedGuardian = student && (student.wali_murid_id === user.id || user.user_metadata?.siswa_id === siswa_id);
+        if (!isLinkedGuardian) {
+          return new Response(
+            JSON.stringify({ error: 'Akses ditolak: Anda hanya dapat mengirim catatan buku penghubung untuk siswa yang terhubung dengan akun Anda.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+          );
+        }
+      }
     }
 
     const role = author_role === 'orangtua' ? 'orangtua' : 'guru';

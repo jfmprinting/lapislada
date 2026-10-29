@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { supabase, Kelas, UserProfile } from '@/lib/supabase';
+import { supabase, Kelas, UserProfile, getTodayDateString } from '@/lib/supabase';
 import {
   ShieldCheck,
   Users,
@@ -53,7 +53,7 @@ export default function DashboardKepalaSekolahPage() {
     year: 'numeric',
   }).format(new Date());
 
-  const todayDate = new Date().toISOString().split('T')[0];
+  const todayDate = getTodayDateString();
 
   useEffect(() => {
     async function loadExecutiveData() {

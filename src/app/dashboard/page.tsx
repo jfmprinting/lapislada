@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import PWAInstallBanner from '@/components/pwa/PWAInstallBanner';
-import { supabase, UserProfile, Kelas } from '@/lib/supabase';
+import { supabase, UserProfile, Kelas, getTodayDateString } from '@/lib/supabase';
 import {
   CalendarCheck,
   BookOpen,
@@ -71,7 +71,7 @@ export default function DashboardGuruPage() {
           setTotalSiswa(sCount || 0);
 
           // 2. Fetch today's attendance for this class
-          const todayDate = new Date().toISOString().split('T')[0];
+          const todayDate = getTodayDateString();
           const { data: todayAtt } = await supabase
             .from('kehadiran')
             .select('id, status, keterangan')
@@ -95,7 +95,7 @@ export default function DashboardGuruPage() {
             setTodayIzinCount(izinOrtu);
           } else {
             // Check yesterday's attendance as fallback metric
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            const yesterday = getTodayDateString(new Date(Date.now() - 86400000));
             const { data: yestAtt } = await supabase
               .from('kehadiran')
               .select('id, status')

@@ -35,7 +35,7 @@ import {
   Bell,
   Trash2,
 } from 'lucide-react';
-import { supabase, Siswa, Kelas, compressImageFile } from '@/lib/supabase';
+import { supabase, Siswa, Kelas, compressImageFile, getTodayDateString } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 
 // Default Classes Fallback
@@ -123,9 +123,7 @@ function KehadiranContent() {
   const [loadingKelas, setLoadingKelas] = useState(false);
 
   // Daily Attendance States
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [dailyStudents, setDailyStudents] = useState<StudentDailyAttendance[]>([]);
   const [savingDaily, setSavingDaily] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -153,9 +151,7 @@ function KehadiranContent() {
   // States Modal Pengajuan Izin (Portal Orang Tua)
   const [modalIzinOpen, setModalIzinOpen] = useState(false);
   const [formIzinStatus, setFormIzinStatus] = useState<'S' | 'I'>('S');
-  const [formIzinTanggal, setFormIzinTanggal] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [formIzinTanggal, setFormIzinTanggal] = useState<string>(getTodayDateString());
   const [formIzinAlasan, setFormIzinAlasan] = useState('');
   const [formIzinFoto, setFormIzinFoto] = useState('');
   const [compressingFoto, setCompressingFoto] = useState(false);
@@ -976,7 +972,7 @@ function KehadiranContent() {
                 <button
                   type="button"
                   onClick={() => {
-                    setFormIzinTanggal(new Date().toISOString().split('T')[0]);
+                    setFormIzinTanggal(getTodayDateString());
                     setFormIzinStatus('S');
                     setFormIzinAlasan('');
                     setFormIzinFoto('');

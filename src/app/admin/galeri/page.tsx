@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AppShell from '@/components/layout/AppShell';
-import { supabase, GaleriKegiatan } from '@/lib/supabase';
+import { supabase, GaleriKegiatan, getTodayDateString } from '@/lib/supabase';
 import { INITIAL_GALERI, KATEGORI_GALERI_LIST } from '@/lib/galeriData';
 import { useNotification } from '@/components/ui/NotificationContext';
 import {
@@ -35,7 +35,7 @@ export default function MasterGaleriPage() {
   const [formData, setFormData] = useState({
     judul: '',
     kategori: 'Pramuka & Ekskul',
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: getTodayDateString(),
     foto_url: '',
     deskripsi: '',
   });
@@ -103,7 +103,7 @@ export default function MasterGaleriPage() {
     setFormData({
       judul: '',
       kategori: 'Pramuka & Ekskul',
-      tanggal: new Date().toISOString().split('T')[0],
+      tanggal: getTodayDateString(),
       foto_url: '/galeri-pramuka.jpg',
       deskripsi: '',
     });
@@ -265,10 +265,9 @@ export default function MasterGaleriPage() {
     if (!isConfirmed) return;
 
     try {
-      try {
-        await supabase.from('galeri_kegiatan').delete().eq('id', id);
-      } catch (dbErr) {
-        console.info('Database delete fallback');
+      if (!id.startsWith('galeri-') && !id.startsWith('local-')) {
+        const { error } = await supabase.from('galeri_kegiatan').delete().eq('id', id);
+        if (error) throw error;
       }
 
       const filtered = items.filter((it) => it.id !== id);

@@ -189,9 +189,13 @@ export default function JenisAsesmenPage() {
     if (!confirmed) return;
 
     try {
-      await supabase.from('jenis_asesmen').delete().eq('id', item.id);
-    } catch (err) {
-      console.info('Database delete fallback');
+      if (!item.id.startsWith('local-')) {
+        const { error } = await supabase.from('jenis_asesmen').delete().eq('id', item.id);
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      showToast({ type: 'error', message: err.message || 'Gagal menghapus jenis asesmen di database.' });
+      return;
     }
 
     const updated = list.filter((j) => j.id !== item.id).map((j, i) => ({ ...j, urutan: i + 1 }));

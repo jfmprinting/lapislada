@@ -1,14 +1,16 @@
 // Cloudflare Pages Function for Pengajuan Izin/Sakit Siswa oleh Orang Tua
-// Protected by Caller Authentication Token & Supabase Service Role Key
+// Protected by Caller Authentication Token & Guardian Verification
 
-const DEFAULT_SUPABASE_URL = 'https://fqggetataxahzbwchbsh.supabase.co';
-const FALLBACK_SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTY1MTIzNCwiZXhwIjoyMTA1MjI3MjM0fQ.xVkO2Bvah-xYsQnFbb0MdkK823vDMsDqwJc_hI8rE2s';
+function getSupabaseConfig(context: any) {
+  const url = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || 'https://kgufgvhbukartxqxbeyl.supabase.co';
+  const key = context.env?.SUPABASE_SERVICE_ROLE_KEY;
+  return { url, key };
+}
 
-let SUPABASE_URL = DEFAULT_SUPABASE_URL;
+let SUPABASE_URL = 'https://kgufgvhbukartxqxbeyl.supabase.co';
 
 function initSupabaseUrl(context: any) {
-  SUPABASE_URL = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  SUPABASE_URL = context.env?.NEXT_PUBLIC_SUPABASE_URL || context.env?.SUPABASE_URL || 'https://kgufgvhbukartxqxbeyl.supabase.co';
 }
 
 const corsHeaders = {
@@ -24,7 +26,13 @@ export async function onRequestOptions() {
 export async function onRequestPost(context: any) {
   try {
     initSupabaseUrl(context);
-    const serviceKey = context.env?.SUPABASE_SERVICE_ROLE_KEY || FALLBACK_SERVICE_KEY;
+    const { key: serviceKey } = getSupabaseConfig(context);
+    if (!serviceKey) {
+      return new Response(
+        JSON.stringify({ error: 'Konfigurasi server SUPABASE_SERVICE_ROLE_KEY belum disetel.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
     const authHeader = context.request.headers.get('Authorization') || '';
     const callerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
 
@@ -53,6 +61,7 @@ export async function onRequestPost(context: any) {
     const callerData = await callerRes.json();
     const userId = callerData.id;
     const callerMeta = callerData.user_metadata || {};
+    const callerRole = callerMeta.role;
 
     const body = await context.request.json();
     const { siswa_id, tanggal, status, alasan, foto_url } = body;
@@ -72,7 +81,7 @@ export async function onRequestPost(context: any) {
 
     // 2. Query siswa & kelas
     const siswaRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/siswa?id=eq.${siswa_id}&select=id,nama_lengkap,nama_wali,kelas_id`,
+      `${SUPABASE_URL}/rest/v1/siswa?id=eq.${encodeURIComponent(siswa_id)}&select=id,nama_lengkap,nama_wali,kelas_id,wali_murid_id`,
       { headers }
     );
     const siswaList = await siswaRes.json();
@@ -82,6 +91,17 @@ export async function onRequestPost(context: any) {
       return new Response(
         JSON.stringify({ error: 'Data siswa tidak ditemukan.' }),
         { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // 2b. Authorization check: Only guardian or school staff can submit excuse
+    const isStaff = callerRole === 'admin' || callerRole === 'guru' || callerRole === 'kepala_sekolah';
+    const isGuardian = siswa.wali_murid_id === userId || callerMeta.siswa_id === siswa.id;
+
+    if (!isStaff && !isGuardian) {
+      return new Response(
+        JSON.stringify({ error: 'Akses ditolak: Anda hanya dapat mengajukan izin untuk siswa yang terhubung dengan akun Anda.' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 

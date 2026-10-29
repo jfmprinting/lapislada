@@ -175,8 +175,9 @@ export default function MasterMapelPage() {
     if (!isConfirmed) return;
 
     try {
-      if (!id.startsWith('m') && !id.startsWith('local-')) {
-        await supabase.from('mapel').delete().eq('id', id);
+      if (!id.startsWith('local-')) {
+        const { error } = await supabase.from('mapel').delete().eq('id', id);
+        if (error) throw error;
       }
       setMapelList((prev) => prev.filter((m) => m.id !== id));
       showToast({ type: 'success', message: `Mata pelajaran ${nama} berhasil dihapus.` });

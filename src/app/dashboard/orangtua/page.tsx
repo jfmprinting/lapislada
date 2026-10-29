@@ -19,7 +19,7 @@ import {
   FolderOpen,
   ExternalLink,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, getTodayDateString } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 
 export default function DashboardOrangTuaPage() {
@@ -182,7 +182,7 @@ export default function DashboardOrangTuaPage() {
       });
 
     // Fetch KAIH log today
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     supabase
       .from('kaih_kegiatan')
       .select('id, judul')

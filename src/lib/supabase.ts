@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fqggetataxahzbwchbsh.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZ2dldGF0YXhhaHpid2NoYnNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NTEyMzQsImV4cCI6MjEwNTIyNzIzNH0.d5FM0HOkYVfPws2y7mU71ouQvXB2Y1ENvoL3MT3WaZg';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kgufgvhbukartxqxbeyl.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtndWZndmhidWthcnR4cXhiZXlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyNTQ2OTcsImV4cCI6MjEwODgzMDY5N30.Z1a5iT317h7mXiUJODrk4yZEFtDHKH6aKLjpjQMAP9Q';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -346,6 +346,14 @@ export async function compressImageFile(
     reader.onerror = (err) => reject(err);
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Mengembalikan tanggal hari ini dalam format YYYY-MM-DD sesuai zona waktu Indonesia (Asia/Jakarta / WIB).
+ * Mencegah bug UTC di mana sebelum pukul 07.00 WIB tanggal masih terbaca sebagai hari kemarin.
+ */
+export function getTodayDateString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
 }
 
 

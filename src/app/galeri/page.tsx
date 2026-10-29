@@ -172,11 +172,10 @@ export default function GaleriPage() {
             <button
               key={kat}
               onClick={() => setSelectedKategori(kat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                selectedKategori === kat
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${selectedKategori === kat
                   ? 'bg-[#922B21] text-white shadow-xs'
                   : 'bg-white text-[#555] border border-[#DDD8CE] hover:bg-[#FAF8F2]'
-              }`}
+                }`}
             >
               {kat}
             </button>

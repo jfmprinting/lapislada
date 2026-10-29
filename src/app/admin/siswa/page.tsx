@@ -472,7 +472,8 @@ export default function MasterSiswaPage() {
 
     try {
       if (!id.startsWith('sample-') && !id.startsWith('local-')) {
-        await supabase.from('siswa').delete().eq('id', id);
+        const { error } = await supabase.from('siswa').delete().eq('id', id);
+        if (error) throw error;
       }
       setSiswaList((prev) => prev.filter((s) => s.id !== id));
       showToast({ type: 'success', message: `Data ${nama} berhasil dihapus.` });

@@ -528,7 +528,11 @@ CREATE POLICY "Hapus buku penghubung" ON public.buku_penghubung FOR DELETE TO au
 DROP POLICY IF EXISTS "Lihat galeri publik" ON public.galeri_kegiatan;
 CREATE POLICY "Lihat galeri publik" ON public.galeri_kegiatan FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "Kelola galeri" ON public.galeri_kegiatan;
-CREATE POLICY "Kelola galeri" ON public.galeri_kegiatan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Kelola galeri" ON public.galeri_kegiatan FOR ALL TO authenticated USING (
+    public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
+) WITH CHECK (
+    public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
+);
 
 -- Pengumuman
 DROP POLICY IF EXISTS "Baca pengumuman" ON public.pengumuman;
@@ -555,15 +559,20 @@ CREATE POLICY "Kelola KAIH" ON public.kaih FOR ALL TO authenticated USING (true)
 DROP POLICY IF EXISTS "Baca KAIH Kegiatan" ON public.kaih_kegiatan;
 CREATE POLICY "Baca KAIH Kegiatan" ON public.kaih_kegiatan FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "Kelola KAIH Kegiatan" ON public.kaih_kegiatan;
-CREATE POLICY "Kelola KAIH Kegiatan" ON public.kaih_kegiatan FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Kelola KAIH Kegiatan" ON public.kaih_kegiatan FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Ubah Hapus KAIH Kegiatan" ON public.kaih_kegiatan FOR ALL TO authenticated USING (
+    created_by = auth.uid() OR public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
+) WITH CHECK (
+    created_by = auth.uid() OR public.get_current_role() IN ('admin', 'guru', 'kepala_sekolah')
+);
 
 DROP POLICY IF EXISTS "Baca KAIH Garden" ON public.kaih_garden;
 CREATE POLICY "Baca KAIH Garden" ON public.kaih_garden FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "Kelola KAIH Garden" ON public.kaih_garden;
-CREATE POLICY "Kelola KAIH Garden" ON public.kaih_garden FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Kelola KAIH Garden" ON public.kaih_garden FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Baca KAIH Forest" ON public.kaih_class_forest;
 CREATE POLICY "Baca KAIH Forest" ON public.kaih_class_forest FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "Kelola KAIH Forest" ON public.kaih_class_forest;
-CREATE POLICY "Kelola KAIH Forest" ON public.kaih_class_forest FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Kelola KAIH Forest" ON public.kaih_class_forest FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

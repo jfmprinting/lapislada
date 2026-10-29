@@ -26,7 +26,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
-import { supabase, BukuPenghubungItem } from '@/lib/supabase';
+import { supabase, BukuPenghubungItem, getTodayDateString } from '@/lib/supabase';
 import { useNotification } from '@/components/ui/NotificationContext';
 
 interface SiswaData {
@@ -67,7 +67,7 @@ function parseCatatan(rawCatatan: string, createdAt: string) {
     month: 'short',
     year: 'numeric',
   });
-  let isoDate = createdAt ? new Date(createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+  let isoDate = createdAt ? getTodayDateString(new Date(createdAt)) : getTodayDateString();
 
   if (rawCatatan.includes('*Masalah yang Disampaikan:*') && rawCatatan.includes('*Saran dan Kesimpulan:*')) {
     const parts = rawCatatan.split('*Saran dan Kesimpulan:*');
@@ -213,7 +213,7 @@ function BukuPenghubungContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [modalSiswa, setModalSiswa] = useState<SiswaData | null>(null);
-  const [formTanggal, setFormTanggal] = useState(new Date().toISOString().split('T')[0]);
+  const [formTanggal, setFormTanggal] = useState(getTodayDateString());
   const [formMasalah, setFormMasalah] = useState('');
   const [formSaran, setFormSaran] = useState('');
   const [formNoHpWali, setFormNoHpWali] = useState('');
@@ -485,7 +485,7 @@ function BukuPenghubungContent() {
     setIsEditing(false);
     setEditingEntryId(null);
     setModalSiswa(siswa);
-    setFormTanggal(new Date().toISOString().split('T')[0]);
+    setFormTanggal(getTodayDateString());
     setFormMasalah('');
     setFormSaran('');
     const defaultPhone = currentRole === 'orangtua'
