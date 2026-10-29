@@ -50,3 +50,4 @@ CREATE POLICY "Baca KAIH Forest" ON public.kaih_class_forest
 DROP POLICY IF EXISTS "Kelola KAIH Forest" ON public.kaih_class_forest;
 CREATE POLICY "Kelola KAIH Forest" ON public.kaih_class_forest 
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
