@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabase';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60 * 1000; // 60 seconds
+const SAVED_LOGIN_KEY = 'lapislada_saved_login';
 
 function LoginForm() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,12 +23,48 @@ function LoginForm() {
   const [lockoutTime, setLockoutTime] = useState<number | null>(null);
   const [remainingCooldown, setRemainingCooldown] = useState(0);
 
-  // A04: Purge any legacy plaintext credentials registry from localStorage
+  // Load saved login from localStorage & auto-redirect if session is still active
   useEffect(() => {
     try {
       localStorage.removeItem('lapislada_credentials_registry');
+      const savedRaw = localStorage.getItem(SAVED_LOGIN_KEY);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (parsed?.email) setEmail(parsed.email);
+        if (parsed?.password) setPassword(parsed.password);
+        setRememberMe(true);
+      }
     } catch {}
-  }, []);
+
+    // If user already has an active session in localStorage, redirect automatically
+    async function checkExistingSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        let userRole = session.user.user_metadata?.role;
+        const userJabatan = session.user.user_metadata?.jabatan;
+        const cleanUserEmail = (session.user.email || '').toLowerCase().trim();
+
+        const { data: prof } = await supabase
+          .from('users_profile')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (prof?.role) userRole = prof.role;
+
+        if (userRole === 'kepala_sekolah' || userJabatan === 'kepala_sekolah' || cleanUserEmail === 'kepsek@demo.com') {
+          router.replace('/dashboard/kepala-sekolah');
+        } else if (userRole === 'orangtua') {
+          router.replace('/dashboard/orangtua');
+        } else {
+          router.replace('/dashboard');
+        }
+      } catch {}
+    }
+    checkExistingSession();
+  }, [router]);
 
   // Cooldown timer ticker
   useEffect(() => {
@@ -111,6 +149,18 @@ function LoginForm() {
         // Reset counter on successful login
         setFailedAttempts(0);
         setLockoutTime(null);
+
+        // Save or clear login credentials in localStorage based on "Ingat Saya"
+        try {
+          if (rememberMe) {
+            localStorage.setItem(
+              SAVED_LOGIN_KEY,
+              JSON.stringify({ email: cleanEmail, password: cleanPassword })
+            );
+          } else {
+            localStorage.removeItem(SAVED_LOGIN_KEY);
+          }
+        } catch {}
 
         let userRole = data.user?.user_metadata?.role;
         let userJabatan = data.user?.user_metadata?.jabatan;
@@ -251,6 +301,8 @@ function LoginForm() {
               <Mail className="w-4 h-4 text-[#6B6B6B] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="email"
+                name="email"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -268,6 +320,8 @@ function LoginForm() {
               <Lock className="w-4 h-4 text-[#6B6B6B] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type={showPassword ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -287,6 +341,18 @@ function LoginForm() {
               </button>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none pt-0.5">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-[#DDD8CE] text-[#C0392B] focus:ring-[#C0392B] accent-[#C0392B] cursor-pointer"
+            />
+            <span className="text-xs text-[#3D3D3D] font-medium">
+              Simpan akun &amp; kata sandi di perangkat ini
+            </span>
+          </label>
 
           <button
             type="submit"

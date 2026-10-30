@@ -91,6 +91,7 @@ export default function ResetPasswordModal({
   // Mode: false = melihat detail akun (default), true = mode reset password baru
   const [isResetMode, setIsResetMode] = useState(false);
   const [existingPassword, setExistingPassword] = useState<string | null>(null);
+  const [accountExists, setAccountExists] = useState<boolean>(false);
   const [showExistingPassword, setShowExistingPassword] = useState(false);
   const [loadingExistingPassword, setLoadingExistingPassword] = useState(false);
 
@@ -108,12 +109,14 @@ export default function ResetPasswordModal({
       setIsResetMode(false);
       setShowExistingPassword(false);
       setShowPassword(false);
+      setAccountExists(false);
 
       const cleanTargetEmail = userEmail.toLowerCase().trim();
       const cacheKey = `lapislada_pwd_${cleanTargetEmail}`;
       const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
       if (cached) {
         setExistingPassword(cached);
+        setAccountExists(true);
       } else {
         setExistingPassword(null);
       }
@@ -137,10 +140,15 @@ export default function ResetPasswordModal({
           });
           if (res.ok) {
             const data = await res.json();
-            if (isMounted && data?.password) {
-              setExistingPassword(data.password);
-              if (typeof window !== 'undefined') {
-                localStorage.setItem(cacheKey, data.password);
+            if (isMounted) {
+              if (data?.exists) {
+                setAccountExists(true);
+              }
+              if (data?.password) {
+                setExistingPassword(data.password);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem(cacheKey, data.password);
+                }
               }
             }
           }
@@ -545,6 +553,28 @@ Harap simpan akun ini dengan baik untuk memantau Buku Penghubung, Presensi, dan 
                         {copiedExistingPass ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
                     </div>
+                  </div>
+                ) : accountExists ? (
+                  <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs leading-relaxed space-y-2.5">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-emerald-950">
+                          Akun Aktif (Password Lama Tetap Berlaku)
+                        </p>
+                        <p className="text-[11px] text-emerald-800 mt-0.5">
+                          Akun ini sudah aktif di server dengan kata sandi terenkripsi. Pengguna tetap dapat login menggunakan password lama mereka. Jika pengguna lupa password, klik tombol di bawah untuk membuat password baru.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleStartReset}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#922B21] hover:bg-[#771F18] text-white rounded-lg font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Buat & Simpan Password Baru</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="p-3.5 rounded-xl bg-[#FAF8F2] border border-[#DDD8CE] text-xs leading-relaxed space-y-2.5">

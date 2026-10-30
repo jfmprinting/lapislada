@@ -167,7 +167,7 @@ export async function onRequestGet(context: any) {
         email: targetAuthUser.email,
         nama: targetAuthUser.user_metadata?.nama || null,
         role: targetAuthUser.user_metadata?.role || null,
-        password: null,
+        password: targetAuthUser.user_metadata?.password_display || targetAuthUser.app_metadata?.password_display || null,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
@@ -230,7 +230,7 @@ export async function onRequestPost(context: any) {
           email: targetAuthUser.email,
           nama: targetAuthUser.user_metadata?.nama || null,
           role: targetAuthUser.user_metadata?.role || null,
-          password: null,
+          password: targetAuthUser.user_metadata?.password_display || targetAuthUser.app_metadata?.password_display || null,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
@@ -278,6 +278,7 @@ export async function onRequestPost(context: any) {
               ...existingUser.user_metadata,
               role: role || existingUser.user_metadata?.role || 'orangtua',
               nama: nama || existingUser.user_metadata?.nama,
+              password_display: cleanPassword,
             },
           }),
         }
@@ -302,6 +303,7 @@ export async function onRequestPost(context: any) {
             role: role || 'orangtua',
             nama: nama,
             siswa_id: targetUserId,
+            password_display: cleanPassword,
           },
         }),
       });
