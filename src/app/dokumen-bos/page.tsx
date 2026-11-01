@@ -155,9 +155,11 @@ export default function DokumenBOSPage() {
         setDocuments(documents.map((d) => (d.id === editingDoc.id ? { ...d, ...data } : d)));
         showToast({ type: 'success', message: 'Perubahan dokumen BOS berhasil disimpan ke cloud database!' });
       } else {
+        const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bos-${Date.now()}`;
         const { data, error } = await supabase
           .from('dokumen_bos')
           .insert({
+            id: generatedId,
             judul: formJudul.trim(),
             kategori: formKategori,
             tahun_anggaran: parseInt(formTahun) || 2026,

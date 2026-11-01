@@ -426,7 +426,8 @@ export default function MasterSiswaPage() {
         if (error) throw error;
         showToast({ type: 'success', message: 'Data siswa berhasil diperbarui!' });
       } else {
-        const { error } = await supabase.from('siswa').insert([payload]);
+        const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `siswa-${Date.now()}`;
+        const { error } = await supabase.from('siswa').insert([{ id: generatedId, ...payload }]);
         if (error) throw error;
         showToast({ type: 'success', message: 'Siswa baru berhasil ditambahkan!' });
       }

@@ -112,10 +112,12 @@ function PengumumanContent() {
 
     setSubmitting(true);
     try {
+      const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}`;
       const { data, error } = await supabase
         .from('pengumuman')
         .insert([
           {
+            id: generatedId,
             judul: formJudul.trim(),
             konten: formKonten.trim(),
             target_role: 'semua',

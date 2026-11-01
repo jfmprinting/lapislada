@@ -214,7 +214,8 @@ function MateriContent() {
       };
 
       if (modalMode === 'add') {
-        const { data, error } = await supabase.from('materi').insert(payload).select().single();
+        const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `materi-${Date.now()}`;
+        const { data, error } = await supabase.from('materi').insert({ id: generatedId, ...payload }).select().single();
         if (error) throw error;
         const newItem: MateriItem = {
           ...data,
