@@ -201,7 +201,7 @@ export async function onRequestPatch(context: any) {
     const updatePayload: Record<string, any> = {};
 
     if (catatan !== undefined) {
-      if (!isAuthor && callerRole !== 'admin') {
+      if (!isAuthor && !isStaff) {
         return new Response(
           JSON.stringify({ error: 'Akses ditolak: Anda hanya dapat mengubah isi pesan yang Anda tulis sendiri.' }),
           { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } }

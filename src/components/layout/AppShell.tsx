@@ -61,21 +61,46 @@ export default function AppShell({
     }
     async function loadUnreadCount() {
       try {
-        const { count, error } = await supabase
+        const { data: unreadRows, error } = await supabase
           .from('buku_penghubung')
-          .select('*', { count: 'exact', head: true })
+          .select('id, siswa:siswa_id(kelas_id)')
           .eq('is_read_by_guru', false);
-        if (!error && typeof count === 'number') {
-          setRealUnreadCount(count);
-        } else {
+
+        if (error || !unreadRows) {
           setRealUnreadCount(0);
+          return;
         }
+
+        // Jika Guru (bukan Admin/Kepsek), hitung hanya pesan untuk kelas yang diampu
+        const effectiveRole = dbProfile?.role || currentUser?.user_metadata?.role || role;
+        if (effectiveRole === 'guru' && currentUser?.id) {
+          const { data: myKelas } = await supabase
+            .from('kelas')
+            .select('id')
+            .eq('wali_kelas_id', currentUser.id);
+          if (myKelas && myKelas.length > 0) {
+            const myKelasIds = new Set(myKelas.map((k: any) => k.id));
+            const filtered = unreadRows.filter((r: any) => myKelasIds.has(r.siswa?.kelas_id));
+            setRealUnreadCount(filtered.length);
+            return;
+          }
+        }
+
+        setRealUnreadCount(unreadRows.length);
       } catch (e) {
         setRealUnreadCount(0);
       }
     }
     loadUnreadCount();
-  }, [unreadCount, pathname]);
+
+    const handleReadEvent = () => {
+      loadUnreadCount();
+    };
+    window.addEventListener('buku-penghubung-read', handleReadEvent);
+    return () => {
+      window.removeEventListener('buku-penghubung-read', handleReadEvent);
+    };
+  }, [unreadCount, pathname, currentUser, dbProfile, role]);
 
   useEffect(() => {
     async function loadUserProfile(u: any) {

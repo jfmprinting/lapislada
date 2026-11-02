@@ -188,6 +188,7 @@ function BukuPenghubungContent() {
   const [currentUserName, setCurrentUserName] = useState<string>('Guru / Wali Kelas');
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [roleInitialized, setRoleInitialized] = useState<boolean>(false);
 
   // Kelas & Siswa
   const [kelasList, setKelasList] = useState<KelasOption[]>([]);
@@ -235,9 +236,6 @@ function BukuPenghubungContent() {
         const user = sessionData?.session?.user ?? null;
 
         if (user) {
-          setCurrentUserId(user.id);
-          setCurrentUserEmail(user.email || '');
-
           const { data: profile } = await supabase
             .from('users_profile')
             .select('*')
@@ -257,6 +255,8 @@ function BukuPenghubungContent() {
             (user?.user_metadata?.role as any) ||
             'guru';
 
+          setCurrentUserId(user.id);
+          setCurrentUserEmail(user.email || '');
           setCurrentRole(detectedRole);
           setCurrentUserName(
             profile?.nama ||
@@ -266,6 +266,8 @@ function BukuPenghubungContent() {
         }
       } catch (err) {
         console.warn('Error initUser:', err);
+      } finally {
+        setRoleInitialized(true);
       }
     }
 
@@ -274,6 +276,8 @@ function BukuPenghubungContent() {
 
   // 2. Fetch Master Kelas & filter berdasarkan Wali Kelas
   useEffect(() => {
+    if (!roleInitialized) return;
+
     async function fetchKelas() {
       setLoadingKelas(true);
       try {
@@ -300,11 +304,9 @@ function BukuPenghubungContent() {
               setSelectedKelasId(allKelas[0].id);
             }
           } else {
-            // Admin atau Kepala Sekolah bisa melihat semua kelas
+            // Admin atau Kepala Sekolah bisa melihat semua kelas sekaligus secara default
             setKelasList(allKelas as unknown as KelasOption[]);
-            if (!selectedKelasId) {
-              setSelectedKelasId(allKelas[0].id);
-            }
+            setSelectedKelasId((prev) => prev || 'semua');
           }
         }
       } catch (err) {
@@ -317,7 +319,7 @@ function BukuPenghubungContent() {
     if (currentUserId || currentRole === 'admin' || currentRole === 'kepala_sekolah') {
       fetchKelas();
     }
-  }, [currentRole, currentUserId, currentUserEmail]);
+  }, [roleInitialized, currentRole, currentUserId, currentUserEmail]);
 
   // 3. Fetch Siswa untuk Kelas Terpilih
   useEffect(() => {
@@ -363,12 +365,17 @@ function BukuPenghubungContent() {
             setParentChildId(sData[0].id);
           }
         } else {
-          // Guru / Admin / Kepsek: AMBIL SISWA KHUSUS KELAS TERPILIH
-          const { data, error } = await supabase
+          // Guru / Admin / Kepsek: Ambil siswa kelas terpilih atau semua kelas jika 'semua'
+          let query = supabase
             .from('siswa')
             .select('id, nis, nisn, nama_lengkap, jenis_kelamin, nama_wali, no_hp_wali, kelas_id, kelas:kelas_id(id, nama_kelas)')
-            .eq('kelas_id', selectedKelasId)
             .order('nama_lengkap', { ascending: true });
+
+          if (selectedKelasId !== 'semua') {
+            query = query.eq('kelas_id', selectedKelasId);
+          }
+
+          const { data, error } = await query;
 
           if (!error && data) {
             setSiswaList(data as any);
@@ -446,8 +453,8 @@ function BukuPenghubungContent() {
 
     let result = entries;
 
-    // Filter berdasarkan kelas aktif
-    if (selectedKelasId) {
+    // Filter berdasarkan kelas aktif (kecuali jika memilih 'semua')
+    if (selectedKelasId && selectedKelasId !== 'semua') {
       result = result.filter((e) => {
         const siswaKelasId = (e.siswa as any)?.kelas?.id;
         return siswaKelasId === selectedKelasId || siswaList.some((s) => s.id === e.siswa_id);
@@ -541,6 +548,45 @@ function BukuPenghubungContent() {
     setActiveTab('rekap-resmi');
   };
 
+  // Tandai pesan orang tua sebagai sudah dibaca oleh Guru / Admin
+  const handleMarkAsRead = async (item: BukuPenghubungItem) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/buku-penghubung', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          id: item.id,
+          is_read_by_guru: true,
+        }),
+      });
+
+      if (!res.ok) {
+        await supabase
+          .from('buku_penghubung')
+          .update({ is_read_by_guru: true })
+          .eq('id', item.id);
+      }
+
+      setEntries((prev) =>
+        prev.map((e) => (e.id === item.id ? { ...e, is_read_by_guru: true } : e))
+      );
+
+      window.dispatchEvent(new Event('buku-penghubung-read'));
+
+      showToast({
+        type: 'success',
+        title: 'Pesan Dikonfirmasi',
+        message: 'Pesan orang tua telah ditandai sudah dibaca.',
+      });
+    } catch (err) {
+      console.error('Gagal menandai pesan sudah dibaca:', err);
+    }
+  };
+
   // Simpan Catatan (Baru atau Edit)
   const handleSaveCatatan = async (e: React.FormEvent, directWhatsApp = false) => {
     e.preventDefault();
@@ -582,6 +628,7 @@ function BukuPenghubungContent() {
           body: JSON.stringify({
             id: editingEntryId,
             catatan: structuredCatatan,
+            ...(currentRole !== 'orangtua' ? { is_read_by_guru: true } : {}),
           }),
         });
 
@@ -593,10 +640,18 @@ function BukuPenghubungContent() {
         setEntries((prev) =>
           prev.map((item) =>
             item.id === editingEntryId
-              ? { ...item, catatan: structuredCatatan }
+              ? {
+                  ...item,
+                  catatan: structuredCatatan,
+                  ...(currentRole !== 'orangtua' ? { is_read_by_guru: true } : {}),
+                }
               : item
           )
         );
+
+        if (currentRole !== 'orangtua') {
+          window.dispatchEvent(new Event('buku-penghubung-read'));
+        }
 
         showToast({
           type: 'success',
@@ -871,19 +926,23 @@ function BukuPenghubungContent() {
                 <h2 className="font-serif font-bold text-lg text-[#1A1A1A]">
                   {isOrangTua
                     ? 'Buku Penghubung Orang Tua'
+                    : selectedKelasId === 'semua'
+                    ? 'Buku Penghubung Semua Kelas'
                     : currentKelasObj
                     ? `Buku Penghubung ${currentKelasObj.nama_kelas}`
                     : 'Buku Penghubung Guru & Orang Tua'}
                 </h2>
-                {!isOrangTua && currentKelasObj && (
+                {!isOrangTua && (
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]">
-                    {currentKelasObj.tahun_ajaran || 'Tahun Ajaran 2025/2026'}
+                    {currentKelasObj?.tahun_ajaran || '2026/2027'}
                   </span>
                 )}
               </div>
               <p className="text-xs text-[#6B6B6B] mt-0.5">
                 {isOrangTua
                   ? 'Memantau perkembangan perilaku, belajar, dan komunikasi resmi wali kelas'
+                  : selectedKelasId === 'semua'
+                  ? `Rekap Seluruh Kelas • ${siswaList.length} Siswa Terdaftar • ${entries.length} Catatan`
                   : `Wali Kelas: ${currentKelasObj?.wali_kelas?.nama || currentUserName} • ${siswaList.length} Siswa Terdaftar`}
               </p>
             </div>
@@ -903,11 +962,15 @@ function BukuPenghubungContent() {
                   }}
                   className="bg-transparent text-xs font-bold text-[#922B21] focus:outline-none cursor-pointer"
                 >
-                  {kelasList.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.nama_kelas}
-                    </option>
-                  ))}
+                  <option value="semua">Semua Kelas ({entries.length} Catatan)</option>
+                  {kelasList.map((k) => {
+                    const count = entries.filter((e) => (e.siswa as any)?.kelas?.id === k.id).length;
+                    return (
+                      <option key={k.id} value={k.id}>
+                        {k.nama_kelas} ({count} Catatan)
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}
@@ -1017,6 +1080,11 @@ function BukuPenghubungContent() {
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
               <span>Feed Percakapan</span>
+              {filteredEntries.filter((e) => !e.is_read_by_guru).length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#FDEDEC] text-[#C0392B] border border-[#F1948A]">
+                  {filteredEntries.filter((e) => !e.is_read_by_guru).length} Baru
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -1074,7 +1142,9 @@ function BukuPenghubungContent() {
                       className="w-full sm:max-w-xs md:max-w-md px-3 py-2 sm:py-1.5 rounded-xl border border-[#DDD8CE] bg-white text-xs font-bold text-[#922B21] focus:ring-1 focus:ring-[#922B21] cursor-pointer truncate max-w-full"
                     >
                       <option value="semua">
-                        Semua Siswa di Kelas ({entries.filter((e) => siswaList.some((s) => s.id === e.siswa_id)).length} Total Catatan)
+                        {selectedKelasId === 'semua'
+                          ? `Semua Siswa (${entries.length} Total Catatan)`
+                          : `Semua Siswa di Kelas (${entries.filter((e) => siswaList.some((s) => s.id === e.siswa_id)).length} Total Catatan)`}
                       </option>
                       {siswaList.map((s) => {
                         const count = entries.filter((e) => e.siswa_id === s.id).length;
@@ -1217,7 +1287,12 @@ function BukuPenghubungContent() {
                       const noHp = s?.no_hp_wali || '';
 
                       return (
-                        <tr key={item.id} className="border-b border-black/20 hover:bg-[#FAF8F2]/60 print:hover:bg-transparent">
+                        <tr
+                          key={item.id}
+                          className={`border-b border-black/20 hover:bg-[#FAF8F2]/60 print:hover:bg-transparent ${
+                            !item.is_read_by_guru ? 'bg-[#FFF5F5]' : ''
+                          }`}
+                        >
                           <td className="p-2 border border-black/30 print:border-black text-center font-semibold">
                             {idx + 1}
                           </td>
@@ -1227,11 +1302,16 @@ function BukuPenghubungContent() {
                           <td className="p-2 border border-black/30 print:border-black font-semibold text-[#1A1A1A]">
                             <button
                               onClick={() => handleFilterToSiswa(item.siswa_id)}
-                              className="text-left hover:text-[#922B21] hover:underline cursor-pointer"
+                              className="text-left hover:text-[#922B21] hover:underline cursor-pointer block"
                               title="Klik untuk memfilter catatan ananda ini"
                             >
                               {namaMurid}
                             </button>
+                            {selectedKelasId === 'semua' && (
+                              <span className="inline-block mt-0.5 text-[10px] font-bold text-[#922B21] bg-[#FAF8F2] border border-[#DDD8CE] px-1.5 py-0.2 rounded print:border-none print:px-0">
+                                {namaKelas}
+                              </span>
+                            )}
                           </td>
                           <td className="p-2 border border-black/30 print:border-black text-center font-bold">
                             {jk === 'L' ? '✓' : ''}
@@ -1250,9 +1330,29 @@ function BukuPenghubungContent() {
                           </td>
                           <td className="p-2 border border-black/30 print:border-black text-center">
                             {item.author_role === 'orangtua' ? (
-                              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F8F5] text-[#117864] border border-[#A3E4D7]">
-                                Respon Ortu
-                              </span>
+                              <div className="flex flex-col items-center gap-1">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    !item.is_read_by_guru
+                                      ? 'bg-[#FDEDEC] text-[#C0392B] border-[#F1948A]'
+                                      : 'bg-[#E8F8F5] text-[#117864] border-[#A3E4D7]'
+                                  }`}
+                                >
+                                  {!item.is_read_by_guru ? 'Pesan Baru Ortu' : 'Pesan Ortu'}
+                                </span>
+                                {!item.is_read_by_guru && !isOrangTua ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkAsRead(item)}
+                                    className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition cursor-pointer print:hidden"
+                                    title="Tandai pesan ini sudah dibaca oleh guru"
+                                  >
+                                    ✓ Tandai Dibaca
+                                  </button>
+                                ) : item.is_read_by_guru ? (
+                                  <span className="text-[9px] font-semibold text-[#27AE60]">✓ Sudah Dibaca</span>
+                                ) : null}
+                              </div>
                             ) : item.is_read_by_guru ? (
                               <div className="flex flex-col items-center">
                                 <span className="text-[10px] font-semibold text-[#27AE60]">Terkonfirmasi</span>
@@ -1536,7 +1636,7 @@ function BukuPenghubungContent() {
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 pb-3 border-b border-black/5">
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2.5 flex-wrap">
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
                             isOrtu ? 'bg-[#922B21] text-white' : 'bg-[#F5F0E8] text-[#922B21] border border-[#DDD8CE]'
@@ -1545,6 +1645,11 @@ function BukuPenghubungContent() {
                           {isOrtu ? 'Dari Orang Tua' : 'Catatan Guru'}
                         </span>
                         <span className="font-bold text-xs text-[#1A1A1A]">{namaPenulis}</span>
+                        {!item.is_read_by_guru && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#C0392B] text-white">
+                            Pesan Baru
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-[#6B6B6B]">
@@ -1555,6 +1660,11 @@ function BukuPenghubungContent() {
 
                     <p className="text-xs text-[#6B6B6B] mb-2 font-medium">
                       Ananda: <strong className="text-[#1A1A1A]">{namaMurid}</strong>
+                      {s?.kelas?.nama_kelas && (
+                        <span className="ml-1.5 text-[10px] font-bold text-[#922B21] bg-white px-2 py-0.5 rounded border border-[#DDD8CE]">
+                          {s.kelas.nama_kelas}
+                        </span>
+                      )}
                     </p>
 
                     <div className="space-y-2 text-xs leading-relaxed text-[#1A1A1A]">
@@ -1570,13 +1680,21 @@ function BukuPenghubungContent() {
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-end gap-2 text-xs">
+                    <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-end gap-3 text-xs">
+                      {!item.is_read_by_guru && !isOrangTua && (
+                        <button
+                          onClick={() => handleMarkAsRead(item)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer transition"
+                        >
+                          <span>✓ Tandai Sudah Dibaca</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => openEditModal(item)}
                         className="inline-flex items-center gap-1 text-amber-700 hover:underline font-bold cursor-pointer"
                       >
                         <Edit className="w-3.5 h-3.5" />
-                        <span>Edit</span>
+                        <span>{isOrtu ? 'Beri Tanggapan / Edit' : 'Edit'}</span>
                       </button>
                       <button
                         onClick={() => setEntryToDelete(item)}

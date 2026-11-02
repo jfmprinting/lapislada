@@ -42,6 +42,22 @@ import {
   TreePine,
 } from 'lucide-react';
 
+function formatTanggalKaih(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (!y || !m || !d) return dateStr;
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 function KaihContent() {
   const searchParams = useSearchParams();
   const { showToast, confirm } = useNotification();
@@ -389,6 +405,57 @@ function KaihContent() {
     }
     loadData();
   }, [studentClass]);
+
+  // Saat pengguna memilih tanggal tertentu (filterDate), ambil juga data tanggal tersebut dari Supabase
+  // agar riwayat pada tanggal lama yang di luar 20/30 item awal tetap tampil lengkap.
+  useEffect(() => {
+    if (!filterDate) return;
+    let isCancelled = false;
+
+    async function loadByDate() {
+      try {
+        const { data, error } = await supabase
+          .from('kaih_kegiatan')
+          .select('*')
+          .eq('tanggal', filterDate)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (!isCancelled && !error && data && data.length > 0) {
+          setKegiatanList((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newItems = data
+              .filter((d) => !existingIds.has(d.id))
+              .map((item) => {
+                let sName = item.siswa?.nama_lengkap;
+                if ((!sName || sName === 'Ahmad Budi Santoso') && item.siswa_id && siswaMap[item.siswa_id]) {
+                  sName = siswaMap[item.siswa_id].nama_lengkap;
+                }
+                if ((!sName || sName === 'Ahmad Budi Santoso') && item.creator_nama) {
+                  const match = item.creator_nama.match(/\(Ananda:\s*([^)]+)\)/i);
+                  if (match) sName = match[1].trim();
+                }
+                return {
+                  ...item,
+                  siswa: {
+                    nama_lengkap: sName || 'Ananda',
+                    kelas: { nama_kelas: (item.siswa_id && siswaMap[item.siswa_id]?.nama_kelas) || studentClass },
+                  },
+                };
+              });
+            return newItems.length > 0 ? [...prev, ...newItems] : prev;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    loadByDate();
+    return () => {
+      isCancelled = true;
+    };
+  }, [filterDate, siswaMap, studentClass]);
 
   const saveKegiatanList = (items: KaihKegiatan[]) => {
     setKegiatanList(items);
@@ -871,15 +938,20 @@ function KaihContent() {
                           />
                           <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 font-medium">
                             <Clock className="w-3 h-3" />
-                            <span>{item.jam}</span>
+                            <span>{formatTanggalKaih(item.tanggal)} • {item.jam}</span>
                           </div>
                         </div>
                       )}
                       <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
                         <div>
-                          <span className="inline-block text-[10px] font-bold text-[#2980B9] bg-white border border-[#2980B9]/30 px-2 py-0.5 rounded mb-1">
-                            {item.kategori_nama}
-                          </span>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="inline-block text-[10px] font-bold text-[#2980B9] bg-white border border-[#2980B9]/30 px-2 py-0.5 rounded">
+                              {item.kategori_nama}
+                            </span>
+                            <span className="text-[10px] font-semibold text-[#6B6B6B]">
+                              {formatTanggalKaih(item.tanggal)}
+                            </span>
+                          </div>
                           <h4 className="font-serif font-bold text-sm text-[#1A1A1A]">
                             {item.judul}
                           </h4>
@@ -1188,7 +1260,7 @@ function KaihContent() {
                     <School className="w-10 h-10 text-[#922B21] mx-auto opacity-60" />
                     <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
                       {filterDate
-                        ? `Belum Ada Kegiatan Sekolah di Tanggal Ini (${filterDate})`
+                        ? `Belum Ada Kegiatan Sekolah di Tanggal ${formatTanggalKaih(filterDate)}`
                         : 'Belum Ada Catatan Kegiatan Sekolah'}
                     </h3>
                     <p className="text-xs text-[#6B6B6B] max-w-md mx-auto">
@@ -1202,6 +1274,15 @@ function KaihContent() {
                           className="px-4 py-2.5 rounded-xl bg-[#FAF8F2] hover:bg-[#F0ECE1] border border-[#DDD8CE] text-[#1A1A1A] font-bold text-xs transition cursor-pointer"
                         >
                           Lihat Semua Riwayat Foto
+                        </button>
+                      )}
+                      {filterDate && filteredRumah.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('rumah')}
+                          className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-xs transition cursor-pointer"
+                        >
+                          Lihat {filteredRumah.length} Pantauan Rumah di Tanggal Ini
                         </button>
                       )}
                       <button
@@ -1232,7 +1313,7 @@ function KaihContent() {
                               />
                               <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 font-medium">
                                 <Clock className="w-3 h-3" />
-                                <span>{item.jam}</span>
+                                <span>{formatTanggalKaih(item.tanggal)} • {item.jam}</span>
                               </div>
                             </div>
                           ) : (
@@ -1243,9 +1324,14 @@ function KaihContent() {
                           )}
 
                           <div className="p-4 space-y-2">
-                            <span className="inline-block text-[10px] font-bold text-[#2980B9] bg-[#EBF5FB] px-2 py-0.5 rounded">
-                              {item.kategori_nama}
-                            </span>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-block text-[10px] font-bold text-[#2980B9] bg-[#EBF5FB] px-2 py-0.5 rounded">
+                                {item.kategori_nama}
+                              </span>
+                              <span className="text-[10px] font-semibold text-[#6B6B6B]">
+                                {formatTanggalKaih(item.tanggal)}
+                              </span>
+                            </div>
                             <h4 className="font-serif font-bold text-sm text-[#1A1A1A] leading-snug">
                               {item.judul}
                             </h4>
@@ -1328,7 +1414,7 @@ function KaihContent() {
                               />
                               <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 font-medium">
                                 <Clock className="w-3 h-3" />
-                                <span>{item.jam}</span>
+                                <span>{formatTanggalKaih(item.tanggal)} • {item.jam}</span>
                               </div>
                             </div>
                           )}
@@ -1338,8 +1424,8 @@ function KaihContent() {
                               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
                                 {item.kategori_nama}
                               </span>
-                              <span className="text-[10px] text-[#6B6B6B]">
-                                {item.tanggal}
+                              <span className="text-[10px] font-semibold text-[#6B6B6B]">
+                                {formatTanggalKaih(item.tanggal)}
                               </span>
                             </div>
 
