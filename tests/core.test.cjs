@@ -73,3 +73,36 @@ test('normalizeClassName handles diverse formats correctly', () => {
   assert.equal(normalizeClassName('Kelas IV'), 'iv');
   assert.equal(normalizeClassName('  kelas  1  '), '1');
 });
+
+// 5. Test KAIH Foreign Key & Payload Sanitization
+function sanitizeKaihPayload(raw) {
+  return {
+    ...raw,
+    kelas_id: raw.kelas_id && raw.kelas_id !== 'c1-4a' ? raw.kelas_id : null,
+    siswa_id: raw.siswa_id && raw.siswa_id !== 's-1' ? raw.siswa_id : null,
+  };
+}
+
+test('sanitizeKaihPayload eliminates prototype dummy foreign keys (c1-4a and s-1)', () => {
+  const dummyPayload = {
+    id: 'kaih-12345',
+    kelas_id: 'c1-4a',
+    siswa_id: 's-1',
+    judul: 'Sholat Dhuha',
+  };
+  const sanitized = sanitizeKaihPayload(dummyPayload);
+  assert.equal(sanitized.kelas_id, null, 'Dummy c1-4a must be sanitized to null');
+  assert.equal(sanitized.siswa_id, null, 'Dummy s-1 must be sanitized to null');
+});
+
+test('sanitizeKaihPayload preserves valid UUID foreign keys', () => {
+  const validPayload = {
+    id: 'kaih-12345',
+    kelas_id: 'f8ca2451-a6e3-4665-8f4b-629c7c735d05',
+    siswa_id: '2fa978ec-2541-4c8d-b491-c4896a6a6ffa',
+    judul: 'Bangun Pagi',
+  };
+  const sanitized = sanitizeKaihPayload(validPayload);
+  assert.equal(sanitized.kelas_id, 'f8ca2451-a6e3-4665-8f4b-629c7c735d05');
+  assert.equal(sanitized.siswa_id, '2fa978ec-2541-4c8d-b491-c4896a6a6ffa');
+});

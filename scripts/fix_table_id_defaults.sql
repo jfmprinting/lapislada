@@ -38,3 +38,4 @@ ALTER TABLE public.kaih_kegiatan
 -- 3. Untuk tabel users_profile (tipe id UUID)
 ALTER TABLE public.users_profile 
   ALTER COLUMN id SET DEFAULT gen_random_uuid();
+

@@ -50,8 +50,9 @@ function KaihContent() {
   const [role, setRole] = useState<'guru' | 'admin' | 'orangtua'>('guru');
   const [currentUserName, setCurrentUserName] = useState('Bu Sari, S.Pd');
   const [studentName, setStudentName] = useState('Ananda');
-  const [studentClass, setStudentClass] = useState('Kelas 4A');
-  const [siswaId, setSiswaId] = useState<string>('s-1');
+  const [studentClass, setStudentClass] = useState('Kelas IV');
+  const [siswaId, setSiswaId] = useState<string | null>(null);
+  const [kelasId, setKelasId] = useState<string | null>(null);
 
   // Active Tab for Guru: 'sekolah' | 'rumah' | 'panduan' | 'taman'
   const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan' | 'taman'>('sekolah');
@@ -80,6 +81,7 @@ function KaihContent() {
     foto_url: '',
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [compressing, setCompressing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -178,10 +180,13 @@ function KaihContent() {
           if (matchedSiswa) {
             setSiswaId(matchedSiswa.id);
             setStudentName(matchedSiswa.nama_lengkap);
+            if (matchedSiswa.kelas_id) {
+              setKelasId(matchedSiswa.kelas_id);
+            }
             const parentDisplayName = matchedSiswa.nama_wali || prof?.nama || meta?.nama || 'Wali Murid';
             const cleanParent = parentDisplayName.replace(/\s*\(Wali Murid\)/i, '').trim();
             setCurrentUserName(`Wali Murid ${cleanParent}`);
-            const kName = (matchedSiswa.kelas as any)?.nama_kelas || 'Kelas 4A';
+            const kName = (matchedSiswa.kelas as any)?.nama_kelas || 'Kelas IV';
             setStudentClass(kName);
 
             // Auto-link wali_murid_id if missing
@@ -204,6 +209,7 @@ function KaihContent() {
             .or(`wali_kelas_id.eq.${session.user.id},wali_kelas_id.eq.${prof?.id}`);
           if (kData && kData.length > 0) {
             setStudentClass(kData[0].nama_kelas);
+            setKelasId(kData[0].id);
           }
         }
       }
@@ -265,6 +271,17 @@ function KaihContent() {
           }
         }
 
+        // Ambil data kelas untuk pemetaan ID kelas yang valid
+        const { data: kelasRows } = await supabase.from('kelas').select('id, nama_kelas');
+        if (kelasRows && kelasRows.length > 0) {
+          if (!kelasId) {
+            const matchedK = kelasRows.find(
+              (k) => k.nama_kelas.toLowerCase().replace(/\s+/g, '') === studentClass.toLowerCase().replace(/\s+/g, '')
+            ) || kelasRows[0];
+            if (matchedK) setKelasId(matchedK.id);
+          }
+        }
+
         // Ambil seluruh data siswa untuk dropdown filter guru & mapping nama ananda asli
         const { data: siswaData } = await supabase
           .from('siswa')
@@ -285,12 +302,12 @@ function KaihContent() {
           setSiswaMap(sMap);
         }
 
-        // Try Supabase fetch (batasi 40 kegiatan terbaru untuk efisiensi bandwidth kuota)
+        // Try Supabase fetch (ambil hingga 120 kegiatan terbaru untuk efisiensi kuota & kelengkapan)
         const { data, error } = await supabase
           .from('kaih_kegiatan')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(40);
+          .limit(120);
 
         if (data && data.length > 0 && !error) {
           const enriched = data.map((item) => {
@@ -362,8 +379,8 @@ function KaihContent() {
       const records = kegiatanList.map((k) => ({
         id: k.id,
         tipe: k.tipe,
-        kelas_id: k.kelas_id,
-        siswa_id: k.siswa_id,
+        kelas_id: k.kelas_id && k.kelas_id !== 'c1-4a' ? k.kelas_id : (kelasId || null),
+        siswa_id: k.siswa_id && k.siswa_id !== 's-1' ? k.siswa_id : null,
         kategori_id: k.kategori_id,
         kategori_nama: k.kategori_nama,
         judul: k.judul,
@@ -379,7 +396,7 @@ function KaihContent() {
       if (error) {
         showToast({
           type: 'error',
-          message: `Gagal sinkronkan: ${error.message}. Pastikan skrip supabase-full-cloud-migration.sql sudah dijalankan di Supabase.`,
+          message: `Gagal sinkronkan: ${error.message}.`,
         });
       } else {
         showToast({
@@ -399,6 +416,7 @@ function KaihContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setSelectedImageFile(file);
     setCompressing(true);
     try {
       // Compress to max 900px, quality 0.75 -> compact size (~70KB)
@@ -408,7 +426,7 @@ function KaihContent() {
       showToast({
         type: 'success',
         title: 'Foto Terkompresi',
-        message: 'Foto berhasil diproses secara otomatis dengan ukuran ringan.',
+        message: 'Foto siap diunggah ke cloud penyimpanan LAPIS LADA.',
       });
     } catch (err) {
       console.error('Gagal memproses gambar:', err);
@@ -424,6 +442,7 @@ function KaihContent() {
 
   const handleClearImage = () => {
     setImagePreview(null);
+    setSelectedImageFile(null);
     setFormData((prev) => ({ ...prev, foto_url: '' }));
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -445,6 +464,7 @@ function KaihContent() {
       foto_url: '',
     });
     setImagePreview(null);
+    setSelectedImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -459,19 +479,53 @@ function KaihContent() {
     const selectedPilar = PILAR_KAIH.find((p) => p.id === Number(formData.kategori_id)) || PILAR_KAIH[0];
 
     setSubmitting(true);
+
+    // 1. Upload ke Supabase Storage (kaih-photos) jika ada file terpilih, fallback ke base64 jika gagal/belum diizinkan
+    let finalFotoUrl = formData.foto_url || null;
+    if (selectedImageFile) {
+      try {
+        const fileExt = selectedImageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(fileExt) ? fileExt : 'jpg';
+        const filePath = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${safeExt}`;
+
+        const { data: uploadRes, error: uploadErr } = await supabase.storage
+          .from('kaih-photos')
+          .upload(filePath, selectedImageFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (!uploadErr && uploadRes?.path) {
+          const { data: publicData } = supabase.storage
+            .from('kaih-photos')
+            .getPublicUrl(uploadRes.path);
+          if (publicData?.publicUrl) {
+            finalFotoUrl = publicData.publicUrl;
+          }
+        } else if (uploadErr) {
+          console.warn('Storage upload fallback ke compressed Data URL:', uploadErr.message);
+        }
+      } catch (storageErr) {
+        console.warn('Storage upload exception, fallback ke compressed Data URL:', storageErr);
+      }
+    }
+
     const newId = `kaih-${Date.now()}`;
+    const targetKelasId = kelasId || null;
+    const targetSiswaId = modalType === 'rumah' ? (siswaId || null) : null;
+
     const newRecord: KaihKegiatan = {
       id: newId,
       tipe: modalType,
-      kelas_id: 'c1-4a',
-      siswa_id: modalType === 'rumah' ? (siswaId || 's-1') : null,
+      kelas_id: targetKelasId,
+      siswa_id: targetSiswaId,
       kategori_id: selectedPilar.id,
       kategori_nama: selectedPilar.judul,
       judul: formData.judul.trim(),
       deskripsi: formData.deskripsi.trim() || null,
       jam: formData.jam || '07:30 WIB',
       tanggal: filterDate || todayStr,
-      foto_url: formData.foto_url || null,
+      foto_url: finalFotoUrl,
       creator_nama: modalType === 'sekolah' ? currentUserName : `${currentUserName} (Ananda: ${studentName})`,
       apresiasi_guru: false,
       created_at: new Date().toISOString(),
@@ -504,15 +558,32 @@ function KaihContent() {
           catatan_guru: newRecord.catatan_guru || null,
         },
       ]);
-      if (dbErr) console.warn('Supabase upsert warning:', dbErr.message);
-    } catch (dbErr) {
-      console.info('Database insert fallback to local state');
+      if (dbErr) {
+        console.error('Supabase upsert error:', dbErr);
+        showToast({
+          type: 'error',
+          title: 'Gagal Menyimpan ke Cloud',
+          message: `Kendala penyimpanan: ${dbErr.message}`,
+        });
+        setSubmitting(false);
+        return;
+      }
+    } catch (dbErr: any) {
+      console.error('Database insert exception:', dbErr);
+      showToast({
+        type: 'error',
+        title: 'Gagal Menyimpan ke Cloud',
+        message: dbErr?.message || 'Terjadi kesalahan koneksi.',
+      });
+      setSubmitting(false);
+      return;
     }
 
     const updated = [newRecord, ...kegiatanList];
     saveKegiatanList(updated);
     setSubmitting(false);
     setIsModalOpen(false);
+    setSelectedImageFile(null);
 
     showToast({
       type: 'success',
@@ -702,8 +773,8 @@ function KaihContent() {
             {/* ================================================================ */}
             <KaihGarden
               role="orangtua"
-              siswaId={siswaId}
-              kelasId="c1-4a"
+              siswaId={siswaId || undefined}
+              kelasId={kelasId || undefined}
               kegiatanList={kegiatanList}
               studentName={studentName}
             />
@@ -1220,8 +1291,8 @@ function KaihContent() {
             {activeTab === 'taman' && (
               <KaihGarden
                 role={role === 'admin' ? 'admin' : 'guru'}
-                siswaId="s-1"
-                kelasId="c1-4a"
+                siswaId={siswaId || undefined}
+                kelasId={kelasId || undefined}
                 kegiatanList={kegiatanList}
                 studentName={currentUserName}
               />
@@ -1279,7 +1350,7 @@ function KaihContent() {
                     </h3>
                     <p className="text-[11px] text-[#6B6B6B]">
                       {modalType === 'sekolah'
-                        ? 'Akan tampil di beranda seluruh wali murid Kelas 4A'
+                        ? `Akan tampil di beranda seluruh wali murid ${studentClass}`
                         : 'Akan terkirim ke wali kelas untuk pemantauan karakter'}
                     </p>
                   </div>

@@ -90,3 +90,4 @@ Setelah proyek dipindahkan dari project Supabase lama (`fqgqetatxahzbwchbsh`) ke
 ## 4. Riwayat Git Commit
 - `c897b25`: `feat(auth): show active account status, restore admin password display, and add remember-me auto-login`
 - Branch: `main` (sudah tersinkronisasi penuh dengan `origin/main`).
+
