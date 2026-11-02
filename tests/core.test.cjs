@@ -76,10 +76,12 @@ test('normalizeClassName handles diverse formats correctly', () => {
 
 // 5. Test KAIH Foreign Key & Payload Sanitization
 function sanitizeKaihPayload(raw) {
+  const isBase64 = raw.foto_url && raw.foto_url.startsWith('data:image');
   return {
     ...raw,
     kelas_id: raw.kelas_id && raw.kelas_id !== 'c1-4a' ? raw.kelas_id : null,
     siswa_id: raw.siswa_id && raw.siswa_id !== 's-1' ? raw.siswa_id : null,
+    foto_url: isBase64 ? null : raw.foto_url,
   };
 }
 
@@ -89,10 +91,23 @@ test('sanitizeKaihPayload eliminates prototype dummy foreign keys (c1-4a and s-1
     kelas_id: 'c1-4a',
     siswa_id: 's-1',
     judul: 'Sholat Dhuha',
+    foto_url: 'https://kgufgvhbukartxqxbeyl.supabase.co/storage/v1/object/public/kaih-photos/foto.jpg',
   };
   const sanitized = sanitizeKaihPayload(dummyPayload);
   assert.equal(sanitized.kelas_id, null, 'Dummy c1-4a must be sanitized to null');
   assert.equal(sanitized.siswa_id, null, 'Dummy s-1 must be sanitized to null');
+  assert.equal(sanitized.foto_url, 'https://kgufgvhbukartxqxbeyl.supabase.co/storage/v1/object/public/kaih-photos/foto.jpg');
+});
+
+test('sanitizeKaihPayload blocks Base64 from database payload', () => {
+  const base64Payload = {
+    id: 'kaih-99999',
+    kelas_id: 'f8ca2451-a6e3-4665-8f4b-629c7c735d05',
+    judul: 'Bangun Pagi',
+    foto_url: 'data:image/webp;base64,UklGRvLpAABXRUJQVlA4WAoAAAA...',
+  };
+  const sanitized = sanitizeKaihPayload(base64Payload);
+  assert.equal(sanitized.foto_url, null, 'Base64 data URL must be stripped/null to protect database egress');
 });
 
 test('sanitizeKaihPayload preserves valid UUID foreign keys', () => {
@@ -101,8 +116,10 @@ test('sanitizeKaihPayload preserves valid UUID foreign keys', () => {
     kelas_id: 'f8ca2451-a6e3-4665-8f4b-629c7c735d05',
     siswa_id: '2fa978ec-2541-4c8d-b491-c4896a6a6ffa',
     judul: 'Bangun Pagi',
+    foto_url: 'https://kgufgvhbukartxqxbeyl.supabase.co/storage/v1/object/public/kaih-photos/foto2.jpg',
   };
   const sanitized = sanitizeKaihPayload(validPayload);
   assert.equal(sanitized.kelas_id, 'f8ca2451-a6e3-4665-8f4b-629c7c735d05');
   assert.equal(sanitized.siswa_id, '2fa978ec-2541-4c8d-b491-c4896a6a6ffa');
+  assert.equal(sanitized.foto_url, 'https://kgufgvhbukartxqxbeyl.supabase.co/storage/v1/object/public/kaih-photos/foto2.jpg');
 });

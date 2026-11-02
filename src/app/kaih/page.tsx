@@ -388,22 +388,26 @@ function KaihContent() {
   const handleSyncToCloud = async () => {
     setSyncing(true);
     try {
-      const records = kegiatanList.map((k) => ({
-        id: k.id,
-        tipe: k.tipe,
-        kelas_id: k.kelas_id && k.kelas_id !== 'c1-4a' ? k.kelas_id : (kelasId || null),
-        siswa_id: k.siswa_id && k.siswa_id !== 's-1' ? k.siswa_id : null,
-        kategori_id: k.kategori_id,
-        kategori_nama: k.kategori_nama,
-        judul: k.judul,
-        deskripsi: k.deskripsi,
-        jam: k.jam,
-        tanggal: k.tanggal,
-        foto_url: k.foto_url,
-        creator_nama: k.creator_nama,
-        apresiasi_guru: k.apresiasi_guru || false,
-        catatan_guru: k.catatan_guru || null,
-      }));
+      const records = kegiatanList.map((k) => {
+        // Blokir total Base64 agar tidak pernah membebani database PostgreSQL
+        const isBase64 = k.foto_url && k.foto_url.startsWith('data:image');
+        return {
+          id: k.id,
+          tipe: k.tipe,
+          kelas_id: k.kelas_id && k.kelas_id !== 'c1-4a' ? k.kelas_id : (kelasId || null),
+          siswa_id: k.siswa_id && k.siswa_id !== 's-1' ? k.siswa_id : null,
+          kategori_id: k.kategori_id,
+          kategori_nama: k.kategori_nama,
+          judul: k.judul,
+          deskripsi: k.deskripsi,
+          jam: k.jam,
+          tanggal: k.tanggal,
+          foto_url: isBase64 ? null : k.foto_url,
+          creator_nama: k.creator_nama,
+          apresiasi_guru: k.apresiasi_guru || false,
+          catatan_guru: k.catatan_guru || null,
+        };
+      });
       const { error } = await supabase.from('kaih_kegiatan').upsert(records);
       if (error) {
         showToast({
@@ -434,11 +438,10 @@ function KaihContent() {
       // Compress to max 900px, quality 0.75 -> compact size (~70KB)
       const compressedDataUrl = await compressImageFile(file, 900, 900, 0.75);
       setImagePreview(compressedDataUrl);
-      setFormData((prev) => ({ ...prev, foto_url: compressedDataUrl }));
       showToast({
         type: 'success',
         title: 'Foto Terkompresi',
-        message: 'Foto siap diunggah ke cloud penyimpanan LAPIS LADA.',
+        message: 'Foto siap diunggah langsung ke Supabase Storage.',
       });
     } catch (err) {
       console.error('Gagal memproses gambar:', err);
@@ -492,34 +495,55 @@ function KaihContent() {
 
     setSubmitting(true);
 
-    // 1. Upload ke Supabase Storage (kaih-photos) jika ada file terpilih, fallback ke base64 jika gagal/belum diizinkan
-    let finalFotoUrl = formData.foto_url || null;
+    // 1. Unggah foto WAJIB ke Supabase Storage (kaih-photos).
+    // DIJAMIN: Tidak ada Base64 yang masuk ke tabel database PostgreSQL.
+    let finalFotoUrl: string | null = null;
     if (selectedImageFile) {
       try {
         const fileExt = selectedImageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
         const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(fileExt) ? fileExt : 'jpg';
         const filePath = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${safeExt}`;
 
+        // Konversi Data URL atau File yang terkompresi ke Blob ringan
+        let uploadBlob: Blob = selectedImageFile;
+        if (imagePreview && imagePreview.startsWith('data:image')) {
+          const fetchRes = await fetch(imagePreview);
+          uploadBlob = await fetchRes.blob();
+        }
+
         const { data: uploadRes, error: uploadErr } = await supabase.storage
           .from('kaih-photos')
-          .upload(filePath, selectedImageFile, {
+          .upload(filePath, uploadBlob, {
+            contentType: uploadBlob.type || 'image/jpeg',
             cacheControl: '3600',
             upsert: false,
           });
 
-        if (!uploadErr && uploadRes?.path) {
-          const { data: publicData } = supabase.storage
-            .from('kaih-photos')
-            .getPublicUrl(uploadRes.path);
-          if (publicData?.publicUrl) {
-            finalFotoUrl = publicData.publicUrl;
-          }
-        } else if (uploadErr) {
-          console.warn('Storage upload fallback ke compressed Data URL:', uploadErr.message);
+        if (uploadErr || !uploadRes?.path) {
+          throw new Error(uploadErr?.message || 'Gagal mengunggah foto ke Supabase Storage');
         }
-      } catch (storageErr) {
-        console.warn('Storage upload exception, fallback ke compressed Data URL:', storageErr);
+
+        const { data: publicData } = supabase.storage
+          .from('kaih-photos')
+          .getPublicUrl(uploadRes.path);
+
+        if (!publicData?.publicUrl) {
+          throw new Error('Gagal mendapatkan URL publik dari storage Supabase');
+        }
+
+        finalFotoUrl = publicData.publicUrl;
+      } catch (storageErr: any) {
+        console.error('Storage upload error:', storageErr);
+        showToast({
+          type: 'error',
+          title: 'Gagal Unggah Foto ke Storage',
+          message: `Foto gagal disimpan ke Supabase Storage (${storageErr?.message || 'Izin/jaringan'}). Penyimpanan dibatalkan demi menjaga database dari Base64. Silakan coba lagi.`,
+        });
+        setSubmitting(false);
+        return;
       }
+    } else if (formData.foto_url && !formData.foto_url.startsWith('data:image')) {
+      finalFotoUrl = formData.foto_url.trim();
     }
 
     const newId = `kaih-${Date.now()}`;

@@ -58,3 +58,4 @@ CREATE POLICY "Kelola kegiatan KAIH"
     TO anon, authenticated
     USING (true)
     WITH CHECK (true);
+
