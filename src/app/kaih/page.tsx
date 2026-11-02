@@ -271,6 +271,11 @@ function KaihContent() {
           }
         }
 
+        // Cek cache lokal: jika baru dimuat < 3 menit yang lalu, gunakan cache untuk hemat Database Egress
+        const lastFetchTime = localStorage.getItem('lapislada_kaih_last_fetch');
+        const now = Date.now();
+        const isCacheFresh = lastFetchTime && now - Number(lastFetchTime) < 3 * 60 * 1000;
+
         // Ambil data kelas untuk pemetaan ID kelas yang valid
         const { data: kelasRows } = await supabase.from('kelas').select('id, nama_kelas');
         if (kelasRows && kelasRows.length > 0) {
@@ -282,7 +287,7 @@ function KaihContent() {
           }
         }
 
-        // Ambil seluruh data siswa untuk dropdown filter guru & mapping nama ananda asli
+        // Ambil data siswa untuk pemetaan nama
         const { data: siswaData } = await supabase
           .from('siswa')
           .select('id, nisn, nama_lengkap, nama_wali, kelas_id, kelas:kelas_id(nama_kelas)')
@@ -302,12 +307,18 @@ function KaihContent() {
           setSiswaMap(sMap);
         }
 
-        // Try Supabase fetch (ambil hingga 120 kegiatan terbaru untuk efisiensi kuota & kelengkapan)
+        // Jika cache masih segar dan ada data, lewati request berat ke Supabase untuk menjaga batas Egress
+        if (isCacheFresh && currentItems.length > 0 && currentItems !== INITIAL_KAIH_KEGIATAN) {
+          setLoading(false);
+          return;
+        }
+
+        // Batasi 25 kegiatan terbaru demi menghemat kuota Egress database Supabase
         const { data, error } = await supabase
           .from('kaih_kegiatan')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(120);
+          .limit(25);
 
         if (data && data.length > 0 && !error) {
           const enriched = data.map((item) => {
@@ -330,6 +341,7 @@ function KaihContent() {
           setKegiatanList(enriched);
           try {
             localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(enriched));
+            localStorage.setItem('lapislada_kaih_last_fetch', String(Date.now()));
           } catch (e) {}
         } else if (!error && data && data.length === 0 && currentItems.length > 0) {
           // Jika tabel di database ada namun masih kosong, auto sync data awal ke Supabase
