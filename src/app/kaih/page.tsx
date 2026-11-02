@@ -57,9 +57,9 @@ function KaihContent() {
   // Active Tab for Guru: 'sekolah' | 'rumah' | 'panduan' | 'taman'
   const [activeTab, setActiveTab] = useState<'sekolah' | 'rumah' | 'panduan' | 'taman'>('sekolah');
 
-  // Filter states
+  // Filter states: default kosong agar menampilkan seluruh kegiatan & foto terbaru
   const todayStr = getTodayDateString();
-  const [filterDate, setFilterDate] = useState(todayStr);
+  const [filterDate, setFilterDate] = useState('');
   const [filterStudent, setFilterStudent] = useState('semua');
 
   // Real student list from database for filter & mapping
@@ -313,15 +313,29 @@ function KaihContent() {
           return;
         }
 
-        // Batasi 25 kegiatan terbaru demi menghemat kuota Egress database Supabase
-        const { data, error } = await supabase
-          .from('kaih_kegiatan')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(25);
+        // Ambil kegiatan sekolah & pantauan rumah terbaru secara seimbang agar kedua tab terisi foto
+        const [resSekolah, resRumah] = await Promise.all([
+          supabase
+            .from('kaih_kegiatan')
+            .select('*')
+            .eq('tipe', 'sekolah')
+            .order('created_at', { ascending: false })
+            .limit(20),
+          supabase
+            .from('kaih_kegiatan')
+            .select('*')
+            .eq('tipe', 'rumah')
+            .order('created_at', { ascending: false })
+            .limit(30),
+        ]);
 
-        if (data && data.length > 0 && !error) {
-          const enriched = data.map((item) => {
+        const combinedData = [
+          ...(resSekolah.data || []),
+          ...(resRumah.data || []),
+        ];
+
+        if (combinedData.length > 0) {
+          const enriched = combinedData.map((item) => {
             let sName = item.siswa?.nama_lengkap;
             if ((!sName || sName === 'Ahmad Budi Santoso') && item.siswa_id && sMap[item.siswa_id]) {
               sName = sMap[item.siswa_id].nama_lengkap;
@@ -343,7 +357,7 @@ function KaihContent() {
             localStorage.setItem('lapislada_kaih_kegiatan', JSON.stringify(enriched));
             localStorage.setItem('lapislada_kaih_last_fetch', String(Date.now()));
           } catch (e) {}
-        } else if (!error && data && data.length === 0 && currentItems.length > 0) {
+        } else if (currentItems.length > 0) {
           // Jika tabel di database ada namun masih kosong, auto sync data awal ke Supabase
           try {
             const seedRows = currentItems.map((k) => ({
@@ -722,10 +736,8 @@ function KaihContent() {
     return true;
   });
 
-  // For Orang Tua view: get today's school activity + my child's home activity
-  const ortuSekolahHariIni = kegiatanList.filter(
-    (k) => k.tipe === 'sekolah' && k.tanggal === todayStr
-  );
+  // For Orang Tua view: get school activities + my child's home activity
+  const ortuSekolahHariIni = kegiatanList.filter((k) => k.tipe === 'sekolah');
   const ortuRumahAnanda = kegiatanList.filter(
     (k) => k.tipe === 'rumah' && (k.siswa_id === siswaId || getAnandaName(k) === studentName)
   );
@@ -1094,7 +1106,33 @@ function KaihContent() {
             {/* FILTER BAR (TANGGAL & SISWA) */}
             {activeTab !== 'panduan' && (
               <div className="bg-white rounded-xl p-3.5 border border-[#DDD8CE] shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Pilihan Cepat: Semua Riwayat vs Hari Ini */}
+                  <div className="flex items-center gap-1 bg-[#FAF8F2] p-1 rounded-lg border border-[#DDD8CE]">
+                    <button
+                      type="button"
+                      onClick={() => setFilterDate('')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                        !filterDate
+                          ? 'bg-[#922B21] text-white shadow-xs'
+                          : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                      }`}
+                    >
+                      Semua Riwayat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilterDate(todayStr)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
+                        filterDate === todayStr
+                          ? 'bg-[#922B21] text-white shadow-xs'
+                          : 'text-[#6B6B6B] hover:text-[#1A1A1A]'
+                      }`}
+                    >
+                      Hari Ini
+                    </button>
+                  </div>
+
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-[#922B21]" />
                     <span className="font-bold text-[#1A1A1A]">Pilih Tanggal:</span>
@@ -1104,6 +1142,16 @@ function KaihContent() {
                       onChange={(e) => setFilterDate(e.target.value)}
                       className="px-2.5 py-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF8F2] text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#922B21]"
                     />
+                    {filterDate && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterDate('')}
+                        className="text-[11px] font-bold text-[#922B21] hover:underline cursor-pointer ml-1"
+                        title="Tampilkan semua riwayat"
+                      >
+                        Reset
+                      </button>
+                    )}
                   </div>
 
                   {activeTab === 'rumah' && (
@@ -1139,19 +1187,32 @@ function KaihContent() {
                   <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-[#DDD8CE] space-y-3">
                     <School className="w-10 h-10 text-[#922B21] mx-auto opacity-60" />
                     <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                      Belum Ada Kegiatan Sekolah di Tanggal Ini
+                      {filterDate
+                        ? `Belum Ada Kegiatan Sekolah di Tanggal Ini (${filterDate})`
+                        : 'Belum Ada Catatan Kegiatan Sekolah'}
                     </h3>
                     <p className="text-xs text-[#6B6B6B] max-w-md mx-auto">
                       Catat kegiatan pembiasaan positif kelas (seperti Sholat Dhuha, Senam Pagi, Literasi) beserta foto untuk dibagikan ke seluruh wali murid.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAddModal('sekolah')}
-                      className="mt-2 px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 inline-flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Catat Kegiatan Sekolah Sekarang</span>
-                    </button>
+                    <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+                      {filterDate && (
+                        <button
+                          type="button"
+                          onClick={() => setFilterDate('')}
+                          className="px-4 py-2.5 rounded-xl bg-[#FAF8F2] hover:bg-[#F0ECE1] border border-[#DDD8CE] text-[#1A1A1A] font-bold text-xs transition cursor-pointer"
+                        >
+                          Lihat Semua Riwayat Foto
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAddModal('sekolah')}
+                        className="px-5 py-2.5 rounded-xl bg-[#C0392B] hover:bg-[#a93226] text-white font-bold text-xs shadow-md transition active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Catat Kegiatan Sekolah Sekarang</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1232,11 +1293,22 @@ function KaihContent() {
                   <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-[#DDD8CE] space-y-3">
                     <HomeIcon className="w-10 h-10 text-[#922B21] mx-auto opacity-60" />
                     <h3 className="font-serif font-bold text-base text-[#1A1A1A]">
-                      Belum Ada Laporan Pembiasaan Rumah
+                      {filterDate
+                        ? `Belum Ada Laporan Pembiasaan Rumah pada Tanggal Ini (${filterDate})`
+                        : 'Belum Ada Laporan Pembiasaan Rumah'}
                     </h3>
                     <p className="text-xs text-[#6B6B6B] max-w-md mx-auto">
                       Belum ada orang tua yang mengunggah kegiatan pembiasaan ananda di rumah pada tanggal atau filter yang dipilih.
                     </p>
+                    {filterDate && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterDate('')}
+                        className="mt-2 px-4 py-2.5 rounded-xl bg-[#FAF8F2] hover:bg-[#F0ECE1] border border-[#DDD8CE] text-[#1A1A1A] font-bold text-xs transition cursor-pointer"
+                      >
+                        Lihat Semua Riwayat Foto
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
