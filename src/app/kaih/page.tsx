@@ -412,16 +412,16 @@ function KaihContent() {
       if (error) {
         showToast({
           type: 'error',
-          message: `Gagal sinkronkan: ${error.message}.`,
+          message: 'Gagal menyinkronkan data. Silakan periksa koneksi internet Anda.',
         });
       } else {
         showToast({
           type: 'success',
-          message: 'Berhasil! Semua kegiatan KAIH tersimpan ke cloud Supabase dan tersinkronisasi ke seluruh akun guru & orang tua.',
+          message: 'Berhasil! Semua kegiatan pembiasaan telah tersimpan dan diperbarui.',
         });
       }
     } catch (err: any) {
-      showToast({ type: 'error', message: err.message || 'Gagal sinkronisasi data.' });
+      showToast({ type: 'error', message: 'Gagal menyinkronkan data. Silakan coba lagi.' });
     } finally {
       setSyncing(false);
     }
@@ -440,15 +440,15 @@ function KaihContent() {
       setImagePreview(compressedDataUrl);
       showToast({
         type: 'success',
-        title: 'Foto Terkompresi',
-        message: 'Foto siap diunggah langsung ke Supabase Storage.',
+        title: 'Foto Terpilih',
+        message: 'Foto berhasil disiapkan dan siap disimpan bersama catatan kegiatan.',
       });
     } catch (err) {
       console.error('Gagal memproses gambar:', err);
       showToast({
         type: 'error',
         title: 'Gagal Membaca Foto',
-        message: 'Format foto tidak didukung atau ukuran terlalu besar.',
+        message: 'Foto tidak dapat dimuat. Pastikan berkas berupa gambar (JPG atau PNG) lalu coba kembali.',
       });
     } finally {
       setCompressing(false);
@@ -536,8 +536,8 @@ function KaihContent() {
         console.error('Storage upload error:', storageErr);
         showToast({
           type: 'error',
-          title: 'Gagal Unggah Foto ke Storage',
-          message: `Foto gagal disimpan ke Supabase Storage (${storageErr?.message || 'Izin/jaringan'}). Penyimpanan dibatalkan demi menjaga database dari Base64. Silakan coba lagi.`,
+          title: 'Gagal Mengunggah Foto',
+          message: 'Foto kegiatan belum berhasil terkirim. Silakan periksa koneksi internet Anda lalu coba kirim kembali.',
         });
         setSubmitting(false);
         return;
@@ -598,8 +598,8 @@ function KaihContent() {
         console.error('Supabase upsert error:', dbErr);
         showToast({
           type: 'error',
-          title: 'Gagal Menyimpan ke Cloud',
-          message: `Kendala penyimpanan: ${dbErr.message}`,
+          title: 'Gagal Menyimpan Kegiatan',
+          message: 'Data kegiatan belum berhasil disimpan ke sistem. Silakan periksa koneksi internet Anda dan coba beberapa saat lagi.',
         });
         setSubmitting(false);
         return;
@@ -608,8 +608,8 @@ function KaihContent() {
       console.error('Database insert exception:', dbErr);
       showToast({
         type: 'error',
-        title: 'Gagal Menyimpan ke Cloud',
-        message: dbErr?.message || 'Terjadi kesalahan koneksi.',
+        title: 'Gagal Menyimpan Kegiatan',
+        message: 'Terjadi gangguan koneksi internet. Silakan coba kembali.',
       });
       setSubmitting(false);
       return;
